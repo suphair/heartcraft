@@ -20,14 +20,18 @@
   .btn.main { background: #ff7fb6; color: #fff; }
 
   #top { position: fixed; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right));
-    display: flex; gap: 8px; }
+    display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: calc(100vw - 130px); }
   #top .btn, #zoom .btn { width: 52px; height: 52px; padding: 0; font-size: 26px; }
   #top .btn.on { background: #ffe066; }
   #zoom { position: fixed; top: max(10px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left));
     display: flex; gap: 8px; }
   @media (max-width: 480px) {
     #top .btn, #zoom .btn { width: 42px; height: 42px; font-size: 21px; }
+    #ver { top: calc(max(10px, env(safe-area-inset-top)) + 50px); }
   }
+  #ver { position: fixed; top: calc(max(10px, env(safe-area-inset-top)) + 60px); left: max(10px, env(safe-area-inset-left));
+    background: rgba(255, 240, 247, .7); border: 2px solid var(--edge); border-radius: 8px; padding: 2px 8px;
+    font-size: 13px; }
 
   #bar { position: fixed; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%);
     display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -96,6 +100,11 @@
   .menu .btn { padding: 14px; font-size: 18px; }
   .help { font-weight: 500; font-size: 14px; }
   .help b { font-weight: 700; }
+  .box h3 { margin: 14px 0 6px; font-size: 17px; }
+  #giveN { width: 90px; font: inherit; padding: 6px 8px; border: 3px solid var(--edge); border-radius: 10px;
+    -webkit-user-select: text; user-select: text; }
+  .news { font-weight: 500; font-size: 14px; }
+  .news ul { margin: 4px 0 10px; padding-left: 22px; }
 </style>
 </head>
 <body>
@@ -106,7 +115,11 @@
   <button class="btn" id="zoomIn" title="Приблизить (+)">➕</button>
 </div>
 
+<button id="ver" title="Что нового"></button>
+
 <div id="top">
+  <button class="btn" id="giveBtn" title="Выдать себе блоки (G)" hidden>🎁</button>
+  <button class="btn" id="testBtn" title="Режим тестирования (T)">🧪</button>
   <button class="btn" id="dayBtn" title="Всегда день">☀️</button>
   <button class="btn" id="soundBtn" title="Звук (M)">🔊</button>
   <button class="btn" id="bagBtn" title="Рюкзак (E)">🎒</button>
@@ -148,6 +161,72 @@
   </div>
 </div>
 
+<div class="sheet" id="store" hidden>
+  <div class="box">
+    <h2></h2>
+    <div class="hint"></div>
+    <div class="grid up" style="margin-top:10px"></div>
+    <h3>Рюкзак</h3>
+    <div class="grid down"></div>
+    <div class="row end"><button class="btn close">Закрыть</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="give" hidden>
+  <div class="box">
+    <h2>🧪 Режим тестирования</h2>
+    <div class="hint">Выбери, сколько штук, и нажми на блок или вещь — они появятся в рюкзаке.</div>
+    <div class="row"><label>Сколько: <input type="number" id="giveN" min="1" max="999" value="64"></label>
+      <button class="btn" data-n="1">1</button><button class="btn" data-n="10">10</button>
+      <button class="btn" data-n="64">64</button><button class="btn" data-n="99">99</button></div>
+    <div class="grid" style="margin-top:10px"></div>
+    <div class="row end"><button class="btn close">Закрыть</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="news" hidden>
+  <div class="box">
+    <h2>Что нового</h2>
+    <div class="news">
+      <h3>Версия 1.2</h3>
+      <ul>
+        <li><b>Сундук</b> — 8 досок у верстака. Нажми на поставленный сундук — откроется окно: нажатие на ячейку
+          перекладывает вещи между сундуком и рюкзаком. В сундуке 27 ячеек, он сохраняется вместе с миром.
+          Сломать можно только пустой сундук.</li>
+        <li><b>Мусорка</b> — 5 досок у верстака. Нажми на неё и выбрось ненужное из рюкзака. Пока окно открыто,
+          последнюю выброшенную вещь можно вернуть; закроешь — пропадёт навсегда.</li>
+        <li><b>Лестница</b> — 7 палок у верстака дают 3 лестницы. На лестнице: вверх — W/↑/Пробел/⤒, вниз — S/↓,
+          без кнопок герой медленно сползает.</li>
+        <li><b>Океан</b> рядом с местом появления: вода, песчаное дно, водоросли на дне и плавающие рыбки.
+          В воде можно плавать — держи прыжок, чтобы всплывать. Яма рядом с водой сразу заливается.
+          Водоросли сажаются только в воду.</li>
+        <li><b>Режим тестирования</b> — кнопка 🧪 (или T) включает и выключает его, при запуске он выключен.
+          Включённый режим показывает кнопку 🎁 (или G): выдать себе сколько угодно любых блоков и вещей.</li>
+        <li><b>Белое сердечко</b>: новорождённый малыш с вероятностью 1% получается белым 🤍.</li>
+        <li><b>«Вы мастер!»</b> показывается только при первом розовом блоке, дальше — нет.</li>
+        <li>Номер версии в левом верхнем углу и это окно «Что нового» (ещё — в меню ☰).</li>
+      </ul>
+      <h3>Версия 1.1</h3>
+      <ul>
+        <li>Приближение и отдаление ➖ ➕ (+ / − или Ctrl+колесо).</li>
+        <li>Крафт досок и верстака без верстака — кнопкой в рюкзаке или C.</li>
+        <li>Розовая руда залежами по 2–3 блока; розовый блок и объявление «Вы мастер!».</li>
+        <li>Прочность кирок: износ виден полоской, стёршаяся кирка ломается.</li>
+        <li>Свет и тени, смена дня и ночи, кнопка ☀️ «Всегда день».</li>
+        <li>Бродячие сердечки: розовым блоком их можно влюбить, и родится малыш.</li>
+      </ul>
+      <h3>Версия 1.0</h3>
+      <ul>
+        <li>Мир из блоков: холмы, деревья, пещеры, руды — уголь, железо, золото, алмазы, розовая руда.</li>
+        <li>Верстак, доски, палки, кирки, факелы, стекло, кирпичи, золотой блок.</li>
+        <li>Управление с клавиатуры и планшета, рюкзак и пояс.</li>
+        <li>Сохранение в браузер и в файл, синтезированные звуки и музыка.</li>
+      </ul>
+    </div>
+    <div class="row end"><button class="btn close">Закрыть</button></div>
+  </div>
+</div>
+
 <div class="sheet" id="menu" hidden>
   <div class="box">
     <h2>Меню</h2>
@@ -157,13 +236,15 @@
       <button class="btn" data-act="download">⬇️ Скачать мир в файл</button>
       <button class="btn" data-act="upload">⬆️ Открыть мир из файла</button>
       <button class="btn" data-act="reset">🔄 Сброс: новый мир</button>
+      <button class="btn" data-act="news">📜 Что нового</button>
       <button class="btn close">Закрыть</button>
     </div>
     <input type="file" id="file" accept=".json,application/json" hidden>
     <div class="help">
       <p><b>Компьютер:</b> A/D или ←/→ — идти, W/↑/Пробел — прыгать, левая кнопка мыши (держать) — ломать,
-        правая — поставить блок, 1–9 или колесо — выбрать ячейку, E — рюкзак, C — крафт без верстака,
-        M — звук, + / − или Ctrl+колесо — приблизить / отдалить, Esc — закрыть окно.</p>
+        правая — поставить блок / открыть верстак, сундук или мусорку, 1–9 или колесо — выбрать ячейку,
+        E — рюкзак, C — крафт без верстака, M — звук, T — режим тестирования, G — выдать блоки (в режиме тестирования),
+        S/↓ — спуститься по лестнице, + / − или Ctrl+колесо — приблизить / отдалить, Esc — закрыть окно.</p>
       <p><b>Планшет:</b> ◀ ▶ — идти, ⤒ — прыгать. Кнопка ⛏/🧱 переключает: ⛏ — держи палец на блоке,
         чтобы сломать; 🧱 — нажми на пустое место, чтобы поставить блок из пояса. ➕ ➖ — приблизить / отдалить.</p>
       <p><b>Верстак</b> лежит в поясе с самого начала: поставь его и нажми на него — откроется крафт.
@@ -173,7 +254,9 @@
       <p><b>День и ночь</b> сменяют друг друга: розовый день, фиолетовая ночь. Под землёй темно — ставь факелы.
         ☀️ — всегда день.</p>
       <p><b>Сердечки</b> бродят по миру. Выбери в поясе розовый блок и нажми на сердечко — оно влюбится.
-        Два влюблённых сердечка найдут друг друга, и родится малыш.</p>
+        Два влюблённых сердечка найдут друг друга, и родится малыш. Изредка малыш рождается белым.</p>
+      <p><b>Сундук</b> хранит вещи, <b>мусорка</b> их уничтожает — нажми на них, чтобы открыть.
+        В <b>океане</b> плавают рыбки; чтобы всплыть, держи прыжок. По <b>лестнице</b> можно лазить вверх и вниз.</p>
     </div>
   </div>
 </div>
@@ -189,10 +272,15 @@ const SPEED = 6, GRAV = 32, JUMP = 11.5, MAX_FALL = 22;
 const DAY_LEN = 480;
 const ZOOMS = [0.5, 0.75, 1, 1.5, 2];
 const MOB_START = 40, MOB_MAX = 80, MOB_SPEED = 2, MOB_JUMP = 9, LOVE_TIME = 15, BREED_PAUSE = 30, GROW_TIME = 60;
+const WHITE_CHANCE = 0.01;
+const SWIM = 5, SWIM_FALL = 3, WATER_GRAV = 0.3, CLIMB = 4, LADDER_SLIDE = 1.5;
+const FISH_COUNT = 30, FISH_SPEED = 1.5;
+const CHEST_SLOTS = 27;
+const VERSION = "1.2";
 
 const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, COBBLE: 4, SAND: 5, LOG: 6, LEAVES: 7, PLANKS: 8,
   COAL_ORE: 9, IRON_ORE: 10, GOLD_ORE: 11, DIAMOND_ORE: 12, PINK_ORE: 13, BEDROCK: 14, WORKBENCH: 15,
-  BRICK: 16, GLASS: 17, TORCH: 18, PINK: 19, GOLD_BLOCK: 20 };
+  BRICK: 16, GLASS: 17, TORCH: 18, PINK: 19, GOLD_BLOCK: 20, CHEST: 21, TRASH: 22, WATER: 23, SEAWEED: 24, LADDER: 25 };
 const I = { STICK: 100, COAL: 101, RAW_IRON: 102, IRON: 103, GOLD: 104, DIAMOND: 105, PINK_GEM: 106,
   PICK_WOOD: 110, PICK_STONE: 111, PICK_IRON: 112, PICK_DIAMOND: 113 };
 
@@ -217,6 +305,11 @@ const BLOCKS = {
   [B.TORCH]: { name: "Факел", hard: 0.05, tier: 0, solid: false },
   [B.PINK]: { name: "Розовый блок", hard: 1.5, tier: 1 },
   [B.GOLD_BLOCK]: { name: "Золотой блок", hard: 3, tier: 2 },
+  [B.CHEST]: { name: "Сундук", hard: 1.5, tier: 0 },
+  [B.TRASH]: { name: "Мусорка", hard: 1.2, tier: 0 },
+  [B.WATER]: { name: "Вода", hard: Infinity, tier: 99, drop: null, solid: false },
+  [B.SEAWEED]: { name: "Водоросли", hard: 0.05, tier: 0, solid: false },
+  [B.LADDER]: { name: "Лестница", hard: 0.6, tier: 0, solid: false },
 };
 const ITEMS = {
   [I.STICK]: { name: "Палка" },
@@ -247,6 +340,9 @@ const RECIPES = [
   { out: B.BRICK, n: 4, need: [[B.COBBLE, 4]] },
   { out: B.PINK, n: 1, need: [[I.PINK_GEM, 4]] },
   { out: B.GOLD_BLOCK, n: 1, need: [[I.GOLD, 4]] },
+  { out: B.CHEST, n: 1, need: [[B.PLANKS, 8]] },
+  { out: B.TRASH, n: 1, need: [[B.PLANKS, 5]] },
+  { out: B.LADDER, n: 3, need: [[I.STICK, 7]] },
 ];
 
 const isBlock = id => id in BLOCKS;
@@ -256,6 +352,8 @@ const pickOf = id => ITEMS[id] && ITEMS[id].pick;
 const stackMax = id => (pickOf(id) ? 1 : 99);
 const solidId = id => id !== B.AIR && BLOCKS[id].solid !== false;
 const lightPasses = id => !solidId(id) || id === B.GLASS || id === B.LEAVES;
+const isEmpty = id => id === B.AIR || id === B.WATER;
+const isWet = id => id === B.WATER || id === B.SEAWEED;
 const lerp = (a, b, t) => a + (b - a) * t;
 const $ = s => document.querySelector(s);
 
@@ -333,8 +431,8 @@ const Sound = (() => {
     src.start();
   }
 
-  const SOFT = new Set([B.GRASS, B.DIRT, B.SAND, B.LEAVES]);
-  const WOOD = new Set([B.LOG, B.PLANKS, B.WORKBENCH, B.TORCH]);
+  const SOFT = new Set([B.GRASS, B.DIRT, B.SAND, B.LEAVES, B.SEAWEED]);
+  const WOOD = new Set([B.LOG, B.PLANKS, B.WORKBENCH, B.TORCH, B.CHEST, B.TRASH, B.LADDER]);
   const matOf = id => (SOFT.has(id) ? "soft" : WOOD.has(id) ? "wood" : id === B.GLASS ? "glass" : "stone");
 
   // Background loop: 8 chords, arpeggio patterns and a phrase on top; the surface and the depths
@@ -524,12 +622,24 @@ function noise2(x, y, s) {
               lerp(hash2(ix, iy + 1, s), hash2(ix + 1, iy + 1, s), fx), fy);
 }
 
-function surfaceHeights(seed) {
+const OCEAN_W = 120, OCEAN_GAP = 90;
+
+// The ocean is a basin dug into the hills next to the spawn; water stands up to the lower of its two shores.
+function terrain(seed, withOcean) {
   const s = new Int16Array(W);
   for (let x = 0; x < W; x++) {
     s[x] = Math.round(62 + noise1(x / 90, seed) * 40 + noise1(x / 24, seed + 1) * 12 + noise1(x / 7, seed + 2) * 3);
   }
-  return s;
+  if (!withOcean) {
+    return { surf: s, ocean: null };
+  }
+  const x0 = hash2(0, 11, seed) < 0.5 ? (W >> 1) - OCEAN_GAP - OCEAN_W : (W >> 1) + OCEAN_GAP, x1 = x0 + OCEAN_W;
+  const sea = Math.max(s[x0 - 1], s[x1]);
+  for (let x = x0; x < x1; x++) {
+    const t = (x - x0) / OCEAN_W;
+    s[x] = Math.max(s[x], sea + 2 + Math.round(Math.sin(Math.PI * t) * 16 + noise1(x / 6, seed + 5) * 3));
+  }
+  return { surf: s, ocean: { x0, x1, sea } };
 }
 
 function vein(w, rng, ore, count, size, ymin) {
@@ -572,12 +682,12 @@ function deposit(w, rng, ore, count, ymin) {
 
 function generate(seed) {
   const rng = mulberry32(seed);
-  const surf = surfaceHeights(seed);
+  const { surf, ocean } = terrain(seed, true);
   const w = new Uint8Array(W * H);
   for (let x = 0; x < W; x++) {
     const s = surf[x];
     const dirt = 3 + Math.floor(hash2(x, 1, seed) * 3);
-    const low = s >= 105;
+    const low = s >= 105 || (x >= ocean.x0 && x < ocean.x1);
     for (let y = s; y < H; y++) {
       let id = y === s ? (low ? B.SAND : B.GRASS) : y < s + dirt ? (low ? B.SAND : B.DIRT) : B.STONE;
       if (y > s + 5) {
@@ -594,6 +704,19 @@ function generate(seed) {
   vein(w, rng, B.GOLD_ORE, 450, 5, 170);
   deposit(w, rng, B.PINK_ORE, 300, 200);
   vein(w, rng, B.DIAMOND_ORE, 180, 4, 215);
+
+  for (let x = ocean.x0; x < ocean.x1; x++) {
+    for (let y = ocean.sea; y < surf[x]; y++) {
+      w[y * W + x] = B.WATER;
+    }
+    const depth = surf[x] - ocean.sea;
+    if (depth >= 2 && rng() < 0.4) {
+      const h = 1 + Math.floor(rng() * Math.min(4, depth - 1));
+      for (let k = 1; k <= h; k++) {
+        w[(surf[x] - k) * W + x] = B.SEAWEED;
+      }
+    }
+  }
 
   let last = -10;
   for (let x = 4; x < W - 4; x++) {
@@ -645,12 +768,22 @@ let brk = null;
 let floats = [];
 let uiDirty = true;
 let mobs = [];
+let fish = [];
+let chests = new Map();
+let hasOcean = true;
 let time = 0;
+let testMode = false;
 let alwaysDay = false;
 try {
   alwaysDay = localStorage.getItem("heartcraft-day") === "on";
 } catch (e) {
   alwaysDay = false;
+}
+let masterSeen = false;
+try {
+  masterSeen = localStorage.getItem("heartcraft-master") === "yes";
+} catch (e) {
+  masterSeen = false;
 }
 
 const get = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? B.BEDROCK : world[y * W + x]);
@@ -685,16 +818,17 @@ function snapCamera() {
   clampCamera();
 }
 
-function makeMob(x, y, grow) {
+function makeMob(x, y, grow, white) {
   const s = grow > 0 ? 0.32 : 0.5;
-  return { x, y, w: s, h: s, vx: 0, vy: 0, onGround: false, face: 1, dir: 0, think: 0, love: 0, pause: 0, grow,
-    phase: Math.random() * 4, body: ["#ff7eb3", "#ff5f9e", "#ff9ec8", "#f06aa8"][Math.floor(Math.random() * 4)] };
+  return { x, y, w: s, h: s, vx: 0, vy: 0, onGround: false, face: 1, dir: 0, think: 0, love: 0, pause: 0, grow, white,
+    phase: Math.random() * 4,
+    body: white ? "#ffffff" : ["#ff7eb3", "#ff5f9e", "#ff9ec8", "#f06aa8"][Math.floor(Math.random() * 4)] };
 }
 function spawnMobs() {
   mobs = [];
   for (let tries = 0; mobs.length < MOB_START && tries < MOB_START * 20; tries++) {
     const x = 8 + Math.floor(Math.random() * (W - 16));
-    const m = makeMob(x + 0.25, 0, 0);
+    const m = makeMob(x + 0.25, 0, 0, false);
     m.y = surf[x] - m.h - 0.01;
     if (get(x, surf[x]) === B.GRASS && !collides(m, m.x, m.y)) {
       mobs.push(m);
@@ -702,16 +836,30 @@ function spawnMobs() {
   }
 }
 
+const FISH_COLORS = ["#ffb300", "#4fc3f7", "#ff7043", "#ba68c8", "#ffee58"];
+function spawnFish() {
+  const water = [];
+  world.forEach((id, i) => id === B.WATER && water.push(i));
+  fish = Array.from({ length: Math.min(FISH_COUNT, water.length) }, () => {
+    const i = water[Math.floor(Math.random() * water.length)];
+    return { x: i % W + 0.5, y: Math.floor(i / W) + 0.5, face: Math.random() < 0.5 ? -1 : 1, vy: 0, think: 0,
+      phase: Math.random() * 6, color: FISH_COLORS[Math.floor(Math.random() * FISH_COLORS.length)] };
+  });
+}
+
 function newWorld(s) {
   seed = s;
   const g = generate(seed);
   world = g.tiles;
   surf = g.surf;
+  hasOcean = true;
+  chests = new Map();
   inv = new Array(SLOTS).fill(null);
   inv[0] = { id: B.WORKBENCH, n: 1 };
   sel = 0;
   time = 0;
   spawnMobs();
+  spawnFish();
   spawn();
   snapCamera();
   brk = null;
@@ -741,6 +889,26 @@ function addItem(id, n) {
       const k = Math.min(n, max);
       inv[i] = pickOf(id) ? { id, n: k, dur: pickOf(id).dur } : { id, n: k };
       n -= k;
+    }
+  }
+  uiDirty = true;
+  return n;
+}
+// Moves the stack into the slots, merging with equal stacks first; returns how many did not fit.
+function putInto(slots, stack) {
+  let n = stack.n;
+  const max = stackMax(stack.id);
+  for (const s of slots) {
+    if (n > 0 && s && s.id === stack.id && s.n < max) {
+      const k = Math.min(n, max - s.n);
+      s.n += k;
+      n -= k;
+    }
+  }
+  for (let i = 0; i < slots.length && n > 0; i++) {
+    if (!slots[i]) {
+      slots[i] = { ...stack, n };
+      n = 0;
     }
   }
   uiDirty = true;
@@ -818,13 +986,38 @@ function dropOf(id) {
   const d = BLOCKS[id];
   return "drop" in d ? d.drop : id;
 }
+const chestKey = (x, y) => y * W + x;
+function chestAt(x, y) {
+  const k = chestKey(x, y);
+  if (!chests.has(k)) {
+    chests.set(k, new Array(CHEST_SLOTS).fill(null));
+  }
+  return chests.get(k);
+}
+function unbreakable(x, y) {
+  const id = get(x, y);
+  if (id === B.BEDROCK) {
+    return "Чёрный камень не пробить";
+  }
+  if (id === B.CHEST && (chests.get(chestKey(x, y)) || []).some(Boolean)) {
+    return "Сначала опустоши сундук";
+  }
+  return null;
+}
+// A hole next to water fills with it at once; water itself never flows further.
+function holeAfter(x, y, id) {
+  return id === B.SEAWEED || [get(x, y - 1), get(x - 1, y), get(x + 1, y)].includes(B.WATER) ? B.WATER : B.AIR;
+}
 function finishBreak(x, y) {
   const id = get(x, y);
-  if (id === B.AIR || id === B.BEDROCK) {
+  if (isEmpty(id) || unbreakable(x, y)) {
     return false;
   }
   const ok = tierOk(id);
-  setTile(x, y, B.AIR);
+  setTile(x, y, holeAfter(x, y, id));
+  if (id === B.CHEST) {
+    chests.delete(chestKey(x, y));
+  }
   Sound.broke(id);
   if (BLOCKS[id].tier >= 1) {
     wearPick();
@@ -848,6 +1041,11 @@ function inReach(x, y) {
 function overlaps(e, x, y) {
   return x < e.x + e.w && x + 1 > e.x && y < e.y + e.h && y + 1 > e.y;
 }
+const USE = {
+  [B.WORKBENCH]: () => openCraft(true),
+  [B.CHEST]: (x, y) => openChest(x, y),
+  [B.TRASH]: () => openTrash(),
+};
 function usePlace(x, y) {
   const here = get(x, y);
   if (!inReach(x, y)) {
@@ -855,16 +1053,21 @@ function usePlace(x, y) {
     Sound.nope();
     return;
   }
-  if (here === B.WORKBENCH) {
-    openCraft(true);
+  if (USE[here]) {
+    USE[here](x, y);
     return;
   }
   const slot = inv[sel];
-  if (here !== B.AIR || y < 0 || !slot) {
+  if (!isEmpty(here) || here === (slot && slot.id) || y < 0 || !slot) {
     return;
   }
   if (!isBlock(slot.id)) {
     toast(nameOf(slot.id) + " — не блок, поставить нельзя");
+    Sound.nope();
+    return;
+  }
+  if (slot.id === B.SEAWEED && here !== B.WATER) {
+    toast("Водоросли растут только в воде");
     Sound.nope();
     return;
   }
@@ -873,7 +1076,13 @@ function usePlace(x, y) {
   }
   setTile(x, y, slot.id);
   Sound.place(slot.id);
-  if (slot.id === B.PINK) {
+  if (slot.id === B.PINK && !masterSeen) {
+    masterSeen = true;
+    try {
+      localStorage.setItem("heartcraft-master", "yes");
+    } catch (e) {
+      // the banner may show once more after a reload
+    }
     banner();
   }
   slot.n--;
@@ -923,10 +1132,25 @@ function moveY(e, dy) {
   }
   e.vy = 0;
 }
-// Returns true when the body walked into a one-block step it can hop onto.
-function walk(e, dir, speed, dt) {
+const wetAt = e => isWet(get(Math.floor(e.x + e.w / 2), Math.floor(e.y + e.h / 2)));
+function onLadder(e) {
+  for (let ty = Math.floor(e.y); ty <= Math.floor(e.y + e.h - 1e-9); ty++) {
+    for (let tx = Math.floor(e.x); tx <= Math.floor(e.x + e.w - 1e-9); tx++) {
+      if (get(tx, ty) === B.LADDER) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+// Returns true when the body walked into a one-block step it can hop onto (from the ground or out of water).
+// A climbing body keeps the vertical speed it was given.
+function walk(e, dir, speed, dt, climbing) {
+  const wet = wetAt(e);
   e.vx += (dir * speed - e.vx) * Math.min(1, dt * (e.onGround ? 14 : 6));
-  e.vy = Math.min(MAX_FALL, e.vy + GRAV * dt);
+  if (!climbing) {
+    e.vy = Math.min(wet ? SWIM_FALL : MAX_FALL, e.vy + GRAV * (wet ? WATER_GRAV : 1) * dt);
+  }
   const wasGround = e.onGround;
   e.onGround = false;
   const steps = Math.max(1, Math.ceil(Math.max(Math.abs(e.vx * dt), Math.abs(e.vy * dt)) / 0.3));
@@ -935,7 +1159,7 @@ function walk(e, dir, speed, dt) {
     blocked = moveX(e, e.vx * dt / steps) || blocked;
     moveY(e, e.vy * dt / steps);
   }
-  return blocked && dir !== 0 && wasGround && !collides(e, e.x + dir * 0.1, e.y - 1.05);
+  return blocked && dir !== 0 && (wasGround || wet) && !collides(e, e.x + dir * 0.1, e.y - 1.05);
 }
 
 const keys = new Set();
@@ -947,17 +1171,23 @@ function update(dt) {
   const right = keys.has("KeyD") || keys.has("ArrowRight") || touch.right;
   const left = keys.has("KeyA") || keys.has("ArrowLeft") || touch.left;
   const jump = keys.has("KeyW") || keys.has("ArrowUp") || keys.has("Space") || touch.jump;
+  const down = keys.has("KeyS") || keys.has("ArrowDown");
   const dir = (right ? 1 : 0) - (left ? 1 : 0);
   if (dir) {
     P.face = dir;
   }
-  if (jump && P.onGround) {
+  const climbing = onLadder(P);
+  if (climbing) {
+    P.vy = jump ? -CLIMB : down ? CLIMB : LADDER_SLIDE;
+  } else if (jump && P.onGround) {
     P.vy = -JUMP;
     Sound.jump();
+  } else if (jump && wetAt(P)) {
+    P.vy = -SWIM;
   }
   const wasGround = P.onGround;
   const fall = P.vy;
-  if (walk(P, dir, SPEED, dt)) {
+  if (walk(P, dir, SPEED, dt, climbing)) {
     P.vy = -JUMP;
     Sound.jump();
   }
@@ -979,16 +1209,17 @@ function update(dt) {
     if (!brk || brk.x !== c.x || brk.y !== c.y) {
       brk = { x: c.x, y: c.y, p: 0, warned: false, hitT: 0 };
     }
-    if (id !== B.AIR && inReach(c.x, c.y)) {
-      if (!brk.warned && id === B.BEDROCK) {
-        toast("Чёрный камень не пробить");
+    const stop = unbreakable(c.x, c.y);
+    if (!isEmpty(id) && inReach(c.x, c.y)) {
+      if (!brk.warned && stop) {
+        toast(stop);
         Sound.nope();
       } else if (!brk.warned && !tierOk(id)) {
         toast("Нужна кирка покрепче — так ничего не выпадет");
         Sound.nope();
       }
       brk.warned = true;
-      if (id !== B.BEDROCK) {
+      if (!stop) {
         brk.hitT -= dt;
         if (brk.hitT <= 0) {
           brk.hitT = 0.25;
@@ -1014,6 +1245,33 @@ function update(dt) {
   floats = floats.filter(f => (f.t += dt) < 1.2);
   time = alwaysDay ? 0 : (time + dt / DAY_LEN) % 1;
   mobs.slice().forEach(m => updateMob(m, dt));
+  fish.forEach(f => updateFish(f, dt));
+}
+
+// ---------- fish ----------
+
+const wetCell = (x, y) => isWet(get(Math.floor(x), Math.floor(y)));
+function updateFish(f, dt) {
+  f.think -= dt;
+  if (f.think <= 0) {
+    f.think = 1 + Math.random() * 3;
+    f.vy = (Math.random() - 0.5) * 1.2;
+    if (Math.random() < 0.3) {
+      f.face = -f.face;
+    }
+  }
+  const nx = f.x + f.face * FISH_SPEED * dt;
+  if (wetCell(nx + f.face * 0.3, f.y)) {
+    f.x = nx;
+  } else {
+    f.face = -f.face;
+  }
+  const ny = f.y + f.vy * dt;
+  if (wetCell(f.x, ny - 0.2) && wetCell(f.x, ny + 0.2)) {
+    f.y = ny;
+  } else {
+    f.vy = -f.vy;
+  }
 }
 
 // ---------- hearts ----------
@@ -1045,7 +1303,10 @@ function updateMob(m, dt) {
   if (dir) {
     m.face = dir;
   }
-  if (walk(m, dir, MOB_SPEED, dt)) {
+  if (wetAt(m)) {
+    m.vy = Math.min(m.vy, -SWIM / 2);
+  }
+  if (walk(m, dir, MOB_SPEED, dt, false)) {
     m.vy = -MOB_JUMP;
   }
 }
@@ -1060,13 +1321,13 @@ function growUp(m) {
 function breed(a, b) {
   a.love = b.love = 0;
   a.pause = b.pause = BREED_PAUSE;
-  const baby = makeMob((a.x + b.x) / 2, 0, GROW_TIME);
+  const baby = makeMob((a.x + b.x) / 2, 0, GROW_TIME, Math.random() < WHITE_CHANCE);
   baby.y = a.y + a.h - baby.h;
   if (collides(baby, baby.x, baby.y)) {
     baby.x = a.x;
   }
   mobs.push(baby);
-  floats.push({ text: "Родился малыш! 💕", x: baby.x, y: baby.y, t: 0 });
+  floats.push({ text: baby.white ? "Родилось белое сердечко! 🤍" : "Родился малыш! 💕", x: baby.x, y: baby.y, t: 0 });
   Sound.craft();
 }
 function mobAt(wx, wy) {
@@ -1286,6 +1547,52 @@ const tex = {
   [B.GOLD_BLOCK]: mkTex((g, r) => {
     speck(g, r, ["#ffd84a", "#f5c518", "#ffe27a"]);
     frame(g, "#c79a00");
+  }),
+  [B.CHEST]: mkTex((g, r) => {
+    planks(g, r);
+    frame(g, "#5b3a21");
+    g.fillStyle = "#5b3a21";
+    g.fillRect(0, 6, 16, 1);
+    g.fillStyle = "#ffd23a";
+    g.fillRect(6, 5, 4, 4);
+    g.fillStyle = "#8a5d2e";
+    g.fillRect(7, 6, 2, 2);
+  }),
+  [B.TRASH]: mkTex((g, r) => {
+    g.fillStyle = "#6d4829";
+    g.fillRect(6, 0, 4, 2);
+    g.fillRect(1, 2, 14, 2);
+    for (let y = 5; y < 16; y++) {
+      for (let x = 3 + (y > 13 ? 1 : 0); x < 13 - (y > 13 ? 1 : 0); x++) {
+        px(g, x, y, ["#c8955a", "#b98549", "#d4a36a"][Math.floor(r() * 3)]);
+      }
+    }
+    g.fillStyle = "#8a5d2e";
+    [5, 8, 11].forEach(x => g.fillRect(x, 6, 1, 8));
+  }),
+  [B.WATER]: mkTex((g, r) => {
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 16; x++) {
+        px(g, x, y, r() < 0.08 ? "rgba(150, 210, 255, .55)" : "rgba(40, 120, 220, .5)");
+      }
+    }
+  }),
+  [B.SEAWEED]: mkTex(g => {
+    [[4, "#2e9e4f"], [8, "#3fb85f"], [12, "#2a8a45"]].forEach(([x, col], i) => {
+      g.fillStyle = col;
+      for (let y = i === 1 ? 0 : 3; y < 16; y++) {
+        g.fillRect(x + (Math.floor(y / 3) % 2 ? 1 : 0), y, 2, 1);
+      }
+    });
+  }),
+  [B.LADDER]: mkTex(g => {
+    g.fillStyle = "#7a5230";
+    g.fillRect(2, 0, 2, 16);
+    g.fillRect(12, 0, 2, 16);
+    g.fillStyle = "#a8743f";
+    for (let y = 2; y < 16; y += 4) {
+      g.fillRect(4, y, 8, 2);
+    }
   }),
   [I.STICK]: mkTex(g => {
     g.strokeStyle = "#7a5230";
@@ -1549,6 +1856,33 @@ function drawMob(m, t) {
   }
 }
 
+function drawFish(f, t) {
+  const ts = TILE;
+  ctx.save();
+  ctx.translate((f.x - cam.x) * ts, (f.y - cam.y) * ts);
+  ctx.scale(f.face * ts, ts);
+  const wag = Math.sin(t * 8 + f.phase) * 0.05;
+  ctx.fillStyle = f.color;
+  ctx.beginPath();
+  ctx.moveTo(-0.15, 0);
+  ctx.lineTo(-0.32, -0.12 + wag);
+  ctx.lineTo(-0.32, 0.12 + wag);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(0.03, 0, 0.2, 0.11, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(0.12, -0.03, 0.04, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#1a0a14";
+  ctx.beginPath();
+  ctx.arc(0.13, -0.03, 0.02, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 function render(t) {
   const ts = TILE;
   ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
@@ -1566,8 +1900,15 @@ function render(t) {
       if (y > surf[x] + 1 && (id === B.AIR || !solidId(id) || id === B.GLASS || id === B.LEAVES)) {
         ctx.drawImage(wallTex, sx, sy, sw, sh);
       }
+      if (id === B.SEAWEED) {
+        ctx.drawImage(tex[B.WATER], sx, sy, sw, sh);
+      }
       if (id !== B.AIR) {
         ctx.drawImage(tex[id], sx, sy, sw, sh);
+        if (id === B.WATER && get(x, y - 1) === B.AIR) {
+          ctx.fillStyle = "rgba(220, 240, 255, .7)";
+          ctx.fillRect(sx, sy, sw, Math.max(2, Math.round(sh / 10)));
+        }
         if (id === B.TORCH) {
           torches.push([sx + sw / 2, sy + sh * 0.25]);
         }
@@ -1577,6 +1918,11 @@ function render(t) {
   for (const m of mobs) {
     if (m.x + m.w >= x0 && m.x <= x1 + 1 && m.y + m.h >= y0 && m.y <= y1 + 1) {
       drawMob(m, t);
+    }
+  }
+  for (const f of fish) {
+    if (f.x >= x0 - 1 && f.x <= x1 + 1 && f.y >= y0 - 1 && f.y <= y1 + 1) {
+      drawFish(f, t);
     }
   }
   drawLight(x0, y0, x1, y1);
@@ -1693,9 +2039,10 @@ function renderHotbar() {
   $("#selname").textContent = inv[sel] ? nameOf(inv[sel].id) : "";
 }
 
-const sheets = ["craft", "bag", "menu"].map(id => $("#" + id));
+const sheets = ["craft", "bag", "menu", "store", "give", "news"].map(id => $("#" + id));
 const openSheet = () => sheets.find(s => !s.hidden);
 function show(el) {
+  trash = null;
   sheets.forEach(s => (s.hidden = s !== el));
   keys.clear();
   Object.keys(touch).forEach(k => (touch[k] = false));
@@ -1703,6 +2050,7 @@ function show(el) {
   aim = null;
 }
 function closeSheets() {
+  trash = null;
   sheets.forEach(s => (s.hidden = true));
 }
 sheets.forEach(s => {
@@ -1784,6 +2132,117 @@ function renderBag() {
       "Каждый камень или руда стирает её на единицу."
     : "Кирки пока нет — камень и руды ломаются долго и ничего не дают. Крафт — у верстака.";
 }
+
+// Chest slots while a chest is open, null while the trash is open; the trash keeps only the last thrown stack.
+let storeSlots = null;
+let trash = null;
+function openChest(x, y) {
+  show($("#store"));
+  storeSlots = chestAt(x, y);
+  renderStore();
+}
+function openTrash() {
+  show($("#store"));
+  storeSlots = null;
+  renderStore();
+}
+function transfer(from, i, to, full) {
+  const s = from[i];
+  if (!s) {
+    return;
+  }
+  const left = putInto(to, s);
+  if (left === s.n) {
+    toast(full);
+    Sound.nope();
+    return;
+  }
+  if (left) {
+    s.n = left;
+  } else {
+    from[i] = null;
+  }
+  Sound.click();
+}
+function fromBag(i) {
+  if (storeSlots) {
+    transfer(inv, i, storeSlots, "Сундук полон");
+  } else if (inv[i]) {
+    trash = inv[i];
+    inv[i] = null;
+    uiDirty = true;
+    Sound.snap();
+  }
+  renderStore();
+}
+function toBag(i) {
+  if (storeSlots) {
+    transfer(storeSlots, i, inv, "Рюкзак полон");
+  } else {
+    const box = [trash];
+    transfer(box, 0, inv, "Рюкзак полон");
+    trash = box[0];
+  }
+  renderStore();
+}
+function renderStore() {
+  const chest = Boolean(storeSlots);
+  $("#store h2").textContent = chest ? "Сундук" : "🗑 Мусорка";
+  $("#store .hint").textContent = chest
+    ? "Нажми на ячейку — вещи переложатся из сундука в рюкзак или обратно."
+    : "Нажми на ячейку рюкзака — вещь уйдёт в мусорку. Пока окно открыто, последнюю выброшенную вещь можно " +
+      "вернуть нажатием на неё; закроешь окно — она пропадёт навсегда.";
+  const up = $("#store .up"), down = $("#store .down");
+  up.innerHTML = down.innerHTML = "";
+  (storeSlots || [trash]).forEach((slot, i) => {
+    const el = makeSlot(() => toBag(i));
+    fillSlot(el, slot);
+    up.appendChild(el);
+  });
+  inv.forEach((slot, i) => {
+    const el = makeSlot(() => fromBag(i));
+    fillSlot(el, slot);
+    el.classList.toggle("belt", i < 9);
+    down.appendChild(el);
+  });
+}
+
+const giveN = $("#giveN");
+function renderGive() {
+  const grid = $("#give .grid");
+  grid.innerHTML = "";
+  [...Object.keys(BLOCKS), ...Object.keys(ITEMS)].map(Number).forEach(id => {
+    const el = makeSlot(() => {
+      const n = Math.max(1, Math.min(999, Math.floor(Number(giveN.value)) || 1));
+      const left = addItem(id, n);
+      toast(left ? `Рюкзак полон: выдано ${nameOf(id)} ×${n - left}` : `Выдано: ${nameOf(id)} ×${n}`);
+      Sound.pickup();
+    });
+    fillSlot(el, { id, n: 1, dur: pickOf(id) && pickOf(id).dur });
+    grid.appendChild(el);
+  });
+}
+$("#give .row").addEventListener("click", e => {
+  if (e.target.dataset.n) {
+    giveN.value = e.target.dataset.n;
+  }
+});
+function openGive() {
+  renderGive();
+  show($("#give"));
+}
+const testBtn = $("#testBtn"), giveBtn = $("#giveBtn");
+function toggleTest() {
+  testMode = !testMode;
+  testBtn.classList.toggle("on", testMode);
+  giveBtn.hidden = !testMode;
+  toast(testMode ? "Режим тестирования включён — 🎁 выдаёт блоки" : "Режим тестирования выключен");
+  Sound.click();
+}
+testBtn.addEventListener("click", toggleTest);
+giveBtn.addEventListener("click", openGive);
+$("#ver").textContent = `v${VERSION} · что нового`;
+$("#ver").addEventListener("click", () => show($("#news")));
 
 $("#bagBtn").addEventListener("click", openBag);
 $("#handBtn").addEventListener("click", () => openCraft(false));
@@ -1872,15 +2331,34 @@ function decodeTiles(b64) {
   return w;
 }
 
+const encodeSlot = s => (!s ? null : pickOf(s.id) ? [s.id, s.n, s.dur] : [s.id, s.n]);
 function serialize() {
-  return JSON.stringify({ game: "heartcraft", v: 2, seed, w: W, h: H, tiles: encodeTiles(world),
-    player: { x: P.x, y: P.y }, inv: inv.map(s => (!s ? null : pickOf(s.id) ? [s.id, s.n, s.dur] : [s.id, s.n])),
-    sel, time, mobs: mobs.map(m => [m.x, m.y, Math.max(0, m.grow)]) });
+  return JSON.stringify({ game: "heartcraft", v: 3, seed, w: W, h: H, tiles: encodeTiles(world),
+    player: { x: P.x, y: P.y }, inv: inv.map(encodeSlot), sel, time,
+    mobs: mobs.map(m => [m.x, m.y, Math.max(0, m.grow), m.white ? 1 : 0]), ocean: hasOcean,
+    chests: [...chests].filter(([, c]) => c.some(Boolean)).map(([k, c]) => [k % W, Math.floor(k / W), c.map(encodeSlot)]) });
+}
+function decodeSlot(s, v) {
+  if (s === null) {
+    return null;
+  }
+  const [id, n, dur] = s;
+  if (!isKnown(id) || !Number.isInteger(n) || n < 1 || n > stackMax(id)) {
+    throw new Error("испорчен рюкзак");
+  }
+  if (!pickOf(id)) {
+    return { id, n };
+  }
+  const full = pickOf(id).dur;
+  if (v >= 2 && !(Number.isInteger(dur) && dur >= 1 && dur <= full)) {
+    throw new Error("испорчена прочность кирки");
+  }
+  return { id, n, dur: v >= 2 ? dur : full };
 }
 const inWorld = (x, y) => x >= 1 && x < W - 1 && y >= 0 && y < H - 1;
 function deserialize(text) {
   const d = JSON.parse(text);
-  if (!d || d.game !== "heartcraft" || (d.v !== 1 && d.v !== 2)) {
+  if (!d || d.game !== "heartcraft" || ![1, 2, 3].includes(d.v)) {
     throw new Error("это не мир Сердцекрафта");
   }
   if (d.w !== W || d.h !== H || !Number.isInteger(d.seed)) {
@@ -1890,45 +2368,49 @@ function deserialize(text) {
   if (!Array.isArray(d.inv) || d.inv.length !== SLOTS) {
     throw new Error("испорчен рюкзак");
   }
-  const bag = d.inv.map(s => {
-    if (s === null) {
-      return null;
-    }
-    const [id, n, dur] = s;
-    if (!isKnown(id) || !Number.isInteger(n) || n < 1 || n > stackMax(id)) {
-      throw new Error("испорчен рюкзак");
-    }
-    if (!pickOf(id)) {
-      return { id, n };
-    }
-    const full = pickOf(id).dur;
-    if (d.v === 2 && !(Number.isInteger(dur) && dur >= 1 && dur <= full)) {
-      throw new Error("испорчена прочность кирки");
-    }
-    return { id, n, dur: d.v === 2 ? dur : full };
-  });
+  const bag = d.inv.map(s => decodeSlot(s, d.v));
   const { x, y } = d.player || {};
   if (!inWorld(x, y) || !Number.isInteger(d.sel) || d.sel < 0 || d.sel > 8) {
     throw new Error("испорчено место героя");
   }
-  if (d.v === 2 && !(d.time >= 0 && d.time < 1)) {
+  if (d.v >= 2 && !(d.time >= 0 && d.time < 1)) {
     throw new Error("испорчено время суток");
   }
-  if (d.v === 2 && !(Array.isArray(d.mobs) && d.mobs.length <= MOB_MAX &&
-      d.mobs.every(m => Array.isArray(m) && inWorld(m[0], m[1]) && m[2] >= 0 && m[2] <= GROW_TIME))) {
+  if (d.v >= 2 && !(Array.isArray(d.mobs) && d.mobs.length <= MOB_MAX &&
+      d.mobs.every(m => Array.isArray(m) && inWorld(m[0], m[1]) && m[2] >= 0 && m[2] <= GROW_TIME &&
+        (d.v === 2 || m[3] === 0 || m[3] === 1)))) {
     throw new Error("испорчены сердечки");
+  }
+  if (d.v === 3 && typeof d.ocean !== "boolean") {
+    throw new Error("испорчен океан");
+  }
+  const boxes = new Map();
+  if (d.v === 3) {
+    if (!Array.isArray(d.chests)) {
+      throw new Error("испорчены сундуки");
+    }
+    d.chests.forEach(c => {
+      if (!Array.isArray(c) || !inWorld(c[0], c[1]) || !Number.isInteger(c[0]) || !Number.isInteger(c[1]) ||
+          tiles[chestKey(c[0], c[1])] !== B.CHEST || !Array.isArray(c[2]) || c[2].length !== CHEST_SLOTS) {
+        throw new Error("испорчены сундуки");
+      }
+      boxes.set(chestKey(c[0], c[1]), c[2].map(s => decodeSlot(s, d.v)));
+    });
   }
   seed = d.seed;
   world = tiles;
-  surf = surfaceHeights(seed);
+  hasOcean = d.v === 3 && d.ocean;
+  surf = terrain(seed, hasOcean).surf;
+  chests = boxes;
   inv = bag;
   sel = d.sel;
-  time = d.v === 2 ? d.time : 0;
-  if (d.v === 2) {
-    mobs = d.mobs.map(([mx, my, grow]) => makeMob(mx, my, grow));
+  time = d.v >= 2 ? d.time : 0;
+  if (d.v >= 2) {
+    mobs = d.mobs.map(([mx, my, grow, white]) => makeMob(mx, my, grow, white === 1));
   } else {
     spawnMobs();
   }
+  spawnFish();
   P.x = x;
   P.y = y;
   P.vx = P.vy = 0;
@@ -2004,6 +2486,8 @@ $("#menu").addEventListener("click", e => {
     download();
   } else if (act === "upload") {
     fileEl.click();
+  } else if (act === "news") {
+    show($("#news"));
   } else if (act === "reset" && confirm("Начать новый мир? Всё несохранённое пропадёт.")) {
     newWorld(randSeed());
     toast("Новый мир готов");
@@ -2061,8 +2545,9 @@ function release(e) {
   const quick = performance.now() - aim.t0 < 250;
   const wasPlace = aim.place;
   aim = null;
-  if (!wasPlace && quick && get(c.x, c.y) === B.WORKBENCH && inReach(c.x, c.y)) {
-    openCraft(true);
+  const use = USE[get(c.x, c.y)];
+  if (!wasPlace && quick && use && inReach(c.x, c.y)) {
+    use(c.x, c.y);
   }
 }
 canvas.addEventListener("pointerup", release);
@@ -2100,6 +2585,14 @@ window.addEventListener("keydown", e => {
   }
   if (e.code === "KeyM") {
     toggleSound();
+    return;
+  }
+  if (e.code === "KeyT") {
+    toggleTest();
+    return;
+  }
+  if (e.code === "KeyG" && testMode) {
+    openGive();
     return;
   }
   if (e.code === "Equal" || e.code === "NumpadAdd" || e.code === "Minus" || e.code === "NumpadSubtract") {
@@ -2181,6 +2674,8 @@ requestAnimationFrame(frameLoop);
 
 window.HC = { B, I, W, H, RECIPES, P, cam, get world() { return world; }, get inv() { return inv; },
   get seed() { return seed; }, get mobs() { return mobs; }, get time() { return time; }, set time(v) { time = v; },
+  get fish() { return fish; }, get chests() { return chests; }, get testMode() { return testMode; },
+  get trash() { return trash; }, VERSION, terrain, toggleTest, openChest, openTrash, chestAt, breed, banner,
   get zoom() { return zoom; }, get TILE() { return TILE; }, get, setTile, finishBreak, addItem, count, craft,
   bestPick, bestPickSlot, serialize, deserialize, saveLocal, loadLocal, newWorld, generate, usePlace, feed,
   openCraft, setZoom, toggleDay, daylight, keys, touch, Sound };
