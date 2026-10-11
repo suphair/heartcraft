@@ -104,6 +104,14 @@
   #giveN { width: 90px; font: inherit; padding: 6px 8px; border: 3px solid var(--edge); border-radius: 10px;
     -webkit-user-select: text; user-select: text; }
   .news { font-weight: 500; font-size: 14px; }
+  #fps { position: fixed; top: calc(max(10px, env(safe-area-inset-top)) + 92px); left: max(10px, env(safe-area-inset-left));
+    background: rgba(255, 240, 247, .7); border: 2px solid var(--edge); border-radius: 8px; padding: 2px 8px;
+    font-size: 13px; pointer-events: none; }
+  @media (max-width: 480px) {
+    #fps { top: calc(max(10px, env(safe-area-inset-top)) + 80px); }
+  }
+  #meter { background: var(--plate); border: 3px solid var(--edge); border-radius: 12px; padding: 4px 14px;
+    font-size: 17px; }
   .news ul { margin: 4px 0 10px; padding-left: 22px; }
 </style>
 </head>
@@ -116,6 +124,7 @@
 </div>
 
 <button id="ver" title="Что нового"></button>
+<div id="fps"></div>
 
 <div id="top">
   <button class="btn" id="giveBtn" title="Выдать себе блоки (G)" hidden>🎁</button>
@@ -127,6 +136,7 @@
 </div>
 
 <div id="bar">
+  <div id="meter" hidden></div>
   <div id="selname"></div>
   <div id="hotbar"></div>
 </div>
@@ -175,7 +185,8 @@
 <div class="sheet" id="give" hidden>
   <div class="box">
     <h2>🧪 Режим тестирования</h2>
-    <div class="hint">Выбери, сколько штук, и нажми на блок или вещь — они появятся в рюкзаке.</div>
+    <div class="hint">Выбери, сколько штук, и нажми на блок или яйцо призыва — они появятся в рюкзаке.
+      Кирки выдаются по одной за раз, остальные вещи не выдаются.</div>
     <div class="row"><label>Сколько: <input type="number" id="giveN" min="1" max="999" value="64"></label>
       <button class="btn" data-n="1">1</button><button class="btn" data-n="10">10</button>
       <button class="btn" data-n="64">64</button><button class="btn" data-n="99">99</button></div>
@@ -188,6 +199,19 @@
   <div class="box">
     <h2>Что нового</h2>
     <div class="news">
+      <h3>Версия 1.3</h3>
+      <ul>
+        <li><b>Сердцеметр</b> — 3 розовых блока и 5 палок у верстака. Пока он выбран в поясе, над поясом видно,
+          сколько сердечек в мире из 80 возможных.</li>
+        <li><b>Два белых сердечка</b> рождают белого малыша с вероятностью 20%, а не 1%.</li>
+        <li><b>Сердечки стареют</b>: каждое живёт 10–20 минут, к концу жизни бледнеет и ходит медленнее,
+          а потом умирает от старости.</li>
+        <li><b>FPS</b> — сколько кадров в секунду рисует игра, под номером версии.</li>
+        <li><b>Яйца призыва</b> сердечка и рыбки — в окне 🎁 режима тестирования. Поставь яйцо как блок — из него
+          появится сердечко; рыбка появляется только в воде. Рыбки теперь сохраняются вместе с миром.</li>
+        <li>В окне 🎁 кирки выдаются по одной за раз, а остальные вещи — палки, руды, кристаллы — больше
+          не выдаются: только блоки, кирки и яйца.</li>
+      </ul>
       <h3>Версия 1.2</h3>
       <ul>
         <li><b>Сундук</b> — 8 досок у верстака. Нажми на поставленный сундук — откроется окно: нажатие на ячейку
@@ -254,7 +278,9 @@
       <p><b>День и ночь</b> сменяют друг друга: розовый день, фиолетовая ночь. Под землёй темно — ставь факелы.
         ☀️ — всегда день.</p>
       <p><b>Сердечки</b> бродят по миру. Выбери в поясе розовый блок и нажми на сердечко — оно влюбится.
-        Два влюблённых сердечка найдут друг друга, и родится малыш. Изредка малыш рождается белым.</p>
+        Два влюблённых сердечка найдут друг друга, и родится малыш. Изредка малыш рождается белым,
+        у двух белых сердечек — часто. Сердечки стареют и умирают от старости. <b>Сердцеметр</b> в руке
+        показывает, сколько сердечек в мире.</p>
       <p><b>Сундук</b> хранит вещи, <b>мусорка</b> их уничтожает — нажми на них, чтобы открыть.
         В <b>океане</b> плавают рыбки; чтобы всплыть, держи прыжок. По <b>лестнице</b> можно лазить вверх и вниз.</p>
     </div>
@@ -272,17 +298,18 @@ const SPEED = 6, GRAV = 32, JUMP = 11.5, MAX_FALL = 22;
 const DAY_LEN = 480;
 const ZOOMS = [0.5, 0.75, 1, 1.5, 2];
 const MOB_START = 40, MOB_MAX = 80, MOB_SPEED = 2, MOB_JUMP = 9, LOVE_TIME = 15, BREED_PAUSE = 30, GROW_TIME = 60;
-const WHITE_CHANCE = 0.01;
+const WHITE_CHANCE = 0.01, WHITE_PAIR_CHANCE = 0.2;
+const LIFE_MIN = 600, LIFE_MAX = 1200, OLD_AT = 0.7;
 const SWIM = 5, SWIM_FALL = 3, WATER_GRAV = 0.3, CLIMB = 4, LADDER_SLIDE = 1.5;
-const FISH_COUNT = 30, FISH_SPEED = 1.5;
+const FISH_COUNT = 30, FISH_MAX = 100, FISH_SPEED = 1.5;
 const CHEST_SLOTS = 27;
-const VERSION = "1.2";
+const VERSION = "1.3";
 
 const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, COBBLE: 4, SAND: 5, LOG: 6, LEAVES: 7, PLANKS: 8,
   COAL_ORE: 9, IRON_ORE: 10, GOLD_ORE: 11, DIAMOND_ORE: 12, PINK_ORE: 13, BEDROCK: 14, WORKBENCH: 15,
   BRICK: 16, GLASS: 17, TORCH: 18, PINK: 19, GOLD_BLOCK: 20, CHEST: 21, TRASH: 22, WATER: 23, SEAWEED: 24, LADDER: 25 };
 const I = { STICK: 100, COAL: 101, RAW_IRON: 102, IRON: 103, GOLD: 104, DIAMOND: 105, PINK_GEM: 106,
-  PICK_WOOD: 110, PICK_STONE: 111, PICK_IRON: 112, PICK_DIAMOND: 113 };
+  HEART_METER: 107, HEART_EGG: 108, FISH_EGG: 109, PICK_WOOD: 110, PICK_STONE: 111, PICK_IRON: 112, PICK_DIAMOND: 113 };
 
 const BLOCKS = {
   [B.GRASS]: { name: "Трава", hard: 0.5, tier: 0, drop: B.DIRT },
@@ -319,6 +346,9 @@ const ITEMS = {
   [I.GOLD]: { name: "Золото" },
   [I.DIAMOND]: { name: "Алмаз" },
   [I.PINK_GEM]: { name: "Розовый кристалл" },
+  [I.HEART_METER]: { name: "Сердцеметр" },
+  [I.HEART_EGG]: { name: "Яйцо призыва сердечка" },
+  [I.FISH_EGG]: { name: "Яйцо призыва рыбки" },
   [I.PICK_WOOD]: { name: "Деревянная кирка", pick: { tier: 1, speed: 2, dur: 60 } },
   [I.PICK_STONE]: { name: "Каменная кирка", pick: { tier: 2, speed: 3, dur: 130 } },
   [I.PICK_IRON]: { name: "Железная кирка", pick: { tier: 3, speed: 4.5, dur: 250 } },
@@ -343,6 +373,7 @@ const RECIPES = [
   { out: B.CHEST, n: 1, need: [[B.PLANKS, 8]] },
   { out: B.TRASH, n: 1, need: [[B.PLANKS, 5]] },
   { out: B.LADDER, n: 3, need: [[I.STICK, 7]] },
+  { out: I.HEART_METER, n: 1, need: [[B.PINK, 3], [I.STICK, 5]] },
 ];
 
 const isBlock = id => id in BLOCKS;
@@ -818,17 +849,23 @@ function snapCamera() {
   clampCamera();
 }
 
-function makeMob(x, y, grow, white) {
+const randLife = () => LIFE_MIN + Math.random() * (LIFE_MAX - LIFE_MIN);
+function makeMob(x, y, grow, white, life, age) {
   const s = grow > 0 ? 0.32 : 0.5;
   return { x, y, w: s, h: s, vx: 0, vy: 0, onGround: false, face: 1, dir: 0, think: 0, love: 0, pause: 0, grow, white,
-    phase: Math.random() * 4,
+    life, age, phase: Math.random() * 4,
     body: white ? "#ffffff" : ["#ff7eb3", "#ff5f9e", "#ff9ec8", "#f06aa8"][Math.floor(Math.random() * 4)] };
+}
+// Wild hearts start at different ages, otherwise the whole first generation would die out at once.
+function wildMob(x, y, grow, white) {
+  const life = randLife();
+  return makeMob(x, y, grow, white, life, Math.random() * life * 0.6);
 }
 function spawnMobs() {
   mobs = [];
   for (let tries = 0; mobs.length < MOB_START && tries < MOB_START * 20; tries++) {
     const x = 8 + Math.floor(Math.random() * (W - 16));
-    const m = makeMob(x + 0.25, 0, 0, false);
+    const m = wildMob(x + 0.25, 0, 0, false);
     m.y = surf[x] - m.h - 0.01;
     if (get(x, surf[x]) === B.GRASS && !collides(m, m.x, m.y)) {
       mobs.push(m);
@@ -837,13 +874,14 @@ function spawnMobs() {
 }
 
 const FISH_COLORS = ["#ffb300", "#4fc3f7", "#ff7043", "#ba68c8", "#ffee58"];
+const makeFish = (x, y) => ({ x, y, face: Math.random() < 0.5 ? -1 : 1, vy: 0, think: 0,
+  phase: Math.random() * 6, color: FISH_COLORS[Math.floor(Math.random() * FISH_COLORS.length)] });
 function spawnFish() {
   const water = [];
   world.forEach((id, i) => id === B.WATER && water.push(i));
   fish = Array.from({ length: Math.min(FISH_COUNT, water.length) }, () => {
     const i = water[Math.floor(Math.random() * water.length)];
-    return { x: i % W + 0.5, y: Math.floor(i / W) + 0.5, face: Math.random() < 0.5 ? -1 : 1, vy: 0, think: 0,
-      phase: Math.random() * 6, color: FISH_COLORS[Math.floor(Math.random() * FISH_COLORS.length)] };
+    return makeFish(i % W + 0.5, Math.floor(i / W) + 0.5);
   });
 }
 
@@ -1061,6 +1099,12 @@ function usePlace(x, y) {
   if (!isEmpty(here) || here === (slot && slot.id) || y < 0 || !slot) {
     return;
   }
+  if (slot.id === I.HEART_EGG || slot.id === I.FISH_EGG) {
+    if (hatch(slot.id, x, y, here)) {
+      use1(slot);
+    }
+    return;
+  }
   if (!isBlock(slot.id)) {
     toast(nameOf(slot.id) + " — не блок, поставить нельзя");
     Sound.nope();
@@ -1085,11 +1129,34 @@ function usePlace(x, y) {
     }
     banner();
   }
+  use1(slot);
+}
+function use1(slot) {
   slot.n--;
   if (!slot.n) {
-    inv[sel] = null;
+    inv[inv.indexOf(slot)] = null;
   }
   uiDirty = true;
+}
+function hatch(egg, x, y, here) {
+  if (egg === I.FISH_EGG && here !== B.WATER) {
+    toast("Рыбки живут только в воде");
+  } else if (egg === I.FISH_EGG && fish.length >= FISH_MAX) {
+    toast("Рыбок в воде уже очень много");
+  } else if (egg === I.HEART_EGG && mobs.length >= MOB_MAX) {
+    toast("Сердечек в мире уже очень много");
+  } else {
+    if (egg === I.FISH_EGG) {
+      fish.push(makeFish(x + 0.5, y + 0.5));
+    } else {
+      mobs.push(makeMob(x + 0.25, y + 0.5, 0, false, randLife(), 0));
+    }
+    floats.push({ text: egg === I.FISH_EGG ? "Появилась рыбка! 🐟" : "Появилось сердечко! 💖", x: x + 0.5, y, t: 0 });
+    Sound.craft();
+    return true;
+  }
+  Sound.nope();
+  return false;
 }
 
 // ---------- physics ----------
@@ -1276,7 +1343,14 @@ function updateFish(f, dt) {
 
 // ---------- hearts ----------
 
+const oldness = m => Math.max(0, Math.min(1, (m.age / m.life - OLD_AT) / (1 - OLD_AT)));
 function updateMob(m, dt) {
+  m.age += dt;
+  if (m.age >= m.life) {
+    mobs.splice(mobs.indexOf(m), 1);
+    floats.push({ text: "Сердечко умерло от старости 🕊", x: m.x + m.w / 2, y: m.y, t: 0 });
+    return;
+  }
   m.think -= dt;
   if (m.think <= 0) {
     m.think = 1 + Math.random() * 3;
@@ -1306,7 +1380,7 @@ function updateMob(m, dt) {
   if (wetAt(m)) {
     m.vy = Math.min(m.vy, -SWIM / 2);
   }
-  if (walk(m, dir, MOB_SPEED, dt, false)) {
+  if (walk(m, dir, MOB_SPEED * (1 - oldness(m) / 2), dt, false)) {
     m.vy = -MOB_JUMP;
   }
 }
@@ -1321,7 +1395,8 @@ function growUp(m) {
 function breed(a, b) {
   a.love = b.love = 0;
   a.pause = b.pause = BREED_PAUSE;
-  const baby = makeMob((a.x + b.x) / 2, 0, GROW_TIME, Math.random() < WHITE_CHANCE);
+  const white = Math.random() < (a.white && b.white ? WHITE_PAIR_CHANCE : WHITE_CHANCE);
+  const baby = makeMob((a.x + b.x) / 2, 0, GROW_TIME, white, randLife(), 0);
   baby.y = a.y + a.h - baby.h;
   if (collides(baby, baby.x, baby.y)) {
     baby.x = a.x;
@@ -1362,6 +1437,19 @@ function clampCamera() {
 }
 
 // ---------- textures ----------
+
+const HEART = (() => {
+  const p = new Path2D();
+  p.moveTo(0.5, 0.95);
+  p.bezierCurveTo(0.15, 0.7, 0, 0.47, 0, 0.3);
+  p.bezierCurveTo(0, 0.1, 0.16, 0.02, 0.3, 0.02);
+  p.bezierCurveTo(0.42, 0.02, 0.5, 0.12, 0.5, 0.22);
+  p.bezierCurveTo(0.5, 0.12, 0.58, 0.02, 0.7, 0.02);
+  p.bezierCurveTo(0.84, 0.02, 1, 0.1, 1, 0.3);
+  p.bezierCurveTo(1, 0.47, 0.85, 0.7, 0.5, 0.95);
+  p.closePath();
+  return p;
+})();
 
 const STONE_PAL = ["#8a8a8e", "#7b7b80", "#96969a", "#6f6f74"];
 let texSeed = 7;
@@ -1428,6 +1516,18 @@ function gem(g, main, light) {
   g.fillStyle = light;
   g.fillRect(6, 6, 2, 2);
   px(g, 5, 8, light);
+}
+function egg(shell, spot) {
+  return mkTex(g => {
+    g.fillStyle = shell;
+    g.beginPath();
+    g.ellipse(8, 9, 5, 6.5, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = spot;
+    [[6, 6], [10, 8], [7, 11], [10, 12]].forEach(([x, y]) => g.fillRect(x, y, 2, 2));
+    g.fillStyle = "rgba(255, 255, 255, .7)";
+    g.fillRect(5, 5, 1, 2);
+  });
 }
 function pick(head, dark) {
   return mkTex(g => {
@@ -1615,6 +1715,29 @@ const tex = {
   [I.GOLD]: mkTex((g, r) => lump(g, r, ["#ffd23a", "#f0b400", "#fff08a"])),
   [I.DIAMOND]: mkTex(g => gem(g, "#2fd0d0", "#c8fffd")),
   [I.PINK_GEM]: mkTex(g => gem(g, "#ff5fae", "#ffd0e8")),
+  [I.HEART_METER]: mkTex(g => {
+    g.save();
+    g.translate(0.5, 1);
+    g.scale(15, 15);
+    g.fillStyle = "#ff4f9a";
+    g.fill(HEART);
+    g.lineWidth = 0.07;
+    g.strokeStyle = "#b0105a";
+    g.stroke(HEART);
+    g.restore();
+    g.fillStyle = "#fff";
+    g.beginPath();
+    g.arc(8, 10, 4.5, Math.PI, 0);
+    g.fill();
+    g.strokeStyle = "#3a0a22";
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.moveTo(8, 10);
+    g.lineTo(10.8, 6.8);
+    g.stroke();
+  }),
+  [I.HEART_EGG]: egg("#ffd6ea", "#ff4f9a"),
+  [I.FISH_EGG]: egg("#bfe6ff", "#ff8a00"),
   [I.PICK_WOOD]: pick("#c8955a", "#7a4e25"),
   [I.PICK_STONE]: pick("#a0a0a4", "#5c5c61"),
   [I.PICK_IRON]: pick("#e6e9ee", "#80858c"),
@@ -1735,18 +1858,6 @@ function drawLight(x0, y0, x1, y1) {
   ctx.imageSmoothingEnabled = false;
 }
 
-const HEART = (() => {
-  const p = new Path2D();
-  p.moveTo(0.5, 0.95);
-  p.bezierCurveTo(0.15, 0.7, 0, 0.47, 0, 0.3);
-  p.bezierCurveTo(0, 0.1, 0.16, 0.02, 0.3, 0.02);
-  p.bezierCurveTo(0.42, 0.02, 0.5, 0.12, 0.5, 0.22);
-  p.bezierCurveTo(0.5, 0.12, 0.58, 0.02, 0.7, 0.02);
-  p.bezierCurveTo(0.84, 0.02, 1, 0.1, 1, 0.3);
-  p.bezierCurveTo(1, 0.47, 0.85, 0.7, 0.5, 0.95);
-  p.closePath();
-  return p;
-})();
 
 function drawHeart(e, x, y, s, t, body) {
   const br = 1 + Math.sin(t * 3) * 0.03;
@@ -1844,7 +1955,8 @@ function drawSky() {
 
 function drawMob(m, t) {
   const ts = TILE, x = (m.x - cam.x) * ts, y = (m.y - cam.y) * ts;
-  drawHeart(m, x, y, m.w * ts, t + m.phase, m.body);
+  const old = oldness(m);
+  drawHeart(m, x, y, m.w * ts, t + m.phase, old > 0 ? mixHex(m.body, "#b9aab2", old * 0.8) : m.body);
   if (m.love > 0) {
     const s = ts * 0.3, bob = Math.sin(t * 5 + m.phase) * ts * 0.06;
     ctx.save();
@@ -2208,12 +2320,13 @@ function renderStore() {
 }
 
 const giveN = $("#giveN");
+const givable = id => isBlock(id) || Boolean(pickOf(id)) || id === I.HEART_EGG || id === I.FISH_EGG;
 function renderGive() {
   const grid = $("#give .grid");
   grid.innerHTML = "";
-  [...Object.keys(BLOCKS), ...Object.keys(ITEMS)].map(Number).forEach(id => {
+  [...Object.keys(BLOCKS), ...Object.keys(ITEMS)].map(Number).filter(givable).forEach(id => {
     const el = makeSlot(() => {
-      const n = Math.max(1, Math.min(999, Math.floor(Number(giveN.value)) || 1));
+      const n = pickOf(id) ? 1 : Math.max(1, Math.min(999, Math.floor(Number(giveN.value)) || 1));
       const left = addItem(id, n);
       toast(left ? `Рюкзак полон: выдано ${nameOf(id)} ×${n - left}` : `Выдано: ${nameOf(id)} ×${n}`);
       Sound.pickup();
@@ -2333,9 +2446,10 @@ function decodeTiles(b64) {
 
 const encodeSlot = s => (!s ? null : pickOf(s.id) ? [s.id, s.n, s.dur] : [s.id, s.n]);
 function serialize() {
-  return JSON.stringify({ game: "heartcraft", v: 3, seed, w: W, h: H, tiles: encodeTiles(world),
+  return JSON.stringify({ game: "heartcraft", v: 4, seed, w: W, h: H, tiles: encodeTiles(world),
     player: { x: P.x, y: P.y }, inv: inv.map(encodeSlot), sel, time,
-    mobs: mobs.map(m => [m.x, m.y, Math.max(0, m.grow), m.white ? 1 : 0]), ocean: hasOcean,
+    mobs: mobs.map(m => [m.x, m.y, Math.max(0, m.grow), m.white ? 1 : 0, m.age, m.life]), ocean: hasOcean,
+    fish: fish.map(f => [f.x, f.y]),
     chests: [...chests].filter(([, c]) => c.some(Boolean)).map(([k, c]) => [k % W, Math.floor(k / W), c.map(encodeSlot)]) });
 }
 function decodeSlot(s, v) {
@@ -2358,7 +2472,7 @@ function decodeSlot(s, v) {
 const inWorld = (x, y) => x >= 1 && x < W - 1 && y >= 0 && y < H - 1;
 function deserialize(text) {
   const d = JSON.parse(text);
-  if (!d || d.game !== "heartcraft" || ![1, 2, 3].includes(d.v)) {
+  if (!d || d.game !== "heartcraft" || ![1, 2, 3, 4].includes(d.v)) {
     throw new Error("это не мир Сердцекрафта");
   }
   if (d.w !== W || d.h !== H || !Number.isInteger(d.seed)) {
@@ -2378,14 +2492,19 @@ function deserialize(text) {
   }
   if (d.v >= 2 && !(Array.isArray(d.mobs) && d.mobs.length <= MOB_MAX &&
       d.mobs.every(m => Array.isArray(m) && inWorld(m[0], m[1]) && m[2] >= 0 && m[2] <= GROW_TIME &&
-        (d.v === 2 || m[3] === 0 || m[3] === 1)))) {
+        (d.v === 2 || m[3] === 0 || m[3] === 1) &&
+        (d.v < 4 || (m[5] >= LIFE_MIN && m[5] <= LIFE_MAX && m[4] >= 0 && m[4] < m[5]))))) {
     throw new Error("испорчены сердечки");
   }
-  if (d.v === 3 && typeof d.ocean !== "boolean") {
+  if (d.v === 4 && !(Array.isArray(d.fish) && d.fish.length <= FISH_MAX &&
+      d.fish.every(f => Array.isArray(f) && inWorld(f[0], f[1])))) {
+    throw new Error("испорчены рыбки");
+  }
+  if (d.v >= 3 && typeof d.ocean !== "boolean") {
     throw new Error("испорчен океан");
   }
   const boxes = new Map();
-  if (d.v === 3) {
+  if (d.v >= 3) {
     if (!Array.isArray(d.chests)) {
       throw new Error("испорчены сундуки");
     }
@@ -2399,18 +2518,23 @@ function deserialize(text) {
   }
   seed = d.seed;
   world = tiles;
-  hasOcean = d.v === 3 && d.ocean;
+  hasOcean = d.v >= 3 && d.ocean;
   surf = terrain(seed, hasOcean).surf;
   chests = boxes;
   inv = bag;
   sel = d.sel;
   time = d.v >= 2 ? d.time : 0;
   if (d.v >= 2) {
-    mobs = d.mobs.map(([mx, my, grow, white]) => makeMob(mx, my, grow, white === 1));
+    mobs = d.mobs.map(([mx, my, grow, white, age, life]) =>
+      (d.v === 4 ? makeMob(mx, my, grow, white === 1, life, age) : wildMob(mx, my, grow, white === 1)));
   } else {
     spawnMobs();
   }
-  spawnFish();
+  if (d.v === 4) {
+    fish = d.fish.map(([fx, fy]) => makeFish(fx, fy));
+  } else {
+    spawnFish();
+  }
   P.x = x;
   P.y = y;
   P.vx = P.vy = 0;
@@ -2658,6 +2782,23 @@ if (startSave) {
   loadText(startSave, "Загружен сохранённый мир");
 }
 
+const fpsEl = $("#fps"), meterEl = $("#meter");
+let fpsFrames = 0, fpsFrom = performance.now();
+function renderHud(now) {
+  fpsFrames++;
+  if (now - fpsFrom >= 500) {
+    fpsEl.textContent = `FPS: ${Math.round(fpsFrames * 1000 / (now - fpsFrom))}`;
+    fpsFrames = 0;
+    fpsFrom = now;
+  }
+  const metering = Boolean(inv[sel]) && inv[sel].id === I.HEART_METER;
+  meterEl.hidden = !metering;
+  const text = `💗 Сердечек в мире: ${mobs.length} из ${MOB_MAX}`;
+  if (metering && meterEl.textContent !== text) {
+    meterEl.textContent = text;
+  }
+}
+
 let last = performance.now();
 function frameLoop(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
@@ -2667,6 +2808,7 @@ function frameLoop(now) {
     uiDirty = false;
     renderHotbar();
   }
+  renderHud(now);
   render(now / 1000);
   requestAnimationFrame(frameLoop);
 }
@@ -2677,7 +2819,7 @@ window.HC = { B, I, W, H, RECIPES, P, cam, get world() { return world; }, get in
   get fish() { return fish; }, get chests() { return chests; }, get testMode() { return testMode; },
   get trash() { return trash; }, VERSION, terrain, toggleTest, openChest, openTrash, chestAt, breed, banner,
   get zoom() { return zoom; }, get TILE() { return TILE; }, get, setTile, finishBreak, addItem, count, craft,
-  bestPick, bestPickSlot, serialize, deserialize, saveLocal, loadLocal, newWorld, generate, usePlace, feed,
+  bestPick, bestPickSlot, hatch, serialize, deserialize, saveLocal, loadLocal, newWorld, generate, usePlace, feed,
   openCraft, setZoom, toggleDay, daylight, keys, touch, Sound };
 </script>
 </body>
