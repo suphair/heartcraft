@@ -101,7 +101,7 @@
   .help { font-weight: 500; font-size: 14px; }
   .help b { font-weight: 700; }
   .box h3 { margin: 14px 0 6px; font-size: 17px; }
-  #giveN { width: 90px; font: inherit; padding: 6px 8px; border: 3px solid var(--edge); border-radius: 10px;
+  #giveN, .field { width: 90px; font: inherit; padding: 6px 8px; border: 3px solid var(--edge); border-radius: 10px;
     -webkit-user-select: text; user-select: text; }
   .news { font-weight: 500; font-size: 14px; }
   #fps { position: fixed; top: calc(max(10px, env(safe-area-inset-top)) + 92px); left: max(10px, env(safe-area-inset-left));
@@ -113,6 +113,13 @@
   #meter { background: var(--plate); border: 3px solid var(--edge); border-radius: 12px; padding: 4px 14px;
     font-size: 17px; }
   .news ul { margin: 4px 0 10px; padding-left: 22px; }
+  .field { width: 170px; }
+  #netHud { position: fixed; top: calc(max(10px, env(safe-area-inset-top)) + 122px); left: max(10px, env(safe-area-inset-left));
+    background: rgba(255, 240, 247, .7); border: 2px solid var(--edge); border-radius: 8px; padding: 2px 8px;
+    font-size: 13px; pointer-events: none; }
+  @media (max-width: 480px) {
+    #netHud { top: calc(max(10px, env(safe-area-inset-top)) + 106px); }
+  }
 </style>
 </head>
 <body>
@@ -125,6 +132,7 @@
 
 <button id="ver" title="Что нового"></button>
 <div id="fps"></div>
+<div id="netHud" hidden></div>
 
 <div id="top">
   <button class="btn" id="giveBtn" title="Выдать себе блоки (G)" hidden>🎁</button>
@@ -199,6 +207,12 @@
   <div class="box">
     <h2>Что нового</h2>
     <div class="news">
+      <h3>Версия 1.4</h3>
+      <ul>
+        <li><b>Игра по сети</b> — меню ☰ → «🌐 Играть по сети»: впиши имя и пароль комнаты. Все, кто вошёл,
+          играют в одном мире — видят друг друга с именами над головой, а поставленные и сломанные блоки
+          появляются у всех. Работает, когда игра открыта с сервера, а не из файла.</li>
+      </ul>
       <h3>Версия 1.3</h3>
       <ul>
         <li><b>Сердцеметр</b> — 3 розовых блока и 5 палок у верстака. Пока он выбран в поясе, над поясом видно,
@@ -251,6 +265,22 @@
   </div>
 </div>
 
+<div class="sheet" id="net" hidden>
+  <div class="box">
+    <h2>🌐 Игра по сети</h2>
+    <div class="hint">Все, кто вошёл с одним паролем, играют в одном мире: видят друг друга, а поставленные
+      и сломанные блоки появляются у всех. Первый вошедший приносит свой мир, остальные попадают в него.
+      Сердечки, рыбки, вещи в сундуках и время суток у каждого свои.</div>
+    <div class="row"><label>Имя: <input class="field" id="netName" maxlength="16"></label>
+      <label>Пароль: <input class="field" id="netPass" type="password"></label></div>
+    <p class="hint" id="netStatus"></p>
+    <ul class="news" id="netPlayers"></ul>
+    <div class="row end"><button class="btn main" id="netJoin">Войти</button>
+      <button class="btn" id="netLeave">Выйти из сетевой игры</button>
+      <button class="btn close">Закрыть</button></div>
+  </div>
+</div>
+
 <div class="sheet" id="menu" hidden>
   <div class="box">
     <h2>Меню</h2>
@@ -260,6 +290,7 @@
       <button class="btn" data-act="download">⬇️ Скачать мир в файл</button>
       <button class="btn" data-act="upload">⬆️ Открыть мир из файла</button>
       <button class="btn" data-act="reset">🔄 Сброс: новый мир</button>
+      <button class="btn" data-act="net" id="netAct" hidden>🌐 Играть по сети</button>
       <button class="btn" data-act="news">📜 Что нового</button>
       <button class="btn close">Закрыть</button>
     </div>
@@ -303,7 +334,7 @@ const LIFE_MIN = 600, LIFE_MAX = 1200, OLD_AT = 0.7;
 const SWIM = 5, SWIM_FALL = 3, WATER_GRAV = 0.3, CLIMB = 4, LADDER_SLIDE = 1.5;
 const FISH_COUNT = 30, FISH_MAX = 100, FISH_SPEED = 1.5;
 const CHEST_SLOTS = 27;
-const VERSION = "1.3";
+const VERSION = "1.4";
 
 const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, COBBLE: 4, SAND: 5, LOG: 6, LEAVES: 7, PLANKS: 8,
   COAL_ORE: 9, IRON_ORE: 10, GOLD_ORE: 11, DIAMOND_ORE: 12, PINK_ORE: 13, BEDROCK: 14, WORKBENCH: 15,
@@ -1053,6 +1084,7 @@ function finishBreak(x, y) {
   }
   const ok = tierOk(id);
   setTile(x, y, holeAfter(x, y, id));
+  netTile(x, y);
   if (id === B.CHEST) {
     chests.delete(chestKey(x, y));
   }
@@ -1115,10 +1147,11 @@ function usePlace(x, y) {
     Sound.nope();
     return;
   }
-  if (solidId(slot.id) && [P, ...mobs].some(e => overlaps(e, x, y))) {
+  if (solidId(slot.id) && [P, ...mobs, ...peers.values()].some(e => overlaps(e, x, y))) {
     return;
   }
   setTile(x, y, slot.id);
+  netTile(x, y);
   Sound.place(slot.id);
   if (slot.id === B.PINK && !masterSeen) {
     masterSeen = true;
@@ -1313,6 +1346,7 @@ function update(dt) {
   time = alwaysDay ? 0 : (time + dt / DAY_LEN) % 1;
   mobs.slice().forEach(m => updateMob(m, dt));
   fish.forEach(f => updateFish(f, dt));
+  netTick(dt);
 }
 
 // ---------- fish ----------
@@ -2074,10 +2108,21 @@ function render(t) {
     ctx.strokeRect((c.x - cam.x) * ts + 1, (c.y - cam.y) * ts + 1, ts - 2, ts - 2);
   }
 
-  drawHeart(P, (P.x - cam.x) * ts, (P.y - cam.y) * ts, P.w * ts, t, "#ff4f9a");
-
   ctx.font = "700 15px Trebuchet MS, sans-serif";
   ctx.textAlign = "center";
+  for (const o of peers.values()) {
+    if (o.seen) {
+      const x = (o.x - cam.x) * ts, y = (o.y - cam.y) * ts;
+      drawHeart(o, x, y, o.w * ts, t + o.phase, o.color);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(90, 24, 56, .8)";
+      ctx.strokeText(o.name, x + o.w * ts / 2, y - 6);
+      ctx.fillStyle = "#fff";
+      ctx.fillText(o.name, x + o.w * ts / 2, y - 6);
+    }
+  }
+  drawHeart(P, (P.x - cam.x) * ts, (P.y - cam.y) * ts, P.w * ts, t, "#ff4f9a");
+
   for (const f of floats) {
     ctx.globalAlpha = 1 - f.t / 1.2;
     const x = (f.x - cam.x) * ts, y = (f.y - cam.y) * ts - f.t * 30;
@@ -2151,7 +2196,7 @@ function renderHotbar() {
   $("#selname").textContent = inv[sel] ? nameOf(inv[sel].id) : "";
 }
 
-const sheets = ["craft", "bag", "menu", "store", "give", "news"].map(id => $("#" + id));
+const sheets = ["craft", "bag", "menu", "store", "give", "news", "net"].map(id => $("#" + id));
 const openSheet = () => sheets.find(s => !s.hidden);
 function show(el) {
   trash = null;
@@ -2602,6 +2647,9 @@ $("#menu").addEventListener("click", e => {
     return;
   }
   closeSheets();
+  if (act === "load" || act === "upload") {
+    leaveForLocal();
+  }
   if (act === "save") {
     saveLocal();
   } else if (act === "load") {
@@ -2612,11 +2660,268 @@ $("#menu").addEventListener("click", e => {
     fileEl.click();
   } else if (act === "news") {
     show($("#news"));
+  } else if (act === "net") {
+    openNet();
   } else if (act === "reset" && confirm("Начать новый мир? Всё несохранённое пропадёт.")) {
+    leaveForLocal();
     newWorld(randSeed());
     toast("Новый мир готов");
   }
 });
+
+// ---------- network ----------
+
+const NET_KEY = "heartcraft-net";
+const NET_SEND_EVERY = 100, NET_KEEPALIVE = 5000, NET_RETRY = 3000;
+const PEER_COLORS = ["#8e6bff", "#29b6f6", "#43c06d", "#ffa726", "#ef5350", "#26c6da", "#c06bd8"];
+const peers = new Map();
+const net = { ws: null, want: false, ready: false, shared: false, name: "", pass: "", status: "", sent: "", sentAt: 0,
+  retry: 0 };
+try {
+  Object.assign(net, JSON.parse(localStorage.getItem(NET_KEY)) || {});
+} catch (e) {
+  // the name and password just have to be typed again
+}
+
+function netRemember() {
+  try {
+    localStorage.setItem(NET_KEY, JSON.stringify({ name: net.name, pass: net.pass, want: net.want }));
+  } catch (e) {
+    // the choice just won't survive a reload
+  }
+}
+function netState(status) {
+  net.status = status;
+  renderNet();
+}
+function netJoin(name, pass) {
+  net.name = name;
+  net.pass = pass;
+  net.want = true;
+  netRemember();
+  netConnect();
+}
+function netConnect() {
+  clearTimeout(net.retry);
+  net.ready = false;
+  if (net.ws) {
+    net.ws.close();
+  }
+  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  net.ws = ws;
+  netState("Подключаюсь…");
+  ws.onopen = () => ws.send(JSON.stringify({ t: "hello", name: net.name, pass: net.pass }));
+  ws.onmessage = e => net.ws === ws && netMessage(JSON.parse(e.data));
+  ws.onclose = () => {
+    if (net.ws !== ws) {
+      return;
+    }
+    net.ws = null;
+    net.ready = false;
+    peers.clear();
+    if (net.want) {
+      netState("Связь потеряна — переподключаюсь…");
+      net.retry = setTimeout(netConnect, NET_RETRY);
+    }
+  };
+}
+function netLeave(status) {
+  clearTimeout(net.retry);
+  net.want = net.ready = net.shared = false;
+  netRemember();
+  if (net.ws) {
+    const ws = net.ws;
+    net.ws = null;
+    ws.close();
+  }
+  peers.clear();
+  netState(status);
+}
+function leaveForLocal() {
+  if (net.want) {
+    netLeave("Вы вышли из сетевой игры, чтобы открыть свой мир");
+    toast("Сетевая игра закрыта");
+  }
+}
+function netSend(msg) {
+  if (net.ready) {
+    net.ws.send(JSON.stringify(msg));
+  }
+}
+function netTile(x, y) {
+  netSend({ t: "set", x, y, id: get(x, y) });
+}
+function makePeer(id, name, pos) {
+  const o = { id, name, color: PEER_COLORS[id % PEER_COLORS.length], phase: id * 1.7, w: P.w, h: P.h,
+    x: 0, y: 0, tx: 0, ty: 0, vy: 0, face: 1, seen: false };
+  if (pos) {
+    peerMoved(o, pos);
+  }
+  return o;
+}
+function peerMoved(o, { x, y, f }) {
+  o.tx = x;
+  o.ty = y;
+  o.face = f;
+  if (!o.seen || Math.hypot(x - o.x, y - o.y) > 8) {
+    o.x = x;
+    o.y = y;
+    o.seen = true;
+  }
+}
+// The server only checks the shape of a world; a broken one is refused here before it replaces the local one.
+function shareWorld(w) {
+  const tiles = decodeTiles(w.tiles);
+  for (const [i, id] of w.changes) {
+    if (!Number.isInteger(i) || i < 0 || i >= W * H || (id !== B.AIR && !isBlock(id))) {
+      throw new Error("испорчены изменения мира");
+    }
+    tiles[i] = id;
+  }
+  const same = net.shared && seed === w.seed && hasOcean === w.ocean;
+  seed = w.seed;
+  world = tiles;
+  hasOcean = w.ocean;
+  net.shared = true;
+  brk = null;
+  if (!same) {
+    surf = terrain(seed, hasOcean).surf;
+    chests = new Map();
+    spawnMobs();
+    spawnFish();
+  }
+  if (!same || collides(P, P.x, P.y)) {
+    spawn();
+    snapCamera();
+  }
+}
+function remoteTile(x, y, id) {
+  if (!inWorld(x, y) || (id !== B.AIR && !isBlock(id))) {
+    return;
+  }
+  if (get(x, y) === B.CHEST && id !== B.CHEST) {
+    rescueChest(x, y);
+  }
+  setTile(x, y, id);
+  if (brk && brk.x === x && brk.y === y) {
+    brk = null;
+  }
+}
+// Chest contents are not shared: someone else sees this chest empty and may break it, so its things move to the bag.
+function rescueChest(x, y) {
+  const box = chests.get(chestKey(x, y)) || [];
+  chests.delete(chestKey(x, y));
+  if (!box.some(Boolean)) {
+    return;
+  }
+  const lost = box.filter(Boolean).reduce((n, stack) => n + putInto(inv, stack), 0);
+  toast(lost ? `Ваш сундук сломали — вещи в рюкзаке, ${lost} не поместилось` : "Ваш сундук сломали — вещи в рюкзаке");
+  Sound.nope();
+}
+function netMessage(m) {
+  if (m.t === "error") {
+    netLeave("Не пустили: " + m.msg);
+    toast("Сеть: " + m.msg);
+    Sound.nope();
+  } else if (m.t === "welcome" || m.t === "load") {
+    if (m.t === "welcome") {
+      net.ready = true;
+      net.sent = "";
+      peers.clear();
+      m.players.forEach(o => peers.set(o.id, makePeer(o.id, o.name, o.pos)));
+    }
+    if (m.world) {
+      try {
+        shareWorld(m.world);
+      } catch (e) {
+        netLeave("Общий мир не открылся: " + e.message);
+        toast("Общий мир не открылся: " + e.message);
+        Sound.nope();
+        return;
+      }
+      toast("Вы в общем мире");
+    } else {
+      net.shared = true;
+      netSend({ t: "world", seed, ocean: hasOcean, tiles: encodeTiles(world) });
+      toast("Ваш мир стал общим");
+    }
+    Sound.chime();
+    netState("В игре");
+  } else if (m.t === "join") {
+    peers.set(m.id, makePeer(m.id, m.name, null));
+    toast(m.name + " заходит в игру");
+    renderNet();
+  } else if (m.t === "leave") {
+    const o = peers.get(m.id);
+    peers.delete(m.id);
+    if (o) {
+      toast(o.name + " выходит из игры");
+    }
+    renderNet();
+  } else if (m.t === "pos" && peers.has(m.id)) {
+    peerMoved(peers.get(m.id), m);
+  } else if (m.t === "set") {
+    remoteTile(m.x, m.y, m.id);
+  }
+}
+function netTick(dt) {
+  const k = Math.min(1, dt * 12);
+  for (const o of peers.values()) {
+    const dy = (o.ty - o.y) * k;
+    o.vy = dt > 0 ? dy / dt : 0;
+    o.x += (o.tx - o.x) * k;
+    o.y += dy;
+  }
+}
+// A timer, not the frame loop: browsers stop drawing hidden tabs, and a silent player would be dropped as gone.
+function netPulse() {
+  if (!net.ready) {
+    return;
+  }
+  const now = performance.now();
+  const pos = { t: "pos", x: Math.round(P.x * 100) / 100, y: Math.round(P.y * 100) / 100, f: P.face };
+  const text = JSON.stringify(pos);
+  if (text !== net.sent || now - net.sentAt >= NET_KEEPALIVE) {
+    net.ws.send(text);
+    net.sent = text;
+    net.sentAt = now;
+  }
+}
+
+const netName = $("#netName"), netPass = $("#netPass");
+function renderNet() {
+  $("#netStatus").textContent = net.status;
+  $("#netJoin").hidden = net.want;
+  $("#netLeave").hidden = !net.want;
+  netName.disabled = netPass.disabled = net.want;
+  const list = $("#netPlayers");
+  list.innerHTML = "";
+  if (net.ready) {
+    [net.name + " (вы)", ...[...peers.values()].map(o => o.name)].forEach(n => {
+      const li = document.createElement("li");
+      li.textContent = n;
+      list.appendChild(li);
+    });
+  }
+}
+function openNet() {
+  netName.value = net.name;
+  netPass.value = net.pass;
+  renderNet();
+  show($("#net"));
+}
+function joinFromSheet() {
+  const name = netName.value.trim();
+  if (!name || !netPass.value) {
+    netState("Впишите имя и пароль");
+    return;
+  }
+  netJoin(name, netPass.value);
+}
+setInterval(netPulse, NET_SEND_EVERY);
+$("#netJoin").addEventListener("click", joinFromSheet);
+$("#netLeave").addEventListener("click", () => netLeave("Вы вышли из сетевой игры"));
+[netName, netPass].forEach(el => el.addEventListener("keydown", e => e.key === "Enter" && joinFromSheet()));
 
 // ---------- input ----------
 
@@ -2781,8 +3086,17 @@ try {
 if (startSave) {
   loadText(startSave, "Загружен сохранённый мир");
 }
+// Only the game server answers here; a copy on any other site or opened from a file stays single-player.
+fetch("net", { cache: "no-store" }).then(r => {
+  if (r.ok) {
+    $("#netAct").hidden = false;
+    if (net.want) {
+      netConnect();
+    }
+  }
+}, () => {});
 
-const fpsEl = $("#fps"), meterEl = $("#meter");
+const fpsEl = $("#fps"), meterEl = $("#meter"), netHud = $("#netHud");
 let fpsFrames = 0, fpsFrom = performance.now();
 function renderHud(now) {
   fpsFrames++;
@@ -2796,6 +3110,11 @@ function renderHud(now) {
   const text = `💗 Сердечек в мире: ${mobs.length} из ${MOB_MAX}`;
   if (metering && meterEl.textContent !== text) {
     meterEl.textContent = text;
+  }
+  netHud.hidden = !net.want;
+  const online = net.ready ? `🌐 В сети: ${peers.size + 1}` : "🌐 Нет связи…";
+  if (net.want && netHud.textContent !== online) {
+    netHud.textContent = online;
   }
 }
 
@@ -2820,7 +3139,7 @@ window.HC = { B, I, W, H, RECIPES, P, cam, get world() { return world; }, get in
   get trash() { return trash; }, VERSION, terrain, toggleTest, openChest, openTrash, chestAt, breed, banner,
   get zoom() { return zoom; }, get TILE() { return TILE; }, get, setTile, finishBreak, addItem, count, craft,
   bestPick, bestPickSlot, hatch, serialize, deserialize, saveLocal, loadLocal, newWorld, generate, usePlace, feed,
-  openCraft, setZoom, toggleDay, daylight, keys, touch, Sound };
+  openCraft, setZoom, toggleDay, daylight, keys, touch, Sound, net, peers, netJoin, netLeave };
 </script>
 </body>
 </html>
