@@ -101,7 +101,7 @@
   .help { font-weight: 500; font-size: 14px; }
   .help b { font-weight: 700; }
   .box h3 { margin: 14px 0 6px; font-size: 17px; }
-  #giveN, .field { width: 90px; font: inherit; padding: 6px 8px; border: 3px solid var(--edge); border-radius: 10px;
+  .field { width: 170px; font: inherit; padding: 6px 8px; border: 3px solid var(--edge); border-radius: 10px;
     -webkit-user-select: text; user-select: text; }
   .news { font-weight: 500; font-size: 14px; }
   #fps { position: fixed; top: calc(max(10px, env(safe-area-inset-top)) + 92px); left: max(10px, env(safe-area-inset-left));
@@ -113,7 +113,22 @@
   #meter { background: var(--plate); border: 3px solid var(--edge); border-radius: 12px; padding: 4px 14px;
     font-size: 17px; }
   .news ul { margin: 4px 0 10px; padding-left: 22px; }
-  .field { width: 170px; }
+  .looks { display: flex; gap: 8px; flex-wrap: wrap; }
+  .looks button { width: 48px; height: 48px; padding: 0; border: 3px solid #ffb0d4; border-radius: 10px;
+    background: var(--soft); font-size: 24px; }
+  .looks button.on { border-color: var(--edge); box-shadow: 0 0 0 3px #fff inset; }
+  #lookPreview { display: block; width: 120px; height: 120px; margin: 6px auto 0; }
+  .world { border: 3px solid #ffb0d4; border-radius: 14px; padding: 10px; margin-top: 12px; background: #fff7fb; }
+  .world h3 { margin: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .world code { font-size: 18px; background: var(--soft); padding: 2px 8px; border-radius: 8px; user-select: text;
+    -webkit-user-select: text; }
+  .heroes { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
+  .heroCard { text-align: center; padding: 6px; border-radius: 12px; background: var(--soft); font-size: 14px; }
+  .heroCard canvas { width: 56px; height: 56px; display: block; margin: 0 auto; }
+  .heroCard .btn { padding: 4px 8px; margin-top: 4px; }
+  .opts label { display: flex; flex-direction: column; font-size: 14px; gap: 2px; }
+  .opts select, .opts input { font: inherit; padding: 4px 6px; border: 3px solid var(--edge); border-radius: 10px;
+    background: #fff; color: var(--ink); }
   #netHud { position: fixed; top: calc(max(10px, env(safe-area-inset-top)) + 122px); left: max(10px, env(safe-area-inset-left));
     background: rgba(255, 240, 247, .7); border: 2px solid var(--edge); border-radius: 8px; padding: 2px 8px;
     font-size: 13px; pointer-events: none; }
@@ -135,8 +150,6 @@
 <div id="netHud" hidden></div>
 
 <div id="top">
-  <button class="btn" id="giveBtn" title="Выдать себе блоки (G)" hidden>🎁</button>
-  <button class="btn" id="testBtn" title="Режим тестирования (T)">🧪</button>
   <button class="btn" id="dayBtn" title="Всегда день">☀️</button>
   <button class="btn" id="soundBtn" title="Звук (M)">🔊</button>
   <button class="btn" id="bagBtn" title="Рюкзак (E)">🎒</button>
@@ -190,28 +203,22 @@
   </div>
 </div>
 
-<div class="sheet" id="give" hidden>
-  <div class="box">
-    <h2>🧪 Режим тестирования</h2>
-    <div class="hint">Выбери, сколько штук, и нажми на блок или яйцо призыва — они появятся в рюкзаке.
-      Кирки выдаются по одной за раз, остальные вещи не выдаются.</div>
-    <div class="row"><label>Сколько: <input type="number" id="giveN" min="1" max="999" value="64"></label>
-      <button class="btn" data-n="1">1</button><button class="btn" data-n="10">10</button>
-      <button class="btn" data-n="64">64</button><button class="btn" data-n="99">99</button></div>
-    <div class="grid" style="margin-top:10px"></div>
-    <div class="row end"><button class="btn close">Закрыть</button></div>
-  </div>
-</div>
-
 <div class="sheet" id="news" hidden>
   <div class="box">
     <h2>Что нового</h2>
     <div class="news">
-      <h3>Версия 1.4</h3>
+      <h3>Версия 2.0</h3>
       <ul>
-        <li><b>Игра по сети</b> — меню ☰ → «🌐 Играть по сети»: впиши имя и пароль комнаты. Все, кто вошёл,
-          играют в одном мире — видят друг друга с именами над головой, а поставленные и сломанные блоки
-          появляются у всех. Работает, когда игра открыта с сервера, а не из файла.</li>
+        <li><b>Игра по сети</b>: при запуске впиши логин и код мира — код скажет админ. Новый логин — новый
+          герой, с тем же логином вернёшься к своему герою: рюкзак и место хранятся на сервере.</li>
+        <li><b>Свой герой</b>: при первом входе выбери цвет сердечка и украшение — бантик, корону, очки или цветок.
+          Другие игроки видят тебя таким, с именем над головой.</li>
+        <li><b>Несколько миров</b>, у каждого свой код и свои настройки: горы или равнина, океан, пещеры, руды,
+          лес, сердечки.</li>
+        <li>Блоки и <b>сундуки общие</b>: что положил один, видят все.</li>
+        <li><b>Яйца призыва</b> теперь делаются у верстака: 4 розовых кристалла и золото — сердечко,
+          4 водоросли и золото — рыбка.</li>
+        <li>Сохранений, загрузок и режима тестирования больше нет — всё хранит сервер, а вещи может подарить админ.</li>
       </ul>
       <h3>Версия 1.3</h3>
       <ul>
@@ -265,40 +272,72 @@
   </div>
 </div>
 
-<div class="sheet" id="net" hidden>
+<div class="sheet" id="login" hidden>
   <div class="box">
-    <h2>🌐 Игра по сети</h2>
-    <div class="hint">Все, кто вошёл с одним паролем, играют в одном мире: видят друг друга, а поставленные
-      и сломанные блоки появляются у всех. Первый вошедший приносит свой мир, остальные попадают в него.
-      Сердечки, рыбки, вещи в сундуках и время суток у каждого свои.</div>
-    <div class="row"><label>Имя: <input class="field" id="netName" maxlength="16"></label>
-      <label>Пароль: <input class="field" id="netPass" type="password"></label></div>
-    <p class="hint" id="netStatus"></p>
-    <ul class="news" id="netPlayers"></ul>
-    <div class="row end"><button class="btn main" id="netJoin">Войти</button>
-      <button class="btn" id="netLeave">Выйти из сетевой игры</button>
-      <button class="btn close">Закрыть</button></div>
+    <h2>💖 Сердцекрафт</h2>
+    <div class="hint">Впиши свой логин и код мира — код скажет тот, кто позвал тебя играть. Новый логин — новый герой,
+      с тем же логином вернёшься к своему герою и его рюкзаку.</div>
+    <div class="row"><label>Логин: <input class="field" id="loginName" maxlength="16" autocomplete="username"></label>
+      <label>Код мира: <input class="field" id="loginCode" autocomplete="off"></label></div>
+    <p class="hint" id="loginStatus"></p>
+    <div class="row end"><button class="btn main" id="loginBtn">Войти</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="hero" hidden>
+  <div class="box">
+    <h2>Какой у тебя герой?</h2>
+    <div class="hint">Выбери цвет и украшение — таким тебя увидят другие игроки. Поменять потом нельзя.</div>
+    <canvas id="lookPreview" width="240" height="240"></canvas>
+    <h3>Цвет</h3>
+    <div class="looks" id="lookColors"></div>
+    <h3>Украшение</h3>
+    <div class="looks" id="lookHats"></div>
+    <div class="row end"><button class="btn main" id="heroBtn">В игру!</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="admin" hidden>
+  <div class="box">
+    <h2>🔑 Админ</h2>
+    <p class="hint" id="adminStatus"></p>
+    <h3>Новый мир</h3>
+    <div class="row"><label>Название: <input class="field" id="newName" maxlength="40"></label>
+      <label>Код: <input class="field" id="newCode" maxlength="32" placeholder="придумает сервер"></label></div>
+    <div class="row opts" id="newOpts"></div>
+    <div class="row"><button class="btn" id="newRandom">🎲 Разбросать настройки</button>
+      <button class="btn main" id="newCreate">✨ Создать мир</button></div>
+    <div id="adminWorlds"></div>
+    <div class="row end"><button class="btn" id="adminExit">🚪 Выйти</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="gift" hidden>
+  <div class="box">
+    <h2></h2>
+    <div class="hint">Нажми на вещь — она уйдёт герою: сразу, если он в игре, иначе когда войдёт.</div>
+    <div class="row"><label>Сколько: <input class="field" type="number" id="giftN" min="1" max="999" value="64"></label>
+      <button class="btn" data-n="1">1</button><button class="btn" data-n="10">10</button>
+      <button class="btn" data-n="64">64</button><button class="btn" data-n="99">99</button></div>
+    <div class="grid" style="margin-top:10px"></div>
+    <div class="row end"><button class="btn" id="giftBack">← К мирам</button></div>
   </div>
 </div>
 
 <div class="sheet" id="menu" hidden>
   <div class="box">
     <h2>Меню</h2>
+    <p class="hint" id="whoami"></p>
+    <h3>В игре</h3>
+    <ul class="news" id="players"></ul>
     <div class="menu">
-      <button class="btn main" data-act="save">💾 Сохранить</button>
-      <button class="btn" data-act="load">📂 Загрузить</button>
-      <button class="btn" data-act="download">⬇️ Скачать мир в файл</button>
-      <button class="btn" data-act="upload">⬆️ Открыть мир из файла</button>
-      <button class="btn" data-act="reset">🔄 Сброс: новый мир</button>
-      <button class="btn" data-act="net" id="netAct" hidden>🌐 Играть по сети</button>
-      <button class="btn" data-act="news">📜 Что нового</button>
+      <button class="btn main" data-act="logout">🚪 Выйти</button>
       <button class="btn close">Закрыть</button>
     </div>
-    <input type="file" id="file" accept=".json,application/json" hidden>
     <div class="help">
       <p><b>Компьютер:</b> A/D или ←/→ — идти, W/↑/Пробел — прыгать, левая кнопка мыши (держать) — ломать,
         правая — поставить блок / открыть верстак, сундук или мусорку, 1–9 или колесо — выбрать ячейку,
-        E — рюкзак, C — крафт без верстака, M — звук, T — режим тестирования, G — выдать блоки (в режиме тестирования),
+        E — рюкзак, C — крафт без верстака, M — звук,
         S/↓ — спуститься по лестнице, + / − или Ctrl+колесо — приблизить / отдалить, Esc — закрыть окно.</p>
       <p><b>Планшет:</b> ◀ ▶ — идти, ⤒ — прыгать. Кнопка ⛏/🧱 переключает: ⛏ — держи палец на блоке,
         чтобы сломать; 🧱 — нажми на пустое место, чтобы поставить блок из пояса. ➕ ➖ — приблизить / отдалить.</p>
@@ -322,19 +361,18 @@
 "use strict";
 
 const W = 1024, H = 256;
-const SAVE_KEY = "heartcraft-save";
 const REACH = 5.5;
 const SLOTS = 36;
 const SPEED = 6, GRAV = 32, JUMP = 11.5, MAX_FALL = 22;
 const DAY_LEN = 480;
 const ZOOMS = [0.5, 0.75, 1, 1.5, 2];
-const MOB_START = 40, MOB_MAX = 80, MOB_SPEED = 2, MOB_JUMP = 9, LOVE_TIME = 15, BREED_PAUSE = 30, GROW_TIME = 60;
+const MOB_MAX = 80, MOB_SPEED = 2, MOB_JUMP = 9, LOVE_TIME = 15, BREED_PAUSE = 30, GROW_TIME = 60;
 const WHITE_CHANCE = 0.01, WHITE_PAIR_CHANCE = 0.2;
 const LIFE_MIN = 600, LIFE_MAX = 1200, OLD_AT = 0.7;
 const SWIM = 5, SWIM_FALL = 3, WATER_GRAV = 0.3, CLIMB = 4, LADDER_SLIDE = 1.5;
 const FISH_COUNT = 30, FISH_MAX = 100, FISH_SPEED = 1.5;
 const CHEST_SLOTS = 27;
-const VERSION = "1.4";
+const VERSION = "2.0";
 
 const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, COBBLE: 4, SAND: 5, LOG: 6, LEAVES: 7, PLANKS: 8,
   COAL_ORE: 9, IRON_ORE: 10, GOLD_ORE: 11, DIAMOND_ORE: 12, PINK_ORE: 13, BEDROCK: 14, WORKBENCH: 15,
@@ -405,6 +443,8 @@ const RECIPES = [
   { out: B.TRASH, n: 1, need: [[B.PLANKS, 5]] },
   { out: B.LADDER, n: 3, need: [[I.STICK, 7]] },
   { out: I.HEART_METER, n: 1, need: [[B.PINK, 3], [I.STICK, 5]] },
+  { out: I.HEART_EGG, n: 1, need: [[I.PINK_GEM, 4], [I.GOLD, 1]] },
+  { out: I.FISH_EGG, n: 1, need: [[B.SEAWEED, 4], [I.GOLD, 1]] },
 ];
 
 const isBlock = id => id in BLOCKS;
@@ -685,12 +725,25 @@ function noise2(x, y, s) {
 }
 
 const OCEAN_W = 120, OCEAN_GAP = 90;
+// World settings are indices into these lists; the middle choices are the generator as it always was.
+const WORLD_OPTS = {
+  hills: { name: "Рельеф", values: [0.15, 0.5, 1, 1.5, 2.2], labels: ["Равнина", "Пологие холмы", "Обычные холмы", "Крутые холмы", "Горы"] },
+  ocean: { name: "Океан", values: [false, true], labels: ["Без океана", "С океаном"] },
+  caves: { name: "Пещеры", values: [2, 0.76, 0.7, 0.62], labels: ["Без пещер", "Мало пещер", "Обычные пещеры", "Много пещер"] },
+  ores: { name: "Руды", values: [0.5, 1, 2], labels: ["Мало руды", "Обычно руды", "Много руды"] },
+  trees: { name: "Деревья", values: [0, 0.05, 0.12, 0.3], labels: ["Без деревьев", "Мало деревьев", "Обычно деревьев", "Лес"] },
+  hearts: { name: "Сердечки", values: [0, 15, 40, 70], labels: ["Без сердечек", "Мало сердечек", "Обычно сердечек", "Много сердечек"] },
+};
+const DEFAULT_OPTS = { hills: 2, ocean: 1, caves: 2, ores: 1, trees: 2, hearts: 2 };
+const opt = (opts, key) => WORLD_OPTS[key].values[opts[key]];
 
 // The ocean is a basin dug into the hills next to the spawn; water stands up to the lower of its two shores.
-function terrain(seed, withOcean) {
+function terrain(seed, withOcean, hills = DEFAULT_OPTS.hills) {
   const s = new Int16Array(W);
+  const k = WORLD_OPTS.hills.values[hills];
   for (let x = 0; x < W; x++) {
-    s[x] = Math.round(62 + noise1(x / 90, seed) * 40 + noise1(x / 24, seed + 1) * 12 + noise1(x / 7, seed + 2) * 3);
+    const h = 62 + noise1(x / 90, seed) * 40 * k + noise1(x / 24, seed + 1) * 12 * k + noise1(x / 7, seed + 2) * 3;
+    s[x] = Math.max(4, Math.min(170, Math.round(h)));
   }
   if (!withOcean) {
     return { surf: s, ocean: null };
@@ -742,32 +795,33 @@ function deposit(w, rng, ore, count, ymin) {
   }
 }
 
-function generate(seed) {
+function generate(seed, opts = DEFAULT_OPTS) {
   const rng = mulberry32(seed);
-  const { surf, ocean } = terrain(seed, true);
+  const { surf, ocean } = terrain(seed, opt(opts, "ocean"), opts.hills);
+  const caves = opt(opts, "caves"), ores = opt(opts, "ores"), trees = opt(opts, "trees");
   const w = new Uint8Array(W * H);
   for (let x = 0; x < W; x++) {
     const s = surf[x];
     const dirt = 3 + Math.floor(hash2(x, 1, seed) * 3);
-    const low = s >= 105 || (x >= ocean.x0 && x < ocean.x1);
+    const low = s >= 105 || (ocean && x >= ocean.x0 && x < ocean.x1);
     for (let y = s; y < H; y++) {
       let id = y === s ? (low ? B.SAND : B.GRASS) : y < s + dirt ? (low ? B.SAND : B.DIRT) : B.STONE;
       if (y > s + 5) {
         const n = noise2(x / 26, y / 15, seed + 3) * 0.6 + noise2(x / 9, y / 8, seed + 4) * 0.4;
-        if (n > 0.7 - Math.min(0.06, (y - s) / 2000)) {
+        if (n > caves - Math.min(0.06, (y - s) / 2000)) {
           id = B.AIR;
         }
       }
       w[y * W + x] = id;
     }
   }
-  vein(w, rng, B.COAL_ORE, 1600, 7, 70);
-  vein(w, rng, B.IRON_ORE, 1000, 6, 120);
-  vein(w, rng, B.GOLD_ORE, 450, 5, 170);
-  deposit(w, rng, B.PINK_ORE, 300, 200);
-  vein(w, rng, B.DIAMOND_ORE, 180, 4, 215);
+  vein(w, rng, B.COAL_ORE, Math.round(1600 * ores), 7, 70);
+  vein(w, rng, B.IRON_ORE, Math.round(1000 * ores), 6, 120);
+  vein(w, rng, B.GOLD_ORE, Math.round(450 * ores), 5, 170);
+  deposit(w, rng, B.PINK_ORE, Math.round(300 * ores), 200);
+  vein(w, rng, B.DIAMOND_ORE, Math.round(180 * ores), 4, 215);
 
-  for (let x = ocean.x0; x < ocean.x1; x++) {
+  for (let x = ocean ? ocean.x0 : 0; ocean && x < ocean.x1; x++) {
     for (let y = ocean.sea; y < surf[x]; y++) {
       w[y * W + x] = B.WATER;
     }
@@ -783,7 +837,7 @@ function generate(seed) {
   let last = -10;
   for (let x = 4; x < W - 4; x++) {
     const s = surf[x];
-    if (w[s * W + x] !== B.GRASS || x - last < 5 || rng() > 0.12) {
+    if (w[s * W + x] !== B.GRASS || x - last < 5 || rng() > trees) {
       continue;
     }
     last = x;
@@ -833,8 +887,8 @@ let mobs = [];
 let fish = [];
 let chests = new Map();
 let hasOcean = true;
+let worldOpts = DEFAULT_OPTS;
 let time = 0;
-let testMode = false;
 let alwaysDay = false;
 try {
   alwaysDay = localStorage.getItem("heartcraft-day") === "on";
@@ -894,7 +948,8 @@ function wildMob(x, y, grow, white) {
 }
 function spawnMobs() {
   mobs = [];
-  for (let tries = 0; mobs.length < MOB_START && tries < MOB_START * 20; tries++) {
+  const start = opt(worldOpts, "hearts");
+  for (let tries = 0; mobs.length < start && tries < start * 20; tries++) {
     const x = 8 + Math.floor(Math.random() * (W - 16));
     const m = wildMob(x + 0.25, 0, 0, false);
     m.y = surf[x] - m.h - 0.01;
@@ -916,15 +971,20 @@ function spawnFish() {
   });
 }
 
-function newWorld(s) {
+function freshBag() {
+  const bag = new Array(SLOTS).fill(null);
+  bag[0] = { id: B.WORKBENCH, n: 1 };
+  return bag;
+}
+function newWorld(s, opts = DEFAULT_OPTS) {
   seed = s;
-  const g = generate(seed);
+  worldOpts = opts;
+  const g = generate(seed, opts);
   world = g.tiles;
   surf = g.surf;
-  hasOcean = true;
+  hasOcean = opt(opts, "ocean");
   chests = new Map();
-  inv = new Array(SLOTS).fill(null);
-  inv[0] = { id: B.WORKBENCH, n: 1 };
+  inv = freshBag();
   sel = 0;
   time = 0;
   spawnMobs();
@@ -1893,65 +1953,136 @@ function drawLight(x0, y0, x1, y1) {
 }
 
 
-function drawHeart(e, x, y, s, t, body) {
+function drawHeart(e, x, y, s, t, body, g = ctx) {
   const br = 1 + Math.sin(t * 3) * 0.03;
   const f = e.face;
   const look = Math.max(-1, Math.min(1, e.vy / 10));
-  ctx.save();
-  ctx.translate(x + s / 2, y + s);
-  ctx.scale(s * (2 - br), s * br);
-  ctx.translate(-0.5, -0.96);
-  ctx.fillStyle = body;
-  ctx.fill(HEART);
-  ctx.lineWidth = 0.05;
-  ctx.strokeStyle = "#b0105a";
-  ctx.stroke(HEART);
-  ctx.fillStyle = "rgba(255, 255, 255, .55)";
-  ctx.beginPath();
-  ctx.ellipse(0.24, 0.2, 0.09, 0.05, -0.6, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "rgba(255, 170, 210, .9)";
+  g.save();
+  g.translate(x + s / 2, y + s);
+  g.scale(s * (2 - br), s * br);
+  g.translate(-0.5, -0.96);
+  g.fillStyle = body;
+  g.fill(HEART);
+  g.lineWidth = 0.05;
+  g.strokeStyle = "#b0105a";
+  g.stroke(HEART);
+  g.fillStyle = "rgba(255, 255, 255, .55)";
+  g.beginPath();
+  g.ellipse(0.24, 0.2, 0.09, 0.05, -0.6, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "rgba(255, 170, 210, .9)";
   for (const cx of [0.2, 0.8]) {
-    ctx.beginPath();
-    ctx.arc(cx + f * 0.03, 0.56, 0.065, 0, Math.PI * 2);
-    ctx.fill();
+    g.beginPath();
+    g.arc(cx + f * 0.03, 0.56, 0.065, 0, Math.PI * 2);
+    g.fill();
   }
   const blink = t % 4 < 0.13;
   for (const ex of [0.34, 0.66]) {
     const cx = ex + f * 0.04;
     if (blink) {
-      ctx.strokeStyle = "#3a0a22";
-      ctx.lineWidth = 0.04;
-      ctx.beginPath();
-      ctx.moveTo(cx - 0.08, 0.42);
-      ctx.lineTo(cx + 0.08, 0.42);
-      ctx.stroke();
+      g.strokeStyle = "#3a0a22";
+      g.lineWidth = 0.04;
+      g.beginPath();
+      g.moveTo(cx - 0.08, 0.42);
+      g.lineTo(cx + 0.08, 0.42);
+      g.stroke();
       continue;
     }
-    ctx.fillStyle = "#fff";
-    ctx.beginPath();
-    ctx.arc(cx, 0.41, 0.1, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#2a0618";
-    ctx.beginPath();
-    ctx.arc(cx + f * 0.035, 0.42 + look * 0.035, 0.055, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#fff";
-    ctx.beginPath();
-    ctx.arc(cx + f * 0.035 - 0.02, 0.4 + look * 0.035, 0.018, 0, Math.PI * 2);
-    ctx.fill();
+    g.fillStyle = "#fff";
+    g.beginPath();
+    g.arc(cx, 0.41, 0.1, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "#2a0618";
+    g.beginPath();
+    g.arc(cx + f * 0.035, 0.42 + look * 0.035, 0.055, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "#fff";
+    g.beginPath();
+    g.arc(cx + f * 0.035 - 0.02, 0.4 + look * 0.035, 0.018, 0, Math.PI * 2);
+    g.fill();
   }
   const mx = 0.5 + f * 0.03;
-  ctx.fillStyle = "#8a1040";
-  ctx.beginPath();
-  ctx.arc(mx, 0.56, 0.09, 0.1 * Math.PI, 0.9 * Math.PI);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#ff8fb8";
-  ctx.beginPath();
-  ctx.ellipse(mx, 0.625, 0.045, 0.022, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  g.fillStyle = "#8a1040";
+  g.beginPath();
+  g.arc(mx, 0.56, 0.09, 0.1 * Math.PI, 0.9 * Math.PI);
+  g.closePath();
+  g.fill();
+  g.fillStyle = "#ff8fb8";
+  g.beginPath();
+  g.ellipse(mx, 0.625, 0.045, 0.022, 0, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+}
+// Coordinates follow drawHeart: its unit square lands on about [x, x + s] x [y, y + s].
+function drawHat(g, e, x, y, s, hat) {
+  const f = e.face * 0.04;
+  g.save();
+  g.translate(x, y);
+  g.scale(s, s);
+  g.lineWidth = 0.04;
+  g.strokeStyle = "#5a1838";
+  if (hat === 1) {
+    g.fillStyle = "#7c4dff";
+    g.beginPath();
+    g.moveTo(0.28, 0.08);
+    g.lineTo(0.06, -0.05);
+    g.lineTo(0.09, 0.22);
+    g.closePath();
+    g.moveTo(0.28, 0.08);
+    g.lineTo(0.5, -0.05);
+    g.lineTo(0.47, 0.22);
+    g.closePath();
+    g.fill();
+    g.stroke();
+    g.beginPath();
+    g.arc(0.28, 0.08, 0.06, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+  } else if (hat === 2) {
+    g.fillStyle = "#ffcf33";
+    g.beginPath();
+    g.moveTo(0.27, 0.12);
+    g.lineTo(0.27, -0.12);
+    g.lineTo(0.38, -0.01);
+    g.lineTo(0.5, -0.2);
+    g.lineTo(0.62, -0.01);
+    g.lineTo(0.73, -0.12);
+    g.lineTo(0.73, 0.12);
+    g.closePath();
+    g.fill();
+    g.stroke();
+  } else if (hat === 3) {
+    g.lineWidth = 0.05;
+    g.strokeStyle = "#2a0618";
+    g.fillStyle = "rgba(160, 220, 255, .35)";
+    for (const ex of [0.34, 0.66]) {
+      g.beginPath();
+      g.arc(ex + f, 0.45, 0.13, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+    }
+    g.beginPath();
+    g.moveTo(0.47 + f, 0.43);
+    g.lineTo(0.53 + f, 0.43);
+    g.stroke();
+  } else if (hat === 4) {
+    g.fillStyle = "#fff";
+    for (let i = 0; i < 5; i++) {
+      const a = i * Math.PI * 2 / 5;
+      g.beginPath();
+      g.arc(0.74 + Math.cos(a) * 0.08, 0.06 + Math.sin(a) * 0.08, 0.065, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillStyle = "#ffd21f";
+    g.beginPath();
+    g.arc(0.74, 0.06, 0.06, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.restore();
+}
+function drawHero(g, e, x, y, s, t, look) {
+  drawHeart(e, x, y, s, t, LOOK_COLORS[look.c], g);
+  drawHat(g, e, x, y, s, look.h);
 }
 
 function drawCloud(x, y, s) {
@@ -2113,7 +2244,7 @@ function render(t) {
   for (const o of peers.values()) {
     if (o.seen) {
       const x = (o.x - cam.x) * ts, y = (o.y - cam.y) * ts;
-      drawHeart(o, x, y, o.w * ts, t + o.phase, o.color);
+      drawHero(ctx, o, x, y, o.w * ts, t + o.phase, o.look);
       ctx.lineWidth = 3;
       ctx.strokeStyle = "rgba(90, 24, 56, .8)";
       ctx.strokeText(o.name, x + o.w * ts / 2, y - 6);
@@ -2121,7 +2252,7 @@ function render(t) {
       ctx.fillText(o.name, x + o.w * ts / 2, y - 6);
     }
   }
-  drawHeart(P, (P.x - cam.x) * ts, (P.y - cam.y) * ts, P.w * ts, t, "#ff4f9a");
+  drawHero(ctx, P, (P.x - cam.x) * ts, (P.y - cam.y) * ts, P.w * ts, t, lookOf(net.look));
 
   for (const f of floats) {
     ctx.globalAlpha = 1 - f.t / 1.2;
@@ -2196,7 +2327,9 @@ function renderHotbar() {
   $("#selname").textContent = inv[sel] ? nameOf(inv[sel].id) : "";
 }
 
-const sheets = ["craft", "bag", "menu", "store", "give", "news", "net"].map(id => $("#" + id));
+const sheets = ["craft", "bag", "menu", "store", "news", "login", "hero", "admin", "gift"].map(id => $("#" + id));
+// There is no game behind these sheets (no login, no hero yet, or the admin), so they do not close on their own.
+const blocking = el => ["login", "hero", "admin", "gift"].includes(el.id);
 const openSheet = () => sheets.find(s => !s.hidden);
 function show(el) {
   trash = null;
@@ -2212,7 +2345,7 @@ function closeSheets() {
 }
 sheets.forEach(s => {
   s.addEventListener("pointerdown", e => {
-    if (e.target === s) {
+    if (e.target === s && !blocking(s)) {
       closeSheets();
     }
   });
@@ -2296,11 +2429,14 @@ let trash = null;
 function openChest(x, y) {
   show($("#store"));
   storeSlots = chestAt(x, y);
+  openedChest = { x, y };
+  net.chestSent = JSON.stringify(storeSlots.map(encodeSlot));
   renderStore();
 }
 function openTrash() {
   show($("#store"));
   storeSlots = null;
+  openedChest = null;
   renderStore();
 }
 function transfer(from, i, to, full) {
@@ -2364,41 +2500,6 @@ function renderStore() {
   });
 }
 
-const giveN = $("#giveN");
-const givable = id => isBlock(id) || Boolean(pickOf(id)) || id === I.HEART_EGG || id === I.FISH_EGG;
-function renderGive() {
-  const grid = $("#give .grid");
-  grid.innerHTML = "";
-  [...Object.keys(BLOCKS), ...Object.keys(ITEMS)].map(Number).filter(givable).forEach(id => {
-    const el = makeSlot(() => {
-      const n = pickOf(id) ? 1 : Math.max(1, Math.min(999, Math.floor(Number(giveN.value)) || 1));
-      const left = addItem(id, n);
-      toast(left ? `Рюкзак полон: выдано ${nameOf(id)} ×${n - left}` : `Выдано: ${nameOf(id)} ×${n}`);
-      Sound.pickup();
-    });
-    fillSlot(el, { id, n: 1, dur: pickOf(id) && pickOf(id).dur });
-    grid.appendChild(el);
-  });
-}
-$("#give .row").addEventListener("click", e => {
-  if (e.target.dataset.n) {
-    giveN.value = e.target.dataset.n;
-  }
-});
-function openGive() {
-  renderGive();
-  show($("#give"));
-}
-const testBtn = $("#testBtn"), giveBtn = $("#giveBtn");
-function toggleTest() {
-  testMode = !testMode;
-  testBtn.classList.toggle("on", testMode);
-  giveBtn.hidden = !testMode;
-  toast(testMode ? "Режим тестирования включён — 🎁 выдаёт блоки" : "Режим тестирования выключен");
-  Sound.click();
-}
-testBtn.addEventListener("click", toggleTest);
-giveBtn.addEventListener("click", openGive);
 $("#ver").textContent = `v${VERSION} · что нового`;
 $("#ver").addEventListener("click", () => show($("#news")));
 
@@ -2428,9 +2529,12 @@ soundBtn.textContent = Sound.enabled() ? "🔊" : "🔇";
 soundBtn.addEventListener("click", toggleSound);
 // Browsers keep audio muted until the first user gesture.
 ["pointerdown", "keydown"].forEach(t => window.addEventListener(t, () => Sound.unlock(), { capture: true }));
-$("#menuBtn").addEventListener("click", () => show($("#menu")));
+$("#menuBtn").addEventListener("click", () => {
+  renderPlayers();
+  show($("#menu"));
+});
 
-// ---------- save / load ----------
+// ---------- world and bag encoding ----------
 
 function bytesToB64(bytes) {
   let s = "";
@@ -2490,182 +2594,33 @@ function decodeTiles(b64) {
 }
 
 const encodeSlot = s => (!s ? null : pickOf(s.id) ? [s.id, s.n, s.dur] : [s.id, s.n]);
-function serialize() {
-  return JSON.stringify({ game: "heartcraft", v: 4, seed, w: W, h: H, tiles: encodeTiles(world),
-    player: { x: P.x, y: P.y }, inv: inv.map(encodeSlot), sel, time,
-    mobs: mobs.map(m => [m.x, m.y, Math.max(0, m.grow), m.white ? 1 : 0, m.age, m.life]), ocean: hasOcean,
-    fish: fish.map(f => [f.x, f.y]),
-    chests: [...chests].filter(([, c]) => c.some(Boolean)).map(([k, c]) => [k % W, Math.floor(k / W), c.map(encodeSlot)]) });
-}
-function decodeSlot(s, v) {
+function decodeSlot(s) {
   if (s === null) {
     return null;
   }
   const [id, n, dur] = s;
   if (!isKnown(id) || !Number.isInteger(n) || n < 1 || n > stackMax(id)) {
-    throw new Error("испорчен рюкзак");
+    throw new Error("испорчена вещь");
   }
   if (!pickOf(id)) {
     return { id, n };
   }
-  const full = pickOf(id).dur;
-  if (v >= 2 && !(Number.isInteger(dur) && dur >= 1 && dur <= full)) {
+  if (!(Number.isInteger(dur) && dur >= 1 && dur <= pickOf(id).dur)) {
     throw new Error("испорчена прочность кирки");
   }
-  return { id, n, dur: v >= 2 ? dur : full };
+  return { id, n, dur };
+}
+function decodeSlots(slots, n) {
+  if (!Array.isArray(slots) || slots.length !== n) {
+    throw new Error("испорчены ячейки");
+  }
+  return slots.map(decodeSlot);
 }
 const inWorld = (x, y) => x >= 1 && x < W - 1 && y >= 0 && y < H - 1;
-function deserialize(text) {
-  const d = JSON.parse(text);
-  if (!d || d.game !== "heartcraft" || ![1, 2, 3, 4].includes(d.v)) {
-    throw new Error("это не мир Сердцекрафта");
-  }
-  if (d.w !== W || d.h !== H || !Number.isInteger(d.seed)) {
-    throw new Error("неверный размер мира");
-  }
-  const tiles = decodeTiles(d.tiles);
-  if (!Array.isArray(d.inv) || d.inv.length !== SLOTS) {
-    throw new Error("испорчен рюкзак");
-  }
-  const bag = d.inv.map(s => decodeSlot(s, d.v));
-  const { x, y } = d.player || {};
-  if (!inWorld(x, y) || !Number.isInteger(d.sel) || d.sel < 0 || d.sel > 8) {
-    throw new Error("испорчено место героя");
-  }
-  if (d.v >= 2 && !(d.time >= 0 && d.time < 1)) {
-    throw new Error("испорчено время суток");
-  }
-  if (d.v >= 2 && !(Array.isArray(d.mobs) && d.mobs.length <= MOB_MAX &&
-      d.mobs.every(m => Array.isArray(m) && inWorld(m[0], m[1]) && m[2] >= 0 && m[2] <= GROW_TIME &&
-        (d.v === 2 || m[3] === 0 || m[3] === 1) &&
-        (d.v < 4 || (m[5] >= LIFE_MIN && m[5] <= LIFE_MAX && m[4] >= 0 && m[4] < m[5]))))) {
-    throw new Error("испорчены сердечки");
-  }
-  if (d.v === 4 && !(Array.isArray(d.fish) && d.fish.length <= FISH_MAX &&
-      d.fish.every(f => Array.isArray(f) && inWorld(f[0], f[1])))) {
-    throw new Error("испорчены рыбки");
-  }
-  if (d.v >= 3 && typeof d.ocean !== "boolean") {
-    throw new Error("испорчен океан");
-  }
-  const boxes = new Map();
-  if (d.v >= 3) {
-    if (!Array.isArray(d.chests)) {
-      throw new Error("испорчены сундуки");
-    }
-    d.chests.forEach(c => {
-      if (!Array.isArray(c) || !inWorld(c[0], c[1]) || !Number.isInteger(c[0]) || !Number.isInteger(c[1]) ||
-          tiles[chestKey(c[0], c[1])] !== B.CHEST || !Array.isArray(c[2]) || c[2].length !== CHEST_SLOTS) {
-        throw new Error("испорчены сундуки");
-      }
-      boxes.set(chestKey(c[0], c[1]), c[2].map(s => decodeSlot(s, d.v)));
-    });
-  }
-  seed = d.seed;
-  world = tiles;
-  hasOcean = d.v >= 3 && d.ocean;
-  surf = terrain(seed, hasOcean).surf;
-  chests = boxes;
-  inv = bag;
-  sel = d.sel;
-  time = d.v >= 2 ? d.time : 0;
-  if (d.v >= 2) {
-    mobs = d.mobs.map(([mx, my, grow, white, age, life]) =>
-      (d.v === 4 ? makeMob(mx, my, grow, white === 1, life, age) : wildMob(mx, my, grow, white === 1)));
-  } else {
-    spawnMobs();
-  }
-  if (d.v === 4) {
-    fish = d.fish.map(([fx, fy]) => makeFish(fx, fy));
-  } else {
-    spawnFish();
-  }
-  P.x = x;
-  P.y = y;
-  P.vx = P.vy = 0;
-  brk = null;
-  snapCamera();
-  uiDirty = true;
-}
 
-function saveLocal() {
-  try {
-    localStorage.setItem(SAVE_KEY, serialize());
-    toast("Мир сохранён");
-    Sound.chime();
-  } catch (e) {
-    toast("Не получилось сохранить: " + e.message);
-    Sound.nope();
-  }
-}
-function loadLocal() {
-  let text;
-  try {
-    text = localStorage.getItem(SAVE_KEY);
-  } catch (e) {
-    toast("Хранилище браузера недоступно: " + e.message);
-    return;
-  }
-  if (!text) {
-    toast("Сохранения пока нет");
-    return;
-  }
-  loadText(text, "Мир загружен");
-}
-function loadText(text, ok) {
-  try {
-    deserialize(text);
-    toast(ok);
-    Sound.chime();
-  } catch (e) {
-    toast("Не получилось загрузить: " + e.message);
-    Sound.nope();
-  }
-}
-function download() {
-  const blob = new Blob([serialize()], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `heartcraft-${new Date().toISOString().slice(0, 16).replace(/[T:]/g, "-")}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
-
-const fileEl = $("#file");
-fileEl.addEventListener("change", () => {
-  const f = fileEl.files[0];
-  fileEl.value = "";
-  if (f) {
-    f.text().then(t => loadText(t, "Мир открыт из файла"), e => toast("Не получилось прочитать файл: " + e.message));
-  }
-});
 $("#menu").addEventListener("click", e => {
-  const act = e.target.dataset && e.target.dataset.act;
-  if (!act) {
-    return;
-  }
-  closeSheets();
-  if (act === "load" || act === "upload") {
-    leaveForLocal();
-  }
-  if (act === "save") {
-    saveLocal();
-  } else if (act === "load") {
-    loadLocal();
-  } else if (act === "download") {
-    download();
-  } else if (act === "upload") {
-    fileEl.click();
-  } else if (act === "news") {
-    show($("#news"));
-  } else if (act === "net") {
-    openNet();
-  } else if (act === "reset" && confirm("Начать новый мир? Всё несохранённое пропадёт.")) {
-    leaveForLocal();
-    newWorld(randSeed());
-    toast("Новый мир готов");
+  if (e.target.dataset && e.target.dataset.act === "logout") {
+    netLeave("Вы вышли из игры");
   }
 });
 
@@ -2673,30 +2628,33 @@ $("#menu").addEventListener("click", e => {
 
 const NET_KEY = "heartcraft-net";
 const NET_SEND_EVERY = 100, NET_KEEPALIVE = 5000, NET_RETRY = 3000;
-const PEER_COLORS = ["#8e6bff", "#29b6f6", "#43c06d", "#ffa726", "#ef5350", "#26c6da", "#c06bd8"];
+const LOOK_COLORS = ["#ff4f9a", "#e53935", "#ff8a1f", "#ffd21f", "#43c06d", "#29b6f6", "#8e6bff", "#ffffff"];
+const HATS = [["✖", "Без украшения"], ["🎀", "Бантик"], ["👑", "Корона"], ["👓", "Очки"], ["🌸", "Цветок"]];
+const lookOf = look => look || { c: 0, h: 0 };
 const peers = new Map();
-const net = { ws: null, want: false, ready: false, shared: false, name: "", pass: "", status: "", sent: "", sentAt: 0,
-  retry: 0 };
+const net = { ws: null, want: false, ready: false, shared: false, login: "", code: "", name: "", world: "",
+  look: null, sent: "", sentAt: 0, meSent: "", chestSent: "", retry: 0 };
 try {
-  Object.assign(net, JSON.parse(localStorage.getItem(NET_KEY)) || {});
+  const saved = JSON.parse(localStorage.getItem(NET_KEY)) || {};
+  net.login = saved.login || "";
+  net.code = saved.code || "";
+  net.want = saved.want === true;
 } catch (e) {
-  // the name and password just have to be typed again
+  // the login and the world code just have to be typed again
 }
+// The chest whose window was opened last: its slots go to the others while it changes.
+let openedChest = null;
 
 function netRemember() {
   try {
-    localStorage.setItem(NET_KEY, JSON.stringify({ name: net.name, pass: net.pass, want: net.want }));
+    localStorage.setItem(NET_KEY, JSON.stringify({ login: net.login, code: net.code, want: net.want }));
   } catch (e) {
-    // the choice just won't survive a reload
+    // the login will be asked again after a reload
   }
 }
-function netState(status) {
-  net.status = status;
-  renderNet();
-}
-function netJoin(name, pass) {
-  net.name = name;
-  net.pass = pass;
+function netLogin(login, code) {
+  net.login = login;
+  net.code = code;
   net.want = true;
   netRemember();
   netConnect();
@@ -2709,8 +2667,8 @@ function netConnect() {
   }
   const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
   net.ws = ws;
-  netState("Подключаюсь…");
-  ws.onopen = () => ws.send(JSON.stringify({ t: "hello", name: net.name, pass: net.pass }));
+  showLogin("Подключаюсь…");
+  ws.onopen = () => ws.send(JSON.stringify({ t: "hello", login: net.login, code: net.code }));
   ws.onmessage = e => net.ws === ws && netMessage(JSON.parse(e.data));
   ws.onclose = () => {
     if (net.ws !== ws) {
@@ -2720,7 +2678,7 @@ function netConnect() {
     net.ready = false;
     peers.clear();
     if (net.want) {
-      netState("Связь потеряна — переподключаюсь…");
+      showLogin("Связь потеряна — переподключаюсь…");
       net.retry = setTimeout(netConnect, NET_RETRY);
     }
   };
@@ -2735,13 +2693,7 @@ function netLeave(status) {
     ws.close();
   }
   peers.clear();
-  netState(status);
-}
-function leaveForLocal() {
-  if (net.want) {
-    netLeave("Вы вышли из сетевой игры, чтобы открыть свой мир");
-    toast("Сетевая игра закрыта");
-  }
+  showLogin(status);
 }
 function netSend(msg) {
   if (net.ready) {
@@ -2751,8 +2703,8 @@ function netSend(msg) {
 function netTile(x, y) {
   netSend({ t: "set", x, y, id: get(x, y) });
 }
-function makePeer(id, name, pos) {
-  const o = { id, name, color: PEER_COLORS[id % PEER_COLORS.length], phase: id * 1.7, w: P.w, h: P.h,
+function makePeer(id, name, look, pos) {
+  const o = { id, name, look: lookOf(look), phase: id * 1.7, w: P.w, h: P.h,
     x: 0, y: 0, tx: 0, ty: 0, vy: 0, face: 1, seen: false };
   if (pos) {
     peerMoved(o, pos);
@@ -2769,8 +2721,8 @@ function peerMoved(o, { x, y, f }) {
     o.seen = true;
   }
 }
-// The server only checks the shape of a world; a broken one is refused here before it replaces the local one.
-function shareWorld(w) {
+// The server only checks the shape of a world; a broken one is refused here before it replaces the current one.
+function shareWorld(w, settings) {
   const tiles = decodeTiles(w.tiles);
   for (const [i, id] of w.changes) {
     if (!Number.isInteger(i) || i < 0 || i >= W * H || (id !== B.AIR && !isBlock(id))) {
@@ -2778,92 +2730,300 @@ function shareWorld(w) {
     }
     tiles[i] = id;
   }
+  const boxes = new Map(w.chests.map(([i, slots]) => [i, decodeSlots(slots, CHEST_SLOTS)]));
   const same = net.shared && seed === w.seed && hasOcean === w.ocean;
   seed = w.seed;
   world = tiles;
   hasOcean = w.ocean;
+  worldOpts = settings || { ...DEFAULT_OPTS, ocean: w.ocean ? 1 : 0 };
+  chests = boxes;
+  openedChest = null;
   net.shared = true;
   brk = null;
   if (!same) {
-    surf = terrain(seed, hasOcean).surf;
-    chests = new Map();
+    surf = terrain(seed, hasOcean, worldOpts.hills).surf;
     spawnMobs();
     spawnFish();
   }
-  if (!same || collides(P, P.x, P.y)) {
-    spawn();
-    snapCamera();
+}
+// The hero kept by the server: a new login starts with a workbench at the spawn point.
+function applyMe(me) {
+  inv = me.inv ? decodeSlots(me.inv, SLOTS) : freshBag();
+  sel = me.inv ? me.sel : 0;
+  net.look = me.look;
+  if (me.x !== null) {
+    P.x = me.x;
+    P.y = me.y;
   }
+  if (me.x === null || !inWorld(P.x, P.y) || collides(P, P.x, P.y)) {
+    spawn();
+  }
+  P.vx = P.vy = 0;
+  brk = null;
+  snapCamera();
+  uiDirty = true;
 }
 function remoteTile(x, y, id) {
   if (!inWorld(x, y) || (id !== B.AIR && !isBlock(id))) {
     return;
   }
   if (get(x, y) === B.CHEST && id !== B.CHEST) {
-    rescueChest(x, y);
+    chests.delete(chestKey(x, y));
+    if (openedChest && openedChest.x === x && openedChest.y === y) {
+      openedChest = storeSlots = null;
+      if (!$("#store").hidden) {
+        closeSheets();
+        toast("Сундук сломали");
+      }
+    }
   }
   setTile(x, y, id);
   if (brk && brk.x === x && brk.y === y) {
     brk = null;
   }
 }
-// Chest contents are not shared: someone else sees this chest empty and may break it, so its things move to the bag.
-function rescueChest(x, y) {
-  const box = chests.get(chestKey(x, y)) || [];
-  chests.delete(chestKey(x, y));
-  if (!box.some(Boolean)) {
+function remoteChest(x, y, slots) {
+  let box;
+  try {
+    box = decodeSlots(slots, CHEST_SLOTS);
+  } catch (e) {
     return;
   }
-  const lost = box.filter(Boolean).reduce((n, stack) => n + putInto(inv, stack), 0);
-  toast(lost ? `Ваш сундук сломали — вещи в рюкзаке, ${lost} не поместилось` : "Ваш сундук сломали — вещи в рюкзаке");
-  Sound.nope();
+  chests.set(chestKey(x, y), box);
+  if (openedChest && openedChest.x === x && openedChest.y === y) {
+    storeSlots = box;
+    net.chestSent = JSON.stringify(slots);
+    if (!$("#store").hidden) {
+      renderStore();
+    }
+  }
 }
 function netMessage(m) {
   if (m.t === "error") {
-    netLeave("Не пустили: " + m.msg);
-    toast("Сеть: " + m.msg);
+    netLeave(m.msg);
     Sound.nope();
-  } else if (m.t === "welcome" || m.t === "load") {
-    if (m.t === "welcome") {
-      net.ready = true;
-      net.sent = "";
-      peers.clear();
-      m.players.forEach(o => peers.set(o.id, makePeer(o.id, o.name, o.pos)));
-    }
-    if (m.world) {
-      try {
-        shareWorld(m.world);
-      } catch (e) {
-        netLeave("Общий мир не открылся: " + e.message);
-        toast("Общий мир не открылся: " + e.message);
-        Sound.nope();
-        return;
+  } else if (m.t === "admin") {
+    showAdmin(m);
+  } else if (m.t === "welcome") {
+    try {
+      if (m.world) {
+        shareWorld(m.world, m.settings);
+      } else if (m.settings) {
+        const { seed: s, ...opts } = m.settings;
+        newWorld(s, opts);
       }
-      toast("Вы в общем мире");
-    } else {
+      applyMe(m.me);
+    } catch (e) {
+      netLeave("Мир не открылся: " + e.message);
+      Sound.nope();
+      return;
+    }
+    net.ready = true;
+    net.sent = net.meSent = "";
+    net.name = m.name;
+    net.world = m.worldName;
+    peers.clear();
+    m.players.forEach(o => peers.set(o.id, makePeer(o.id, o.name, o.look, o.pos)));
+    if (!m.world) {
       net.shared = true;
       netSend({ t: "world", seed, ocean: hasOcean, tiles: encodeTiles(world) });
-      toast("Ваш мир стал общим");
     }
     Sound.chime();
-    netState("В игре");
+    if (net.look) {
+      closeSheets();
+      toast(`${net.name}, добро пожаловать в мир «${net.world}»`);
+    } else {
+      openHero();
+    }
+  } else if (m.t === "load") {
+    try {
+      shareWorld(m.world, m.settings);
+    } catch (e) {
+      netLeave("Мир не открылся: " + e.message);
+      return;
+    }
+    if (collides(P, P.x, P.y)) {
+      spawn();
+      snapCamera();
+    }
   } else if (m.t === "join") {
-    peers.set(m.id, makePeer(m.id, m.name, null));
+    peers.set(m.id, makePeer(m.id, m.name, m.look, null));
     toast(m.name + " заходит в игру");
-    renderNet();
   } else if (m.t === "leave") {
     const o = peers.get(m.id);
     peers.delete(m.id);
     if (o) {
       toast(o.name + " выходит из игры");
     }
-    renderNet();
+  } else if (m.t === "look" && peers.has(m.id)) {
+    peers.get(m.id).look = lookOf(m.look);
   } else if (m.t === "pos" && peers.has(m.id)) {
     peerMoved(peers.get(m.id), m);
   } else if (m.t === "set") {
     remoteTile(m.x, m.y, m.id);
+  } else if (m.t === "chest") {
+    remoteChest(m.x, m.y, m.slots);
+  } else if (m.t === "gift") {
+    receiveGifts(m.items);
   }
 }
+function receiveGifts(items) {
+  const got = [];
+  let lost = 0;
+  for (const [id, n] of items) {
+    if (isKnown(id)) {
+      lost += addItem(id, n);
+      got.push(`${nameOf(id)} ×${n}`);
+    }
+  }
+  toast(`🎁 Подарок от админа: ${got.join(", ")}` + (lost ? ` — ${lost} не поместилось в рюкзак` : ""));
+  Sound.chime();
+}
+
+// ---------- admin ----------
+
+const NEW_OPTS = Object.keys(WORLD_OPTS);
+let adminState = null, giftTo = null;
+function adminSend(msg) {
+  if (net.ws && net.ws.readyState === WebSocket.OPEN) {
+    net.ws.send(JSON.stringify(msg));
+  }
+}
+function renderNewOpts() {
+  const box = $("#newOpts");
+  box.innerHTML = "";
+  const seedLabel = document.createElement("label");
+  seedLabel.innerHTML = "Сид <input type='number' id='newSeed' min='0' max='2147483647'>";
+  box.appendChild(seedLabel);
+  NEW_OPTS.forEach(key => {
+    const label = document.createElement("label");
+    label.textContent = WORLD_OPTS[key].name;
+    const select = document.createElement("select");
+    select.id = "new-" + key;
+    WORLD_OPTS[key].labels.forEach((text, i) => select.add(new Option(text, i)));
+    label.appendChild(select);
+    box.appendChild(label);
+  });
+}
+function setNewOpts(opts) {
+  $("#newSeed").value = opts.seed;
+  NEW_OPTS.forEach(key => ($("#new-" + key).value = opts[key]));
+}
+function randomOpts() {
+  const opts = { seed: randSeed() };
+  NEW_OPTS.forEach(key => (opts[key] = Math.floor(Math.random() * WORLD_OPTS[key].values.length)));
+  return opts;
+}
+function newOpts() {
+  const opts = { seed: Math.floor(Number($("#newSeed").value)) };
+  NEW_OPTS.forEach(key => (opts[key] = Number($("#new-" + key).value)));
+  return opts;
+}
+const optsText = opts => (opts ? `сид ${opts.seed}, ` + NEW_OPTS.map(key => WORLD_OPTS[key].labels[opts[key]].toLowerCase()).join(", ")
+  : "обычные настройки");
+function heroCard(world, hero) {
+  const card = document.createElement("div");
+  card.className = "heroCard";
+  const pic = document.createElement("canvas");
+  pic.width = pic.height = 112;
+  drawHero(pic.getContext("2d"), { face: 1, vy: 0 }, 22, 30, 68, 1, lookOf(hero.look));
+  const name = document.createElement("div");
+  name.textContent = (hero.online ? "🟢 " : "") + hero.name;
+  const give = document.createElement("button");
+  give.className = "btn";
+  give.textContent = "🎁";
+  give.title = "Подарить";
+  give.addEventListener("click", () => openGift(world, hero));
+  card.append(pic, name, give);
+  return card;
+}
+function renderAdmin() {
+  const list = $("#adminWorlds");
+  list.innerHTML = "";
+  adminState.worlds.forEach(world => {
+    const box = document.createElement("div");
+    box.className = "world";
+    const head = document.createElement("h3");
+    const title = document.createElement("span");
+    title.textContent = world.name + " ";
+    const code = document.createElement("code");
+    code.textContent = world.code;
+    title.appendChild(code);
+    const del = document.createElement("button");
+    del.className = "btn";
+    del.textContent = "🗑 Удалить";
+    del.addEventListener("click", () => {
+      if (confirm(`Удалить мир «${world.name}»? Всех, кто в нём играет, выгонит.`)) {
+        adminSend({ t: "delete", code: world.code });
+      }
+    });
+    head.append(title, del);
+    const about = document.createElement("div");
+    about.className = "hint";
+    about.textContent = `${optsText(world.settings)}. Героев: ${world.heroes.length}`;
+    const heroes = document.createElement("div");
+    heroes.className = "heroes";
+    world.heroes.forEach(hero => heroes.appendChild(heroCard(world, hero)));
+    box.append(head, about, heroes);
+    list.appendChild(box);
+  });
+}
+function showAdmin(m) {
+  adminState = m;
+  if (m.error) {
+    toast(m.error);
+    Sound.nope();
+  }
+  $("#adminStatus").textContent = `Миров: ${m.worlds.length}. Код мира — то, что игрок вписывает при входе.`;
+  renderAdmin();
+  if ($("#admin").hidden && $("#gift").hidden) {
+    renderNewOpts();
+    setNewOpts(randomOpts());
+    show($("#admin"));
+  }
+}
+$("#newRandom").addEventListener("click", () => {
+  setNewOpts(randomOpts());
+  Sound.click();
+});
+$("#newCreate").addEventListener("click", () => {
+  const settings = newOpts();
+  if (!(settings.seed >= 0 && settings.seed < 2 ** 31)) {
+    toast("Сид — целое число от 0 до 2147483647");
+    return;
+  }
+  adminSend({ t: "create", name: $("#newName").value, code: $("#newCode").value, settings });
+  $("#newName").value = $("#newCode").value = "";
+});
+$("#adminExit").addEventListener("click", () => netLeave("Вы вышли из админки"));
+// The server tells the admin nothing by itself, so an open panel asks again: who came, which heroes appeared.
+setInterval(() => !$("#admin").hidden && adminSend({ t: "state" }), 3000);
+
+const giftN = $("#giftN");
+const givable = id => isBlock(id) || Boolean(pickOf(id)) || id === I.HEART_EGG || id === I.FISH_EGG;
+function openGift(world, hero) {
+  giftTo = { code: world.code, login: hero.login };
+  $("#gift h2").textContent = `🎁 Подарок для ${hero.name} — мир «${world.name}»`;
+  const grid = $("#gift .grid");
+  grid.innerHTML = "";
+  [...Object.keys(BLOCKS), ...Object.keys(ITEMS)].map(Number).filter(givable).forEach(id => {
+    const el = makeSlot(() => {
+      const n = pickOf(id) ? 1 : Math.max(1, Math.min(999, Math.floor(Number(giftN.value)) || 1));
+      adminSend({ t: "give", ...giftTo, id, n });
+      toast(`Отправлено: ${nameOf(id)} ×${n}`);
+      Sound.pickup();
+    });
+    fillSlot(el, { id, n: 1, dur: pickOf(id) && pickOf(id).dur });
+    grid.appendChild(el);
+  });
+  show($("#gift"));
+}
+$("#gift .row").addEventListener("click", e => {
+  if (e.target.dataset.n) {
+    giftN.value = e.target.dataset.n;
+  }
+});
+$("#giftBack").addEventListener("click", () => show($("#admin")));
 function netTick(dt) {
   const k = Math.min(1, dt * 12);
   for (const o of peers.values()) {
@@ -2874,54 +3034,103 @@ function netTick(dt) {
   }
 }
 // A timer, not the frame loop: browsers stop drawing hidden tabs, and a silent player would be dropped as gone.
+// The bag and an open chest go out the same way, so every change made on the screen reaches the server.
 function netPulse() {
   if (!net.ready) {
     return;
   }
   const now = performance.now();
-  const pos = { t: "pos", x: Math.round(P.x * 100) / 100, y: Math.round(P.y * 100) / 100, f: P.face };
-  const text = JSON.stringify(pos);
-  if (text !== net.sent || now - net.sentAt >= NET_KEEPALIVE) {
-    net.ws.send(text);
-    net.sent = text;
+  const pos = JSON.stringify({ t: "pos", x: Math.round(P.x * 100) / 100, y: Math.round(P.y * 100) / 100, f: P.face });
+  if (pos !== net.sent || now - net.sentAt >= NET_KEEPALIVE) {
+    net.ws.send(pos);
+    net.sent = pos;
     net.sentAt = now;
   }
-}
-
-const netName = $("#netName"), netPass = $("#netPass");
-function renderNet() {
-  $("#netStatus").textContent = net.status;
-  $("#netJoin").hidden = net.want;
-  $("#netLeave").hidden = !net.want;
-  netName.disabled = netPass.disabled = net.want;
-  const list = $("#netPlayers");
-  list.innerHTML = "";
-  if (net.ready) {
-    [net.name + " (вы)", ...[...peers.values()].map(o => o.name)].forEach(n => {
-      const li = document.createElement("li");
-      li.textContent = n;
-      list.appendChild(li);
-    });
+  const me = JSON.stringify({ t: "me", inv: inv.map(encodeSlot), sel });
+  if (me !== net.meSent) {
+    net.ws.send(me);
+    net.meSent = me;
   }
-}
-function openNet() {
-  netName.value = net.name;
-  netPass.value = net.pass;
-  renderNet();
-  show($("#net"));
-}
-function joinFromSheet() {
-  const name = netName.value.trim();
-  if (!name || !netPass.value) {
-    netState("Впишите имя и пароль");
-    return;
+  if (openedChest && storeSlots) {
+    const slots = storeSlots.map(encodeSlot), text = JSON.stringify(slots);
+    if (text !== net.chestSent) {
+      net.ws.send(JSON.stringify({ t: "chest", x: openedChest.x, y: openedChest.y, slots }));
+      net.chestSent = text;
+    }
   }
-  netJoin(name, netPass.value);
 }
 setInterval(netPulse, NET_SEND_EVERY);
-$("#netJoin").addEventListener("click", joinFromSheet);
-$("#netLeave").addEventListener("click", () => netLeave("Вы вышли из сетевой игры"));
-[netName, netPass].forEach(el => el.addEventListener("keydown", e => e.key === "Enter" && joinFromSheet()));
+
+const loginName = $("#loginName"), loginCode = $("#loginCode");
+function showLogin(status) {
+  loginName.disabled = loginCode.disabled = $("#loginBtn").disabled = net.want;
+  $("#loginStatus").textContent = status;
+  if ($("#login").hidden) {
+    loginName.value = net.login;
+    loginCode.value = net.code;
+    show($("#login"));
+  }
+}
+function loginFromSheet() {
+  const login = loginName.value.trim(), code = loginCode.value.trim();
+  if (!login || !code) {
+    showLogin("Впиши логин и код мира");
+    return;
+  }
+  netLogin(login, code);
+}
+$("#loginBtn").addEventListener("click", loginFromSheet);
+[loginName, loginCode].forEach(el => el.addEventListener("keydown", e => e.key === "Enter" && loginFromSheet()));
+
+let heroLook = { c: 0, h: 0 };
+const lookCtx = $("#lookPreview").getContext("2d");
+function lookButton(parent, on, pick) {
+  const b = document.createElement("button");
+  b.classList.toggle("on", on);
+  b.addEventListener("click", () => {
+    pick();
+    Sound.click();
+    renderHero();
+  });
+  parent.appendChild(b);
+  return b;
+}
+function renderHero() {
+  const colors = $("#lookColors"), hats = $("#lookHats");
+  colors.innerHTML = hats.innerHTML = "";
+  LOOK_COLORS.forEach((c, i) => (lookButton(colors, heroLook.c === i, () => (heroLook.c = i)).style.background = c));
+  HATS.forEach(([icon, name], i) => {
+    const b = lookButton(hats, heroLook.h === i, () => (heroLook.h = i));
+    b.textContent = icon;
+    b.title = name;
+  });
+  lookCtx.setTransform(1, 0, 0, 1, 0, 0);
+  lookCtx.clearRect(0, 0, 240, 240);
+  drawHero(lookCtx, { face: 1, vy: 0 }, 50, 70, 140, 1, heroLook);
+}
+function openHero() {
+  heroLook = { c: Math.floor(Math.random() * LOOK_COLORS.length), h: 0 };
+  renderHero();
+  show($("#hero"));
+}
+$("#heroBtn").addEventListener("click", () => {
+  net.look = { ...heroLook };
+  netSend({ t: "look", look: net.look });
+  closeSheets();
+  toast(`${net.name}, добро пожаловать в мир «${net.world}»`);
+  Sound.chime();
+});
+
+function renderPlayers() {
+  $("#whoami").textContent = net.ready ? `Вы — ${net.name}, мир «${net.world}»` : "";
+  const list = $("#players");
+  list.innerHTML = "";
+  [net.name + " (вы)", ...[...peers.values()].map(o => o.name)].forEach(n => {
+    const li = document.createElement("li");
+    li.textContent = n;
+    list.appendChild(li);
+  });
+}
 
 // ---------- input ----------
 
@@ -2999,6 +3208,9 @@ window.addEventListener("contextmenu", e => e.preventDefault());
 window.addEventListener("keydown", e => {
   const open = openSheet();
   if (open) {
+    if (blocking(open)) {
+      return;
+    }
     if (e.code === "Escape" || (e.code === "KeyE" && open.id === "bag") || (e.code === "KeyC" && open.id === "craft")) {
       closeSheets();
     }
@@ -3014,14 +3226,6 @@ window.addEventListener("keydown", e => {
   }
   if (e.code === "KeyM") {
     toggleSound();
-    return;
-  }
-  if (e.code === "KeyT") {
-    toggleTest();
-    return;
-  }
-  if (e.code === "KeyG" && testMode) {
-    openGive();
     return;
   }
   if (e.code === "Equal" || e.code === "NumpadAdd" || e.code === "Minus" || e.code === "NumpadSubtract") {
@@ -3077,24 +3281,11 @@ resize();
 window.addEventListener("resize", resize);
 setZoom(zoom);
 newWorld(randSeed());
-let startSave = null;
-try {
-  startSave = localStorage.getItem(SAVE_KEY);
-} catch (e) {
-  toast("Хранилище браузера недоступно — сохраняйте мир в файл");
+if (net.want && net.login && net.code) {
+  netConnect();
+} else {
+  showLogin("");
 }
-if (startSave) {
-  loadText(startSave, "Загружен сохранённый мир");
-}
-// Only the game server answers here; a copy on any other site or opened from a file stays single-player.
-fetch("net", { cache: "no-store" }).then(r => {
-  if (r.ok) {
-    $("#netAct").hidden = false;
-    if (net.want) {
-      netConnect();
-    }
-  }
-}, () => {});
 
 const fpsEl = $("#fps"), meterEl = $("#meter"), netHud = $("#netHud");
 let fpsFrames = 0, fpsFrom = performance.now();
@@ -3111,9 +3302,9 @@ function renderHud(now) {
   if (metering && meterEl.textContent !== text) {
     meterEl.textContent = text;
   }
-  netHud.hidden = !net.want;
-  const online = net.ready ? `🌐 В сети: ${peers.size + 1}` : "🌐 Нет связи…";
-  if (net.want && netHud.textContent !== online) {
+  netHud.hidden = !net.ready;
+  const online = `🌐 ${net.world} · в сети: ${peers.size + 1}`;
+  if (net.ready && netHud.textContent !== online) {
     netHud.textContent = online;
   }
 }
@@ -3135,11 +3326,11 @@ requestAnimationFrame(frameLoop);
 
 window.HC = { B, I, W, H, RECIPES, P, cam, get world() { return world; }, get inv() { return inv; },
   get seed() { return seed; }, get mobs() { return mobs; }, get time() { return time; }, set time(v) { time = v; },
-  get fish() { return fish; }, get chests() { return chests; }, get testMode() { return testMode; },
-  get trash() { return trash; }, VERSION, terrain, toggleTest, openChest, openTrash, chestAt, breed, banner,
+  get fish() { return fish; }, get chests() { return chests; }, get sel() { return sel; },
+  get trash() { return trash; }, VERSION, terrain, openChest, openTrash, chestAt, breed, banner,
   get zoom() { return zoom; }, get TILE() { return TILE; }, get, setTile, finishBreak, addItem, count, craft,
-  bestPick, bestPickSlot, hatch, serialize, deserialize, saveLocal, loadLocal, newWorld, generate, usePlace, feed,
-  openCraft, setZoom, toggleDay, daylight, keys, touch, Sound, net, peers, netJoin, netLeave };
+  bestPick, bestPickSlot, hatch, newWorld, generate, usePlace, feed, openCraft, setZoom, toggleDay, daylight, keys,
+  touch, Sound, net, peers, netLogin, netLeave, LOOK_COLORS, WORLD_OPTS, get worldOpts() { return worldOpts; } };
 </script>
 </body>
 </html>

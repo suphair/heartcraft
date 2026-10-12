@@ -15,17 +15,25 @@ import server  # noqa: E402
 from wsclient import Client  # noqa: E402
 
 WORLD = {"t": "world", "seed": 42, "ocean": True, "tiles": "AAE="}
+INV = [[1, 5]] + [None] * 34 + [[110, 1, 30]]
+CHEST = [[8, 4]] + [None] * 26
+LOOK = {"c": 3, "h": 2}
+NEW_HERO = {"look": None, "inv": None, "sel": 0, "x": None, "y": None}
+SETTINGS = {"seed": 7, "hills": 4, "ocean": 0, "caves": 3, "ores": 2, "trees": 3, "hearts": 1}
 
 
 class ServerTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
-        self.world_file = pathlib.Path(self.dir.name) / "world.json"
+        self.data = pathlib.Path(self.dir.name) / "data"
+        self.config = pathlib.Path(self.dir.name) / "worlds"
+        self.config.write_text("# миры\nrose Розовая долина\n\nmint Мятный остров\n", encoding="utf-8")
         self.start()
 
     def start(self):
         server.Handler.log_message = lambda *args: None
-        server.Handler.room = server.Room("secret", self.world_file)
+        server.Handler.worlds = server.Worlds(self.config, self.data)
+        server.Handler.admin = ("boss", "999")
         server.Handler.page = ROOT / "index.html"
         self.httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
         self.httpd.daemon_threads = True
@@ -43,50 +51,77 @@ class ServerTest(unittest.TestCase):
         self.stop()
         self.dir.cleanup()
 
-    def join(self, name, password="secret"):
+    def save(self):
+        for room in server.Handler.worlds.all():
+            room.save()
+
+    def join(self, login, code="rose"):
         c = Client(self.url)
         self.clients.append(c)
-        c.send({"t": "hello", "name": name, "pass": password})
+        c.send({"t": "hello", "login": login, "code": code})
         return c, c.recv()
 
     def synced(self, sender, watcher):
         """Waits until the server has handled everything the sender sent so far."""
         sender.send({"t": "pos", "x": 0.5, "y": 0.5, "f": 1})
-        while watcher.recv() != {"t": "pos", "id": 1, "x": 0.5, "y": 0.5, "f": 1}:
-            pass
+        while True:
+            msg = watcher.recv()
+            if msg.get("t") == "pos" and msg["x"] == 0.5:
+                return
 
     def test_serves_page(self):
         port = self.httpd.server_address[1]
         body = urllib.request.urlopen("http://127.0.0.1:%d/" % port).read().decode()
         self.assertIn("<title>Сердцекрафт</title>", body)
 
-    def test_answers_the_network_probe(self):
-        port = self.httpd.server_address[1]
-        self.assertEqual(urllib.request.urlopen("http://127.0.0.1:%d/net" % port).status, 204)
-
-    def test_wrong_password_is_refused(self):
+    def test_wrong_code_is_refused(self):
         c, msg = self.join("Вася", "nope")
-        self.assertEqual(msg, {"t": "error", "msg": "Неверный пароль"})
+        self.assertEqual(msg, {"t": "error", "msg": "Неверный код мира"})
         self.assertIsNone(c.recv())
 
-    def test_empty_name_is_refused(self):
-        _, msg = self.join("  ")
-        self.assertEqual(msg["t"], "error")
+    def test_login_is_required(self):
+        self.assertEqual(self.join("  ")[1], {"t": "error", "msg": "Нужен логин"})
+        self.assertEqual(self.join("x" * 17)[1]["t"], "error")
+
+    def test_worlds_list_is_checked(self):
+        for text in ["", "ab Мир\n", "rose\n", "rose Мир\nrose Другой\n", "ро Мир\n"]:
+            self.config.write_text(text, encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                server.Worlds(self.config, self.data)
+
+    def test_new_login_gets_new_hero_and_world_name(self):
+        _, welcome = self.join("Аня")
+        self.assertEqual((welcome["t"], welcome["name"], welcome["worldName"], welcome["me"], welcome["world"],
+                          welcome["settings"]), ("welcome", "Аня", "Розовая долина", NEW_HERO, None, None))
 
     def test_first_player_shares_world_and_next_gets_it(self):
-        a, welcome = self.join("Аня")
-        self.assertEqual((welcome["t"], welcome["id"], welcome["world"], welcome["players"]), ("welcome", 1, None, []))
+        a, _ = self.join("Аня")
         watcher, _ = self.join("Вера")
         a.send(WORLD)
         a.send({"t": "set", "x": 3, "y": 2, "id": 8})
+        a.send({"t": "chest", "x": 5, "y": 6, "slots": CHEST})
         self.synced(a, watcher)
         a.send({"t": "pos", "x": 5.5, "y": 7, "f": -1})
         self.assertEqual(watcher.recv()["x"], 5.5)
-        b, welcome = self.join("Боря")
-        self.assertEqual(welcome["world"], {"seed": 42, "ocean": True, "tiles": "AAE=", "changes": [[2 * 1024 + 3, 8]]})
-        self.assertEqual(welcome["players"][0], {"id": 1, "name": "Аня", "pos": {"x": 5.5, "y": 7, "f": -1}})
-        self.assertEqual(a.recv(), {"t": "join", "id": 2, "name": "Вера"})
-        self.assertEqual(a.recv(), {"t": "join", "id": 3, "name": "Боря"})
+        _, welcome = self.join("Боря")
+        self.assertEqual(welcome["world"], {"seed": 42, "ocean": True, "tiles": "AAE=",
+                                            "changes": [[2 * 1024 + 3, 8]], "chests": [[6 * 1024 + 5, CHEST]]})
+        self.assertEqual(welcome["players"][0], {"id": 1, "name": "Аня", "look": None, "pos": {"x": 5.5, "y": 7, "f": -1}})
+
+    def test_worlds_are_separate(self):
+        a, _ = self.join("Аня", "rose")
+        a.send(WORLD)
+        a.send({"t": "me", "inv": INV, "sel": 2})
+        b, welcome = self.join("Аня", "mint")
+        self.assertEqual((welcome["world"], welcome["players"], welcome["worldName"], welcome["me"]),
+                         (None, [], "Мятный остров", NEW_HERO))
+        b.send(dict(WORLD, seed=7))
+        b.send({"t": "set", "x": 1, "y": 1, "id": 3})
+        watcher, _ = self.join("Вера", "mint")
+        self.synced(b, watcher)
+        self.save()
+        self.assertEqual(json.loads((self.data / "rose" / "world.json").read_text())["seed"], 42)
+        self.assertEqual(json.loads((self.data / "mint" / "world.json").read_text())["seed"], 7)
 
     def test_second_world_is_answered_with_the_shared_one(self):
         a, _ = self.join("Аня")
@@ -94,19 +129,61 @@ class ServerTest(unittest.TestCase):
         a.send(WORLD)
         self.assertEqual(a.recv()["t"], "join")
         b.send(dict(WORLD, seed=7))
-        self.assertEqual(b.recv(), {"t": "load", "world": {"seed": 42, "ocean": True, "tiles": "AAE=", "changes": []}})
+        self.assertEqual(b.recv(), {"t": "load", "world": {"seed": 42, "ocean": True, "tiles": "AAE=",
+                                                           "changes": [], "chests": []}, "settings": None})
 
-    def test_moves_and_blocks_reach_others_but_not_sender(self):
+    def test_moves_blocks_chests_and_looks_reach_others_but_not_sender(self):
         a, _ = self.join("Аня")
         a.send(WORLD)
         b, _ = self.join("Боря")
-        self.assertEqual(a.recv()["t"], "join")
+        self.assertEqual(a.recv(), {"t": "join", "id": 2, "name": "Боря", "look": None})
         b.send({"t": "set", "x": 10, "y": 20, "id": 0})
+        b.send({"t": "chest", "x": 4, "y": 4, "slots": CHEST})
+        b.send({"t": "look", "look": LOOK})
         b.send({"t": "pos", "x": 1.25, "y": 2.5, "f": 1})
         self.assertEqual(a.recv(), {"t": "set", "x": 10, "y": 20, "id": 0})
+        self.assertEqual(a.recv(), {"t": "chest", "x": 4, "y": 4, "slots": CHEST})
+        self.assertEqual(a.recv(), {"t": "look", "id": 2, "look": LOOK})
         self.assertEqual(a.recv(), {"t": "pos", "id": 2, "x": 1.25, "y": 2.5, "f": 1})
         a.send({"t": "pos", "x": 3, "y": 4, "f": 1})
         self.assertEqual(b.recv(), {"t": "pos", "id": 1, "x": 3, "y": 4, "f": 1})
+
+    def test_breaking_or_emptying_a_chest_forgets_it(self):
+        a, _ = self.join("Аня")
+        watcher, _ = self.join("Вера")
+        a.send(WORLD)
+        a.send({"t": "chest", "x": 4, "y": 4, "slots": CHEST})
+        a.send({"t": "chest", "x": 5, "y": 4, "slots": CHEST})
+        a.send({"t": "set", "x": 4, "y": 4, "id": 0})
+        a.send({"t": "chest", "x": 5, "y": 4, "slots": [None] * 27})
+        self.synced(a, watcher)
+        _, welcome = self.join("Боря")
+        self.assertEqual(welcome["world"]["chests"], [])
+
+    def test_hero_is_kept_by_login(self):
+        a, _ = self.join("Аня")
+        watcher, _ = self.join("Вера")
+        a.send(WORLD)
+        a.send({"t": "look", "look": LOOK})
+        a.send({"t": "me", "inv": INV, "sel": 3})
+        a.send({"t": "pos", "x": 12.5, "y": 30, "f": 1})
+        self.assertEqual(watcher.recv()["t"], "look")
+        self.assertEqual(watcher.recv()["x"], 12.5)
+        a.send_raw(8, b"")
+        self.assertEqual(watcher.recv(), {"t": "leave", "id": 1})
+        _, welcome = self.join("аНя")
+        self.assertEqual(welcome["me"], {"look": LOOK, "inv": INV, "sel": 3, "x": 12.5, "y": 30})
+        self.assertEqual(welcome["name"], "Аня")
+        self.assertEqual(watcher.recv(), {"t": "join", "id": 3, "name": "Аня", "look": LOOK})
+
+    def test_same_login_elsewhere_replaces_the_old_session(self):
+        a, _ = self.join("Аня")
+        watcher, _ = self.join("Вера")
+        self.assertEqual(a.recv()["name"], "Вера")
+        self.join("Аня")
+        self.assertEqual(a.recv(), {"t": "error", "msg": "Вы вошли в игру с другого устройства"})
+        self.assertEqual(watcher.recv(), {"t": "leave", "id": 1})
+        self.assertEqual(watcher.recv(), {"t": "join", "id": 3, "name": "Аня", "look": None})
 
     def test_leave_is_announced(self):
         a, _ = self.join("Аня")
@@ -116,12 +193,16 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(a.recv(), {"t": "leave", "id": 2})
 
     def test_bad_message_drops_only_its_sender(self):
-        a, _ = self.join("Аня")
-        b, _ = self.join("Боря")
-        self.assertEqual(a.recv()["t"], "join")
-        b.send({"t": "set", "x": 5000, "y": 1, "id": 1})
-        self.assertIsNone(b.recv())
-        self.assertEqual(a.recv(), {"t": "leave", "id": 2})
+        for bad in [{"t": "set", "x": 5000, "y": 1, "id": 1}, {"t": "me", "inv": INV[:-1], "sel": 0},
+                    {"t": "me", "inv": INV, "sel": 9}, {"t": "chest", "x": 1, "y": 1, "slots": [[1]] + [None] * 26},
+                    {"t": "look", "look": {"c": 8, "h": 0}}, {"t": "look", "look": {"c": 1}}, {"t": "dance"}]:
+            a, _ = self.join("Аня")
+            b, _ = self.join("Боря")
+            self.assertEqual(a.recv()["t"], "join")
+            b.send(bad)
+            self.assertIsNone(b.recv(), bad)
+            self.assertEqual(a.recv()["t"], "leave")
+            a.close()
 
     def test_blocks_before_world_are_dropped(self):
         a, _ = self.join("Аня")
@@ -129,28 +210,31 @@ class ServerTest(unittest.TestCase):
         a.send({"t": "set", "x": 1, "y": 1, "id": 1})
         a.send(WORLD)
         self.synced(a, watcher)
-        b, welcome = self.join("Боря")
+        _, welcome = self.join("Боря")
         self.assertEqual(welcome["world"]["changes"], [])
 
-    def test_room_is_limited(self):
+    def test_world_is_limited_by_players(self):
         for i in range(server.MAX_PLAYERS):
             self.assertEqual(self.join("p%d" % i)[1]["t"], "welcome")
-        self.assertEqual(self.join("лишний")[1]["t"], "error")
+        self.assertEqual(self.join("лишний")[1], {"t": "error", "msg": "В мире уже 8 игроков"})
+        self.assertNotIn("лишний", server.Handler.worlds.get("rose").accounts)
+        self.assertEqual(self.join("гость", "mint")[1]["t"], "welcome")
 
-    def test_world_survives_restart(self):
+    def test_world_and_heroes_survive_restart(self):
         a, _ = self.join("Аня")
         watcher, _ = self.join("Боря")
         a.send(WORLD)
         a.send({"t": "set", "x": 3, "y": 2, "id": 8})
+        a.send({"t": "me", "inv": INV, "sel": 1})
         self.synced(a, watcher)
-        server.Handler.room.save()
-        self.assertFalse(server.Handler.room.dirty)
+        self.save()
+        self.assertFalse(server.Handler.worlds.get("rose").dirty)
         self.stop()
         self.start()
-        _, welcome = self.join("Вера")
-        self.assertEqual(welcome["world"], {"seed": 42, "ocean": True, "tiles": "AAE=", "changes": [[2051, 8]]})
+        _, welcome = self.join("Аня")
+        self.assertEqual(welcome["world"]["changes"], [[2051, 8]])
+        self.assertEqual(welcome["me"]["inv"], INV)
         self.assertEqual(welcome["players"], [])
-        self.assertEqual(json.loads(self.world_file.read_text())["seed"], 42)
 
     def test_big_world_message_passes(self):
         a, _ = self.join("Аня")
@@ -159,6 +243,90 @@ class ServerTest(unittest.TestCase):
         self.synced(a, watcher)
         _, welcome = self.join("Боря")
         self.assertEqual(len(welcome["world"]["tiles"]), 300000)
+
+    def admin(self):
+        c, state = self.join("Boss", "999")
+        self.assertEqual((state["t"], state["error"]), ("admin", None))
+        return c, state
+
+    def test_admin_sees_worlds_and_heroes(self):
+        a, _ = self.join("Аня")
+        a.send({"t": "look", "look": LOOK})
+        watcher, _ = self.join("Вера")
+        self.synced(a, watcher)
+        watcher.close()
+        _, state = self.admin()
+        rose, mint = state["worlds"]
+        self.assertEqual((rose["code"], rose["name"], mint["code"], mint["heroes"]), ("rose", "Розовая долина", "mint", []))
+        self.assertIn({"login": "аня", "name": "Аня", "look": LOOK, "online": True}, rose["heroes"])
+
+    def test_admin_login_with_another_code_is_a_hero(self):
+        self.assertEqual(self.join("boss", "rose")[1]["t"], "welcome")
+
+    def test_admin_creates_worlds(self):
+        c, _ = self.admin()
+        c.send({"t": "create", "name": "  Горы   и  пещеры ", "code": "peaks", "settings": SETTINGS})
+        state = c.recv()
+        self.assertIsNone(state["error"])
+        self.assertEqual(state["worlds"][-1], {"code": "peaks", "name": "Горы и пещеры", "settings": SETTINGS, "heroes": []})
+        c.send({"t": "create", "name": "Без кода", "code": "", "settings": SETTINGS})
+        code = c.recv()["worlds"][-1]["code"]
+        self.assertRegex(code, r"^\d{6}$")
+        self.assertEqual(self.config.read_text(encoding="utf-8").splitlines()[-2:], ["peaks Горы и пещеры", code + " Без кода"])
+        _, welcome = self.join("Аня", "peaks")
+        self.assertEqual((welcome["worldName"], welcome["settings"]), ("Горы и пещеры", SETTINGS))
+        self.assertEqual(server.Worlds(self.config, self.data).get("peaks").settings, SETTINGS)
+
+    def test_admin_create_is_checked(self):
+        c, _ = self.admin()
+        for name, code, settings in [("", "", SETTINGS), ("Мир", "rose", SETTINGS), ("Мир", "ко", SETTINGS),
+                                     ("Мир", "", dict(SETTINGS, hills=5)), ("Мир", "", {"seed": 1})]:
+            c.send({"t": "create", "name": name, "code": code, "settings": settings})
+            state = c.recv()
+            self.assertIsNotNone(state["error"], (name, code, settings))
+            self.assertEqual(len(state["worlds"]), 2)
+
+    def test_admin_deletes_a_world(self):
+        a, _ = self.join("Аня", "mint")
+        a.send(WORLD)
+        watcher, _ = self.join("Вера", "mint")
+        self.synced(a, watcher)
+        self.save()
+        c, _ = self.admin()
+        c.send({"t": "delete", "code": "mint"})
+        state = c.recv()
+        self.assertEqual(([w["code"] for w in state["worlds"]], state["error"]), (["rose"], None))
+        self.assertEqual(a.recv()["name"], "Вера")
+        self.assertEqual(a.recv(), {"t": "error", "msg": "Этот мир удалён"})
+        self.assertFalse((self.data / "mint").exists())
+        self.assertEqual(len(list((self.data / ".deleted").iterdir())), 1)
+        self.assertEqual(self.join("Аня", "mint")[1], {"t": "error", "msg": "Неверный код мира"})
+        c.send({"t": "delete", "code": "rose"})
+        self.assertEqual(c.recv()["error"], "Последний мир удалить нельзя")
+        self.assertEqual(self.config.read_text(encoding="utf-8"), "rose Розовая долина\n")
+
+    def test_admin_gifts_reach_heroes_online_and_later(self):
+        a, _ = self.join("Аня")
+        b, _ = self.join("Боря")
+        self.assertEqual(a.recv()["t"], "join")
+        b.send_raw(8, b"")
+        self.assertEqual(a.recv()["t"], "leave")
+        c, _ = self.admin()
+        c.send({"t": "give", "code": "rose", "login": "аня", "id": 20, "n": 64})
+        self.assertIsNone(c.recv()["error"])
+        self.assertEqual(a.recv(), {"t": "gift", "items": [[20, 64]]})
+        c.send({"t": "give", "code": "rose", "login": "боря", "id": 108, "n": 2})
+        c.send({"t": "give", "code": "rose", "login": "боря", "id": 110, "n": 1})
+        self.assertIsNone(c.recv()["error"])
+        self.assertIsNone(c.recv()["error"])
+        b, _ = self.join("Боря")
+        self.assertEqual(b.recv(), {"t": "gift", "items": [[108, 2], [110, 1]]})
+        b.close()
+        _, welcome = self.join("Боря")
+        self.assertEqual(welcome["t"], "welcome")
+        for bad in [{"login": "нет"}, {"code": "x"}, {"n": 0}, {"n": 1000}, {"id": 300}]:
+            c.send(dict({"t": "give", "code": "rose", "login": "аня", "id": 20, "n": 1}, **bad))
+            self.assertIsNotNone(c.recv()["error"], bad)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,8 @@
 #!/bin/bash
-# Runs tests/e2e.mjs: a throwaway game server and headless Chrome, both removed afterwards.
+# Runs tests/e2e.mjs: a throwaway game server (worlds rose and mint, admin "boss" with code 999)
+# and headless Chrome, both removed afterwards.
 #
-#   tests/e2e.sh [screenshot.png]
+#   tests/e2e.sh [screenshot dir]
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
@@ -15,9 +16,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo pw > "$TMP/password"
+printf 'rose Розовая долина\nmint Мятный остров\n' > "$TMP/worlds"
+echo "boss 999" > "$TMP/admin"
 python3 "$HERE/router/server.py" --port "$GAME_PORT" --page "$HERE/index.html" \
-    --password "$TMP/password" --world "$TMP/world.json" 2> "$TMP/server.log" &
+    --worlds "$TMP/worlds" --data "$TMP/data" --admin "$TMP/admin" 2> "$TMP/server.log" &
 SERVER=$!
 # Without these flags Chrome freezes background windows, and the second player would stand still.
 "$CHROME" --headless=new --remote-debugging-port="$DEVTOOLS_PORT" --window-size=1000,640 \

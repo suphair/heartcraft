@@ -5,8 +5,9 @@
 #
 # Транспорт как у судоку и ds-бота: tar-стрим через ssh (scp/rsync на роутере нет),
 # пароль SSH-root даёт SSH_ASKPASS из ~/.config/keenetic/askpass.sh.
-# Мир (world.json) и пароль комнаты (password) живут только на роутере и выкладкой
-# не затираются; пароля нет - выкладка заводит случайный и печатает его.
+# Список миров (worlds), админ (admin) и данные миров (data/) живут только на роутере и выкладкой
+# не затираются. Без worlds или admin сервер не стартует - выкладка останавливается раньше и
+# говорит, что завести: admin держит логин и код админа, в репозиторий им нельзя.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 HOST=192.168.1.1
@@ -26,8 +27,7 @@ rssh "mkdir -p /opt/heartcraft"
 COPYFILE_DISABLE=1 tar czf - index.html -C router server.py keeper.sh | rssh "cd /opt/heartcraft && tar xzf - && chmod +x keeper.sh && sh -n keeper.sh"
 COPYFILE_DISABLE=1 tar czf - -C router S99heartcraft | rssh "cd /opt/etc/init.d && tar xzf - && chmod +x S99heartcraft"
 
-NEW_PASS="$(python3 -c 'import secrets; print(secrets.randbelow(900000) + 100000)')"
-rssh "cd /opt/heartcraft && if [ ! -s password ]; then echo '$NEW_PASS' > password; chmod 600 password; echo \"заведён пароль комнаты: \$(cat password)\"; fi"
+rssh "cd /opt/heartcraft && for f in worlds admin; do [ -s \$f ] || { echo \"нет /opt/heartcraft/\$f: worlds - строки «код название», admin - «логин код»\"; exit 1; }; done"
 
 echo "перезапуск и проверка..."
 rssh "/opt/etc/init.d/S99heartcraft restart
