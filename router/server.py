@@ -2,6 +2,7 @@
 """Сердцекрафт по сети: страница игры и миры, в которые входят по коду.
 
     python3 server.py [--port 8092] [--page index.html] [--worlds worlds] [--data data] [--admin admin]
+                      [--claim host]
 
 Миры перечислены в файле --worlds, строка на мир: «код название» (код - буквы
 латиницы и цифры, по нему же называется папка мира в --data). Вход - логин и код
@@ -14,7 +15,11 @@
 строкой): видит все миры с кодами и героев с их видом, создаёт миры с настройками
 генерации (сид, рельеф, океан, пещеры, руды, деревья, сердечки - <data>/<код>/settings.json),
 удаляет миры и дарит героям вещи. Подарок приходит сразу, если герой в игре, иначе - при входе.
-Удалённый мир не стирается, а уезжает в <data>/.deleted/.
+Удалённый мир не стирается, а уезжает в <data>/.deleted/. Ещё админ банит логины: забаненный
+не войдёт ни в один мир, пока его не разбанят; список - <data>/bans.json.
+
+Игроки передают друг другу вещи: стопка уходит адресату подарком «от игрока», а если адресат
+уже вышел - возвращается отправителю.
 
 Сервер мир не считает: он хранит снимок, который прислал первый вошедший в этот мир
 (свой случайный сид, океан и блоки в RLE), поверх него - изменённые клетки и
@@ -22,6 +27,12 @@
 сервер блоки, сундуки и положения героев. Сердечки, рыбки и время суток у каждого свои.
 
 Мир и учётки пишутся в <data>/<код>/ не чаще раза в SAVE_EVERY секунд и при остановке.
+
+С --claim сервер - хозяин данных, лежащих на шаре роутера: пишет в файл «свой IP токен»
+(по IP роутер пробрасывает на него порт), выжидает CLAIM_WAIT, чтобы прежний хозяин
+сохранился и ушёл, и только потом читает миры. Увидев в файле чужой токен, сохраняет
+миры и выходит с кодом REPLACED - хозяином стала другая машина.
+
 Всё на стандартной библиотеке: WebSocket (RFC 6455) разобран здесь же - на
 роутере нет pip.
 """
@@ -35,6 +46,7 @@ import pathlib
 import re
 import secrets
 import signal
+import socket
 import struct
 import sys
 import threading
@@ -42,7 +54,7 @@ import time
 
 W, H = 1024, 256
 SLOTS, CHEST_SLOTS, BELT = 36, 27, 9
-LOOK_COLORS, LOOK_HATS = 8, 5
+LOOK_COLORS, LOOK_HATS = 8, 6
 CODE = r"[A-Za-z0-9]{3,32}"
 MAX_WORLD_NAME = 40
 MAX_GIFT = 999
@@ -54,6 +66,9 @@ MAX_LOGIN = 16
 SAVE_EVERY = 10
 IDLE_TIMEOUT = 120
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+ROUTER = "192.168.1.1"
+CLAIM_WAIT = SAVE_EVERY + 5
+REPLACED = 3
 
 
 class Closed(Exception):
@@ -276,6 +291,16 @@ class Room:
                         self.chests.pop(y * W + x, None)
                     self.dirty = True
                     self.broadcast(p, {"t": "chest", "x": x, "y": y, "slots": slots})
+            elif t == "pass":
+                to, slot = msg.get("to"), msg.get("slot")
+                if not (whole(to, self.next_id) and slot is not None and slots_ok([slot], 1)):
+                    return False
+                target = self.players.get(to)
+                if target and target is not p:
+                    target.send({"t": "gift", "items": [slot], "from": p.name, "fromId": p.id,
+                                 "back": msg.get("back") is True})
+                else:
+                    p.send({"t": "gift", "items": [slot], "returned": True})
             elif t == "world":
                 if self.world:
                     p.send({"t": "load", "world": self.snapshot(), "settings": self.settings})
@@ -310,6 +335,13 @@ class Room:
             heroes = [{"login": k, "name": a["name"], "look": a["look"], "online": k in online}
                       for k, a in self.accounts.items()]
         return {"code": self.code, "name": self.name, "settings": self.settings, "heroes": heroes}
+
+    def kick_login(self, key, why):
+        with self.lock:
+            for p in [o for o in self.players.values() if o.key == key]:
+                p.kick(why)
+                del self.players[p.id]
+                self.broadcast(p, {"t": "leave", "id": p.id})
 
     def give(self, key, item, n):
         with self.lock:
@@ -346,6 +378,8 @@ class Worlds:
         self.data = data
         self.lock = threading.Lock()
         self.rooms = {}
+        self.bans_path = data / "bans.json"
+        self.bans = json.loads(self.bans_path.read_text(encoding="utf-8")) if self.bans_path.exists() else []
         for line in config.read_text(encoding="utf-8").splitlines():
             if not line.strip() or line.lstrip().startswith("#"):
                 continue
@@ -368,6 +402,40 @@ class Worlds:
 
     def state(self):
         return [room.state() for room in self.all()]
+
+    def ban_list(self):
+        with self.lock:
+            return list(self.bans)
+
+    def banned(self, login):
+        with self.lock:
+            return any(b.casefold() == login.casefold() for b in self.bans)
+
+    def ban(self, login):
+        login = login.strip() if isinstance(login, str) else ""
+        if not login or len(login) > MAX_LOGIN:
+            return "Нужен логин, до %d букв" % MAX_LOGIN
+        if self.banned(login):
+            return "%s уже забанен" % login
+        with self.lock:
+            self.bans.append(login)
+            self.write_bans()
+        for room in self.all():
+            room.kick_login(login.casefold(), "Этот логин забанен")
+        return None
+
+    def unban(self, login):
+        with self.lock:
+            left = [b for b in self.bans if not isinstance(login, str) or b.casefold() != login.casefold()]
+            if len(left) == len(self.bans):
+                return "Такого бана нет"
+            self.bans = left
+            self.write_bans()
+        return None
+
+    def write_bans(self):
+        self.data.mkdir(parents=True, exist_ok=True)
+        write(self.bans_path, json.dumps(self.bans, ensure_ascii=False))
 
     def create(self, name, code, settings):
         name = name.strip() if isinstance(name, str) else ""
@@ -485,6 +553,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.refuse("Логин длиннее %d букв" % MAX_LOGIN)
         if (login.strip().casefold(), msg.get("code")) == self.admin:
             return "admin"
+        if self.worlds.banned(login.strip()):
+            return self.refuse("Этот логин забанен")
         room = self.worlds.get(msg.get("code"))
         if not room:
             return self.refuse("Неверный код мира")
@@ -500,7 +570,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             pass
 
     def admin_session(self):
-        reply = {"t": "admin", "worlds": self.worlds.state(), "error": None}
+        reply = {"t": "admin", "worlds": self.worlds.state(), "bans": self.worlds.ban_list(), "error": None}
         while True:
             self.connection.sendall(text_frame(reply))
             msg = self.receive()
@@ -517,9 +587,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     why = "Такой подарок не выдать"
                 else:
                     why = room.give(msg.get("login"), item, n)
+            elif t == "ban":
+                why = self.worlds.ban(msg.get("login"))
+            elif t == "unban":
+                why = self.worlds.unban(msg.get("login"))
             elif t != "state":
                 return
-            reply = {"t": "admin", "worlds": self.worlds.state(), "error": why}
+            reply = {"t": "admin", "worlds": self.worlds.state(), "bans": self.worlds.ban_list(), "error": why}
 
     def bye(self):
         try:
@@ -531,10 +605,32 @@ class Handler(http.server.BaseHTTPRequestHandler):
         sys.stderr.write("%s %s\n" % (self.address_string(), fmt % args))
 
 
-def saver(worlds, stop):
+class Claim:
+    def __init__(self, path, ip):
+        self.path = path
+        self.mark = "%s %s\n" % (ip, secrets.token_hex(8))
+        write(path, self.mark)
+
+    def held(self):
+        try:
+            return self.path.read_text(encoding="utf-8") == self.mark
+        except FileNotFoundError:
+            return False
+
+
+def lan_ip():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.connect((ROUTER, 9))
+        return s.getsockname()[0]
+
+
+def saver(worlds, stop, claim=None, server=None):
     while not stop.wait(SAVE_EVERY):
         for room in worlds.all():
             room.save()
+        if claim and not claim.held():
+            server.shutdown()
+            return
 
 
 def read_admin(path):
@@ -552,16 +648,22 @@ def main():
     parser.add_argument("--worlds", type=pathlib.Path, default=here / "worlds")
     parser.add_argument("--data", type=pathlib.Path, default=here / "data")
     parser.add_argument("--admin", type=pathlib.Path, default=here / "admin")
+    parser.add_argument("--claim", type=pathlib.Path)
     args = parser.parse_args()
     if not args.page.is_file():
         sys.exit("нет страницы " + str(args.page))
+    claim = None
+    if args.claim:
+        claim = Claim(args.claim, lan_ip())
+        print("хозяин данных: " + claim.mark.strip(), flush=True)
+        time.sleep(CLAIM_WAIT)
     Handler.worlds = Worlds(args.worlds, args.data)
     Handler.admin = read_admin(args.admin)
     Handler.page = args.page
     server = http.server.ThreadingHTTPServer(("", args.port), Handler)
     server.daemon_threads = True
     stop = threading.Event()
-    threading.Thread(target=saver, args=(Handler.worlds, stop), daemon=True).start()
+    threading.Thread(target=saver, args=(Handler.worlds, stop, claim, server), daemon=True).start()
     signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown).start())
     try:
         server.serve_forever()
@@ -570,6 +672,8 @@ def main():
     stop.set()
     for room in Handler.worlds.all():
         room.save()
+    if claim and not claim.held():
+        sys.exit(REPLACED)
 
 
 if __name__ == "__main__":

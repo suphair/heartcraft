@@ -5,6 +5,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import unittest.mock
 import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -236,6 +237,32 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(welcome["me"]["inv"], INV)
         self.assertEqual(welcome["players"], [])
 
+    def test_claim_is_held_until_another_host_takes_it(self):
+        path = pathlib.Path(self.dir.name) / "host"
+        claim = server.Claim(path, "192.168.1.50")
+        self.assertRegex(path.read_text(encoding="utf-8"), r"^192\.168\.1\.50 [0-9a-f]{16}\n$")
+        self.assertTrue(claim.held())
+        server.Claim(path, "192.168.1.60")
+        self.assertFalse(claim.held())
+        path.unlink()
+        self.assertFalse(claim.held())
+
+    def test_taken_claim_saves_worlds_and_stops_server(self):
+        claim = server.Claim(pathlib.Path(self.dir.name) / "host", "192.168.1.50")
+        a, _ = self.join("Аня")
+        watcher, _ = self.join("Боря")
+        a.send(WORLD)
+        self.synced(a, watcher)
+        stop = threading.Event()
+        with unittest.mock.patch.object(server, "SAVE_EVERY", 0.05):
+            saver = threading.Thread(target=server.saver, args=(server.Handler.worlds, stop, claim, self.httpd))
+            saver.start()
+            server.Claim(claim.path, "192.168.1.60")
+            saver.join(5)
+        stop.set()
+        self.assertFalse(saver.is_alive())
+        self.assertTrue((self.data / "rose" / "world.json").exists())
+
     def test_big_world_message_passes(self):
         a, _ = self.join("Аня")
         watcher, _ = self.join("Вера")
@@ -327,6 +354,64 @@ class ServerTest(unittest.TestCase):
         for bad in [{"login": "нет"}, {"code": "x"}, {"n": 0}, {"n": 1000}, {"id": 300}]:
             c.send(dict({"t": "give", "code": "rose", "login": "аня", "id": 20, "n": 1}, **bad))
             self.assertIsNotNone(c.recv()["error"], bad)
+
+
+    def test_look_can_change_to_the_pink_crown(self):
+        a, _ = self.join("Аня")
+        b, _ = self.join("Боря")
+        self.assertEqual(a.recv()["t"], "join")
+        b.send({"t": "look", "look": LOOK})
+        b.send({"t": "look", "look": {"c": 3, "h": 5}})
+        self.assertEqual(a.recv(), {"t": "look", "id": 2, "look": LOOK})
+        self.assertEqual(a.recv(), {"t": "look", "id": 2, "look": {"c": 3, "h": 5}})
+        b.send({"t": "look", "look": {"c": 3, "h": 6}})
+        self.assertIsNone(b.recv())
+
+    def test_players_pass_things_and_they_come_back_from_a_player_who_left(self):
+        a, _ = self.join("Аня")
+        b, _ = self.join("Боря")
+        self.assertEqual(a.recv()["t"], "join")
+        a.send({"t": "pass", "to": 2, "slot": [114, 1, 70]})
+        self.assertEqual(b.recv(), {"t": "gift", "items": [[114, 1, 70]], "from": "Аня", "fromId": 1, "back": False})
+        b.send({"t": "pass", "to": 1, "slot": [4, 30], "back": True})
+        self.assertEqual(a.recv(), {"t": "gift", "items": [[4, 30]], "from": "Боря", "fromId": 2, "back": True})
+        b.send_raw(8, b"")
+        self.assertEqual(a.recv()["t"], "leave")
+        a.send({"t": "pass", "to": 2, "slot": [4, 5]})
+        self.assertEqual(a.recv(), {"t": "gift", "items": [[4, 5]], "returned": True})
+
+    def test_a_bad_pass_drops_the_sender(self):
+        for bad in [{"to": [1]}, {"to": 9}, {"slot": None}, {"slot": [4]}, {"slot": "x"}]:
+            c, _ = self.join("Аня")
+            c.send(dict({"t": "pass", "to": 1, "slot": [4, 5]}, **bad))
+            self.assertIsNone(c.recv(), bad)
+
+    def test_a_banned_login_cannot_play_anywhere_until_unbanned(self):
+        a, _ = self.join("Аня")
+        watcher, _ = self.join("Вера")
+        self.assertEqual(a.recv()["t"], "join")
+        c, state = self.admin()
+        self.assertEqual(state["bans"], [])
+        c.send({"t": "ban", "login": "АНЯ"})
+        reply = c.recv()
+        self.assertEqual((reply["error"], reply["bans"]), (None, ["АНЯ"]))
+        self.assertEqual(a.recv(), {"t": "error", "msg": "Этот логин забанен"})
+        self.assertEqual(watcher.recv(), {"t": "leave", "id": 1})
+        for code in ("rose", "mint"):
+            self.assertEqual(self.join("аня", code)[1], {"t": "error", "msg": "Этот логин забанен"})
+        c.send({"t": "ban", "login": "аня"})
+        self.assertIsNotNone(c.recv()["error"])
+        self.stop()
+        self.start()
+        self.assertEqual(self.join("Аня")[1], {"t": "error", "msg": "Этот логин забанен"})
+        c, _ = self.admin()
+        c.send({"t": "unban", "login": "аня"})
+        reply = c.recv()
+        self.assertEqual((reply["error"], reply["bans"]), (None, []))
+        _, welcome = self.join("Аня")
+        self.assertEqual(welcome["t"], "welcome")
+        c.send({"t": "unban", "login": "аня"})
+        self.assertIsNotNone(c.recv()["error"])
 
 
 if __name__ == "__main__":

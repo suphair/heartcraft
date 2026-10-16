@@ -156,6 +156,83 @@ check("B cannot break a chest with things in it", await b(`HC.finishBreak(${ches
 await a(`document.querySelector("#store .close").click(); 1`);
 check("the egg recipes are at the workbench", await a(`HC.RECIPES.some(r => r.out === HC.I.HEART_EGG) && HC.RECIPES.some(r => r.out === HC.I.FISH_EGG)`));
 
+const hold = (ev, id) => ev(`(() => {
+  const s = HC.inv.findIndex(s => s && s.id === ${id});
+  [HC.inv[HC.sel], HC.inv[s]] = [HC.inv[s], HC.inv[HC.sel]];
+  return 1;
+})()`);
+const craftOut = (ev, id) => ev(`HC.craft(HC.RECIPES.findIndex(r => r.out === ${id}), 1)`);
+await a(`HC.addItem(HC.I.IRON, 5); HC.addItem(HC.I.STICK, 1); 1`);
+check("a sword is made of a stick and two iron ingots", await craftOut(a, "HC.I.SWORD") === 1 && await a(`HC.count(HC.I.IRON) === 3 && HC.count(HC.I.STICK) === 0`));
+check("a bucket is made of three iron ingots", await craftOut(a, "HC.I.BUCKET") === 1 && await a(`HC.count(HC.I.IRON) === 0`));
+check("hearts do not age", await a(`HC.mobs.length > 0 && HC.mobs.every(m => !("age" in m) && !("life" in m))`));
+await hold(a, "HC.I.SWORD");
+const kill = await a(`(() => {
+  const before = HC.mobs.length, m = HC.mobs[0];
+  m.x = HC.P.x + 1;
+  m.y = HC.P.y;
+  const r = document.querySelector("#view").getBoundingClientRect();
+  document.querySelector("#view").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, pointerType: "mouse",
+    clientX: r.left + (m.x + m.w / 2 - HC.cam.x) * HC.TILE, clientY: r.top + (m.y + m.h / 2 - HC.cam.y) * HC.TILE }));
+  return [before - HC.mobs.length, HC.inv[HC.sel].dur, HC.mobs.includes(m)];
+})()`);
+check("the sword kills a heart and wears out", kill[0] === 1 && kill[1] === 149 && !kill[2], kill);
+await hold(a, "HC.I.BUCKET");
+const water = await a(`(() => {
+  const cells = [];
+  for (const [dx, dy] of [[2, -2], [-2, -2], [1, -3], [-1, -3], [0, -3], [2, -1], [-2, -1], [3, -1], [-3, -1]]) {
+    const x = Math.floor(HC.P.x) + dx, y = Math.floor(HC.P.y) + dy;
+    if (HC.get(x, y) === HC.B.AIR && HC.get(x - 1, y) !== HC.B.WATER && HC.get(x + 1, y) !== HC.B.WATER) cells.push([x, y]);
+  }
+  const [from, to] = cells;
+  HC.setTile(from[0], from[1], HC.B.WATER);
+  HC.usePlace(from[0], from[1]);
+  const scooped = HC.get(from[0], from[1]) === HC.B.AIR && HC.inv[HC.sel].id === HC.I.WATER_BUCKET;
+  HC.usePlace(to[0], to[1]);
+  return [scooped, HC.get(to[0], to[1]) === HC.B.WATER && HC.inv[HC.sel].id === HC.I.BUCKET, to];
+})()`);
+check("a bucket scoops water up", water[0], water);
+check("a bucket pours the water out", water[1], water);
+check("B sees the poured water", await until(b, `HC.get(${water[2][0]}, ${water[2][1]}) === HC.B.WATER`));
+await a(`(() => {
+  document.querySelector("#menuBtn").click();
+  [...document.querySelectorAll("#players button")].find(b => /Передать/.test(b.textContent)).click();
+  const slot = HC.inv.findIndex(s => s && s.id === HC.I.SWORD);
+  document.querySelectorAll("#pass .grid .slot")[slot].dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  return 1;
+})()`);
+check("A passes the sword to B", await until(b, `HC.inv.some(s => s && s.id === HC.I.SWORD && s.dur === 149)`) && await a(`HC.count(HC.I.SWORD) === 0`),
+  await b(`HC.inv.filter(Boolean)`));
+await a(`document.querySelector("#pass .close").click(); 1`);
+const passTo = (ev, name, id) => ev(`(() => {
+  document.querySelector("#menuBtn").click();
+  [...document.querySelectorAll("#players li")].find(li => li.textContent.startsWith(${JSON.stringify(name)})).querySelector("button").click();
+  const slot = HC.inv.findIndex(s => s && s.id === ${id});
+  document.querySelectorAll("#pass .grid .slot")[slot].dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  document.querySelector("#pass .close").click();
+  return 1;
+})()`);
+const bagB = await b(`JSON.stringify(HC.inv)`);
+await b(`HC.inv.forEach((s, i) => (HC.inv[i] = { id: HC.B.DIRT, n: 99 })); 1`);
+await a(`HC.addItem(HC.B.COBBLE, 5); 1`);
+await passTo(a, "Боря", "HC.B.COBBLE");
+check("what does not fit into a full bag comes back", await until(a, `HC.count(HC.B.COBBLE) === 5 && /рюкзак полон — вернулось/.test(document.querySelector("#toast").textContent)`) && await b(`HC.count(HC.B.COBBLE) === 0`),
+  await a(`HC.count(HC.B.COBBLE)`));
+await b(`(() => {
+  const saved = JSON.parse(${JSON.stringify(bagB)});
+  saved.forEach((s, i) => (HC.inv[i] = s));
+  return 1;
+})()`);
+await b(`(() => {
+  document.querySelector("#menuBtn").click();
+  document.querySelector('[data-act="look"]').click();
+  return 1;
+})()`);
+check("the menu opens the look with the current one chosen", await until(b, `${visible("hero")} && document.querySelectorAll("#lookHats button")[4].classList.contains("on")`));
+await chooseHero(b, 0, 5);
+check("A sees B in the pink crown", await until(a, `${peer("Боря")}.look.h === 5`));
+check("B keeps the new look", await until(b, `document.querySelector("#hero").hidden && HC.net.look.h === 5`));
+
 await a(`HC.addItem(HC.B.BRICK, 5); 1`);
 const ax = await a(`HC.P.x`);
 await sleep(500);
@@ -196,7 +273,7 @@ check("the admin sees the worlds with codes", await boss(`[...document.querySele
 check("the admin sees the heroes with pictures", await boss(`(() => {
   const rose = document.querySelectorAll("#adminWorlds .world")[0];
   return [...rose.querySelectorAll(".heroCard")].map(c => c.textContent).join() + "|" + rose.querySelectorAll(".heroCard canvas").length;
-})()`) === "🟢 Аня🎁,🟢 Боря🎁|2", await boss(`document.querySelectorAll("#adminWorlds .world")[0].textContent`));
+})()`) === "🟢 Аня🎁🚫,🟢 Боря🎁🚫|2", await boss(`document.querySelectorAll("#adminWorlds .world")[0].textContent`));
 const seeds = new Set();
 for (let i = 0; i < 4; i++) {
   await boss(`document.querySelector("#newRandom").click(); 1`);
@@ -238,6 +315,16 @@ await boss(`window.confirm = () => true; [...document.querySelectorAll("#adminWo
 check("deleting a world sends its players out", await until(f, `${visible("login")} && /удалён/.test(document.querySelector("#loginStatus").textContent)`),
   await f(`document.querySelector("#loginStatus").textContent`));
 check("the deleted world is gone from the list", await until(boss, `![...document.querySelectorAll("#adminWorlds code")].some(c => c.textContent === "peaks")`));
+await boss(`window.confirm = () => true; [...document.querySelectorAll("#adminWorlds .heroCard")].find(c => /Боря/.test(c.textContent)).querySelectorAll(".btn")[1].click(); 1`);
+check("a banned player is sent out", await until(e, `${visible("login")} && /забанен/.test(document.querySelector("#loginStatus").textContent)`),
+  await e(`document.querySelector("#loginStatus").textContent`));
+check("the admin sees the ban", await until(boss, `/Боря/.test(document.querySelector("#bans").textContent)`));
+await e.login("БОРЯ", MINT);
+check("a banned login is refused in every world", await until(e, `/забанен/.test(document.querySelector("#loginStatus").textContent) && !HC.net.ready`));
+await boss(`[...document.querySelectorAll("#bans button")].find(b => /Разбанить/.test(b.textContent)).click(); 1`);
+check("the admin lifts the ban", await until(boss, `/никого/.test(document.querySelector("#bans").textContent)`));
+await e.login("боря", ROSE);
+check("an unbanned player plays again", await until(e, `HC.net.ready && document.querySelector("#login").hidden`));
 await boss(`document.querySelector("#adminExit").click(); 1`);
 check("the admin logs out to the login screen", await until(boss, `${visible("login")} && document.querySelector("#admin").hidden`));
 

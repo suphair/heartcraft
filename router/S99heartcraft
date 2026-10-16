@@ -1,19 +1,18 @@
 #!/bin/sh
 # Entware autostart: rc.unslung calls it when the router boots.
-# start-stop-daemon -b detaches the keeper, otherwise it dies with the ssh session.
+# start-stop-daemon -b detaches the hub, otherwise it dies with the ssh session.
 case "$1" in
     start)
-        pgrep -f "/opt/heartcraft/keeper.sh" >/dev/null 2>&1 || \
-            start-stop-daemon -S -b -x /opt/heartcraft/keeper.sh
+        pgrep -f "[/]opt/heartcraft/hub.sh loop" >/dev/null 2>&1 || \
+            start-stop-daemon -S -b -x /opt/heartcraft/hub.sh -- loop
         ;;
     stop)
-        for name in keeper.sh server.py; do
-            for pid in $(pgrep -f "/opt/heartcraft/$name" 2>/dev/null); do
-                kill "$pid" 2>/dev/null
-            done
+        for pid in $(pgrep -f "[/]opt/heartcraft/hub.sh loop" 2>/dev/null); do
+            kill "$pid" 2>/dev/null
         done
+        /opt/heartcraft/hub.sh clear
         ;;
     restart)
-        "$0" stop; sleep 2; "$0" start
+        "$0" stop; sleep 1; "$0" start
         ;;
 esac

@@ -116,6 +116,7 @@
   .looks { display: flex; gap: 8px; flex-wrap: wrap; }
   .looks button { width: 48px; height: 48px; padding: 0; border: 3px solid #ffb0d4; border-radius: 10px;
     background: var(--soft); font-size: 24px; }
+  .looks .pink { display: inline-block; filter: hue-rotate(290deg) saturate(1.8); }
   .looks button.on { border-color: var(--edge); box-shadow: 0 0 0 3px #fff inset; }
   #lookPreview { display: block; width: 120px; height: 120px; margin: 6px auto 0; }
   .world { border: 3px solid #ffb0d4; border-radius: 14px; padding: 10px; margin-top: 12px; background: #fff7fb; }
@@ -203,10 +204,32 @@
   </div>
 </div>
 
+<div class="sheet" id="pass" hidden>
+  <div class="box">
+    <h2></h2>
+    <div class="hint">Нажми на ячейку рюкзака — вся стопка уйдёт этому игроку. Что не поместится в его рюкзак,
+      вернётся к тебе.</div>
+    <div class="grid" style="margin-top:10px"></div>
+    <div class="row end"><button class="btn close">Закрыть</button></div>
+  </div>
+</div>
+
 <div class="sheet" id="news" hidden>
   <div class="box">
     <h2>Что нового</h2>
     <div class="news">
+      <h3>Версия 2.1</h3>
+      <ul>
+        <li><b>Сердечки больше не стареют</b> и не умирают от старости.</li>
+        <li><b>Меч</b> — палка и 2 железных слитка у верстака. Выбери его в поясе и нажми на сердечко — оно
+          исчезнет. У меча есть прочность, как у кирки.</li>
+        <li><b>Ведро</b> — 3 железных слитка. Нажми ведром на воду — наберёшь, нажми на пустое место — выльешь.</li>
+        <li><b>Передать вещи</b> другому игроку: меню ☰ → «🎁 Передать» рядом с его именем.</li>
+        <li><b>Сменить вид</b> героя теперь можно когда угодно: меню ☰ → «🎨 Сменить вид».
+          Новое украшение — <b>розовая корона</b>.</li>
+        <li>Админ может <b>забанить</b> логин — с ним нельзя играть ни в одном мире, пока админ не разбанит.</li>
+        <li>Новый звук ломания блоков.</li>
+      </ul>
       <h3>Версия 2.0</h3>
       <ul>
         <li><b>Игра по сети</b>: при запуске впиши логин и код мира — код скажет админ. Новый логин — новый
@@ -287,7 +310,7 @@
 <div class="sheet" id="hero" hidden>
   <div class="box">
     <h2>Какой у тебя герой?</h2>
-    <div class="hint">Выбери цвет и украшение — таким тебя увидят другие игроки. Поменять потом нельзя.</div>
+    <div class="hint">Выбери цвет и украшение — таким тебя увидят другие игроки. Поменять потом можно в меню ☰.</div>
     <canvas id="lookPreview" width="240" height="240"></canvas>
     <h3>Цвет</h3>
     <div class="looks" id="lookColors"></div>
@@ -308,6 +331,11 @@
     <div class="row"><button class="btn" id="newRandom">🎲 Разбросать настройки</button>
       <button class="btn main" id="newCreate">✨ Создать мир</button></div>
     <div id="adminWorlds"></div>
+    <h3>🚫 Бан</h3>
+    <div class="hint">Забаненный логин не войдёт ни в один мир, пока его не разбанят. Кто сейчас в игре — вылетит.</div>
+    <div class="row"><label>Логин: <input class="field" id="banName" maxlength="16"></label>
+      <button class="btn" id="banBtn">🚫 Забанить</button></div>
+    <ul class="news" id="bans"></ul>
     <div class="row end"><button class="btn" id="adminExit">🚪 Выйти</button></div>
   </div>
 </div>
@@ -331,6 +359,7 @@
     <h3>В игре</h3>
     <ul class="news" id="players"></ul>
     <div class="menu">
+      <button class="btn" data-act="look">🎨 Сменить вид</button>
       <button class="btn main" data-act="logout">🚪 Выйти</button>
       <button class="btn close">Закрыть</button>
     </div>
@@ -349,10 +378,12 @@
         ☀️ — всегда день.</p>
       <p><b>Сердечки</b> бродят по миру. Выбери в поясе розовый блок и нажми на сердечко — оно влюбится.
         Два влюблённых сердечка найдут друг друга, и родится малыш. Изредка малыш рождается белым,
-        у двух белых сердечек — часто. Сердечки стареют и умирают от старости. <b>Сердцеметр</b> в руке
+        у двух белых сердечек — часто. <b>Меч</b> в руке убирает сердечко. <b>Сердцеметр</b> в руке
         показывает, сколько сердечек в мире.</p>
       <p><b>Сундук</b> хранит вещи, <b>мусорка</b> их уничтожает — нажми на них, чтобы открыть.
-        В <b>океане</b> плавают рыбки; чтобы всплыть, держи прыжок. По <b>лестнице</b> можно лазить вверх и вниз.</p>
+        В <b>океане</b> плавают рыбки; чтобы всплыть, держи прыжок. <b>Ведро</b> набирает воду и выливает её.
+        По <b>лестнице</b> можно лазить вверх и вниз.</p>
+      <p><b>Вещи другу</b> — «🎁 Передать» рядом с именем игрока выше. <b>🎨 Сменить вид</b> — цвет и украшение героя.</p>
     </div>
   </div>
 </div>
@@ -368,17 +399,17 @@ const DAY_LEN = 480;
 const ZOOMS = [0.5, 0.75, 1, 1.5, 2];
 const MOB_MAX = 80, MOB_SPEED = 2, MOB_JUMP = 9, LOVE_TIME = 15, BREED_PAUSE = 30, GROW_TIME = 60;
 const WHITE_CHANCE = 0.01, WHITE_PAIR_CHANCE = 0.2;
-const LIFE_MIN = 600, LIFE_MAX = 1200, OLD_AT = 0.7;
 const SWIM = 5, SWIM_FALL = 3, WATER_GRAV = 0.3, CLIMB = 4, LADDER_SLIDE = 1.5;
 const FISH_COUNT = 30, FISH_MAX = 100, FISH_SPEED = 1.5;
 const CHEST_SLOTS = 27;
-const VERSION = "2.0";
+const VERSION = "2.1";
 
 const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, COBBLE: 4, SAND: 5, LOG: 6, LEAVES: 7, PLANKS: 8,
   COAL_ORE: 9, IRON_ORE: 10, GOLD_ORE: 11, DIAMOND_ORE: 12, PINK_ORE: 13, BEDROCK: 14, WORKBENCH: 15,
   BRICK: 16, GLASS: 17, TORCH: 18, PINK: 19, GOLD_BLOCK: 20, CHEST: 21, TRASH: 22, WATER: 23, SEAWEED: 24, LADDER: 25 };
 const I = { STICK: 100, COAL: 101, RAW_IRON: 102, IRON: 103, GOLD: 104, DIAMOND: 105, PINK_GEM: 106,
-  HEART_METER: 107, HEART_EGG: 108, FISH_EGG: 109, PICK_WOOD: 110, PICK_STONE: 111, PICK_IRON: 112, PICK_DIAMOND: 113 };
+  HEART_METER: 107, HEART_EGG: 108, FISH_EGG: 109, PICK_WOOD: 110, PICK_STONE: 111, PICK_IRON: 112, PICK_DIAMOND: 113,
+  SWORD: 114, BUCKET: 115, WATER_BUCKET: 116 };
 
 const BLOCKS = {
   [B.GRASS]: { name: "Трава", hard: 0.5, tier: 0, drop: B.DIRT },
@@ -418,10 +449,13 @@ const ITEMS = {
   [I.HEART_METER]: { name: "Сердцеметр" },
   [I.HEART_EGG]: { name: "Яйцо призыва сердечка" },
   [I.FISH_EGG]: { name: "Яйцо призыва рыбки" },
-  [I.PICK_WOOD]: { name: "Деревянная кирка", pick: { tier: 1, speed: 2, dur: 60 } },
-  [I.PICK_STONE]: { name: "Каменная кирка", pick: { tier: 2, speed: 3, dur: 130 } },
-  [I.PICK_IRON]: { name: "Железная кирка", pick: { tier: 3, speed: 4.5, dur: 250 } },
-  [I.PICK_DIAMOND]: { name: "Алмазная кирка", pick: { tier: 4, speed: 7, dur: 1500 } },
+  [I.PICK_WOOD]: { name: "Деревянная кирка", pick: { tier: 1, speed: 2 }, dur: 60 },
+  [I.PICK_STONE]: { name: "Каменная кирка", pick: { tier: 2, speed: 3 }, dur: 130 },
+  [I.PICK_IRON]: { name: "Железная кирка", pick: { tier: 3, speed: 4.5 }, dur: 250 },
+  [I.PICK_DIAMOND]: { name: "Алмазная кирка", pick: { tier: 4, speed: 7 }, dur: 1500 },
+  [I.SWORD]: { name: "Меч", dur: 150 },
+  [I.BUCKET]: { name: "Ведро", single: true },
+  [I.WATER_BUCKET]: { name: "Ведро воды", single: true },
 };
 const HAND = { tier: 0, speed: 1 };
 
@@ -445,13 +479,17 @@ const RECIPES = [
   { out: I.HEART_METER, n: 1, need: [[B.PINK, 3], [I.STICK, 5]] },
   { out: I.HEART_EGG, n: 1, need: [[I.PINK_GEM, 4], [I.GOLD, 1]] },
   { out: I.FISH_EGG, n: 1, need: [[B.SEAWEED, 4], [I.GOLD, 1]] },
+  { out: I.SWORD, n: 1, need: [[I.STICK, 1], [I.IRON, 2]] },
+  { out: I.BUCKET, n: 1, need: [[I.IRON, 3]] },
 ];
 
 const isBlock = id => id in BLOCKS;
 const isKnown = id => id in BLOCKS || id in ITEMS;
 const nameOf = id => (BLOCKS[id] || ITEMS[id]).name;
 const pickOf = id => ITEMS[id] && ITEMS[id].pick;
-const stackMax = id => (pickOf(id) ? 1 : 99);
+// Picks and the sword wear out: such a thing keeps its durability and never stacks.
+const durOf = id => ITEMS[id] && ITEMS[id].dur;
+const stackMax = id => (durOf(id) || (ITEMS[id] && ITEMS[id].single) ? 1 : 99);
 const solidId = id => id !== B.AIR && BLOCKS[id].solid !== false;
 const lightPasses = id => !solidId(id) || id === B.GLASS || id === B.LEAVES;
 const isEmpty = id => id === B.AIR || id === B.WATER;
@@ -510,7 +548,7 @@ const Sound = (() => {
     osc.start(t);
     osc.stop(t + dur + 0.02);
   }
-  function noise(dur, gain, freq, bus) {
+  function noise(dur, gain, freq, bus, at) {
     if (!live()) {
       return;
     }
@@ -530,7 +568,7 @@ const Sound = (() => {
     src.connect(band);
     band.connect(g);
     g.connect(bus || master);
-    src.start();
+    src.start(at || 0);
   }
 
   const SOFT = new Set([B.GRASS, B.DIRT, B.SAND, B.LEAVES, B.SEAWEED]);
@@ -651,15 +689,26 @@ const Sound = (() => {
         note({ from: 150, to: 95, dur: 0.12, type: "square", gain: 0.12 });
       }
     },
+    // A crumble of short grains falling lower and lower, then a soft pop: the block falls apart.
     broke(id) {
       const m = matOf(id);
-      if (m === "glass") {
-        [2600, 3100, 2200].forEach((f, i) => note({ from: f, dur: 0.18, gain: 0.08, type: "sine", at: now() + i * 0.04 }));
-        noise(0.25, 0.25, 4000);
-      } else {
-        noise(0.2, 0.45, m === "soft" ? 1100 : m === "wood" ? 450 : 700);
-        note({ from: m === "soft" ? 300 : 200, to: 90, dur: 0.18, gain: 0.15, type: m === "stone" ? "square" : "triangle" });
+      const base = { soft: 1600, wood: 700, glass: 4200, stone: 1100 }[m];
+      for (let i = 0; i < 4; i++) {
+        noise(0.07, 0.4 - i * 0.07, base * (1 - i * 0.18), null, now() + i * 0.045);
       }
+      if (m === "glass") {
+        [3100, 2500, 3600].forEach((f, i) => note({ from: f, dur: 0.12, gain: 0.07, type: "sine", at: now() + i * 0.05 }));
+      } else {
+        note({ from: m === "wood" ? 520 : 680, to: 260, dur: 0.1, gain: 0.16, type: "sine", at: now() + 0.17 });
+      }
+    },
+    slash() {
+      noise(0.12, 0.35, 3000);
+      note({ from: 1400, to: 300, dur: 0.14, gain: 0.12, type: "sawtooth" });
+    },
+    splash() {
+      noise(0.3, 0.4, 900);
+      [520, 700].forEach((f, i) => note({ from: f, to: f * 0.6, dur: 0.12, gain: 0.08, type: "sine", at: now() + 0.05 + i * 0.07 }));
     },
     pickup() {
       note({ from: 660, to: 990, dur: 0.14, gain: 0.2, at: now() + 0.06 });
@@ -934,24 +983,18 @@ function snapCamera() {
   clampCamera();
 }
 
-const randLife = () => LIFE_MIN + Math.random() * (LIFE_MAX - LIFE_MIN);
-function makeMob(x, y, grow, white, life, age) {
+function makeMob(x, y, grow, white) {
   const s = grow > 0 ? 0.32 : 0.5;
   return { x, y, w: s, h: s, vx: 0, vy: 0, onGround: false, face: 1, dir: 0, think: 0, love: 0, pause: 0, grow, white,
-    life, age, phase: Math.random() * 4,
+    phase: Math.random() * 4,
     body: white ? "#ffffff" : ["#ff7eb3", "#ff5f9e", "#ff9ec8", "#f06aa8"][Math.floor(Math.random() * 4)] };
-}
-// Wild hearts start at different ages, otherwise the whole first generation would die out at once.
-function wildMob(x, y, grow, white) {
-  const life = randLife();
-  return makeMob(x, y, grow, white, life, Math.random() * life * 0.6);
 }
 function spawnMobs() {
   mobs = [];
   const start = opt(worldOpts, "hearts");
   for (let tries = 0; mobs.length < start && tries < start * 20; tries++) {
     const x = 8 + Math.floor(Math.random() * (W - 16));
-    const m = wildMob(x + 0.25, 0, 0, false);
+    const m = makeMob(x + 0.25, 0, 0, false);
     m.y = surf[x] - m.h - 0.01;
     if (get(x, surf[x]) === B.GRASS && !collides(m, m.x, m.y)) {
       mobs.push(m);
@@ -1016,7 +1059,7 @@ function addItem(id, n) {
   for (let i = 0; i < SLOTS && n > 0; i++) {
     if (!inv[i]) {
       const k = Math.min(n, max);
-      inv[i] = pickOf(id) ? { id, n: k, dur: pickOf(id).dur } : { id, n: k };
+      inv[i] = durOf(id) ? { id, n: k, dur: durOf(id) } : { id, n: k };
       n -= k;
     }
   }
@@ -1070,15 +1113,13 @@ function bestPick() {
   const s = bestPickSlot();
   return s ? pickOf(s.id) : HAND;
 }
-function wearPick() {
-  const s = bestPickSlot();
+function wear(s) {
+  uiDirty = true;
   if (!s || --s.dur > 0) {
-    uiDirty = true;
     return;
   }
   inv[inv.indexOf(s)] = null;
-  uiDirty = true;
-  toast(nameOf(s.id) + " сломалась");
+  toast(nameOf(s.id) + (s.id === I.SWORD ? " сломался" : " сломалась"));
   Sound.snap();
 }
 const canCraft = r => Math.min(...r.need.map(([id, n]) => Math.floor(count(id) / n)));
@@ -1150,7 +1191,7 @@ function finishBreak(x, y) {
   }
   Sound.broke(id);
   if (BLOCKS[id].tier >= 1) {
-    wearPick();
+    wear(bestPickSlot());
   }
   const drop = ok ? dropOf(id) : null;
   if (drop !== null) {
@@ -1188,6 +1229,10 @@ function usePlace(x, y) {
     return;
   }
   const slot = inv[sel];
+  if (slot && (slot.id === I.BUCKET || slot.id === I.WATER_BUCKET)) {
+    useBucket(slot, x, y, here);
+    return;
+  }
   if (!isEmpty(here) || here === (slot && slot.id) || y < 0 || !slot) {
     return;
   }
@@ -1224,6 +1269,20 @@ function usePlace(x, y) {
   }
   use1(slot);
 }
+// Scooping from the sea leaves water where other water touches the hole, as when a block is broken there.
+function useBucket(slot, x, y, here) {
+  const fill = slot.id === I.BUCKET;
+  if (here !== (fill ? B.WATER : B.AIR)) {
+    toast(fill ? "Набрать можно только воду" : "Вылить воду можно только на пустое место");
+    Sound.nope();
+    return;
+  }
+  setTile(x, y, fill ? holeAfter(x, y, B.WATER) : B.WATER);
+  netTile(x, y);
+  slot.id = fill ? I.WATER_BUCKET : I.BUCKET;
+  uiDirty = true;
+  Sound.splash();
+}
 function use1(slot) {
   slot.n--;
   if (!slot.n) {
@@ -1242,7 +1301,7 @@ function hatch(egg, x, y, here) {
     if (egg === I.FISH_EGG) {
       fish.push(makeFish(x + 0.5, y + 0.5));
     } else {
-      mobs.push(makeMob(x + 0.25, y + 0.5, 0, false, randLife(), 0));
+      mobs.push(makeMob(x + 0.25, y + 0.5, 0, false));
     }
     floats.push({ text: egg === I.FISH_EGG ? "Появилась рыбка! 🐟" : "Появилось сердечко! 💖", x: x + 0.5, y, t: 0 });
     Sound.craft();
@@ -1437,14 +1496,7 @@ function updateFish(f, dt) {
 
 // ---------- hearts ----------
 
-const oldness = m => Math.max(0, Math.min(1, (m.age / m.life - OLD_AT) / (1 - OLD_AT)));
 function updateMob(m, dt) {
-  m.age += dt;
-  if (m.age >= m.life) {
-    mobs.splice(mobs.indexOf(m), 1);
-    floats.push({ text: "Сердечко умерло от старости 🕊", x: m.x + m.w / 2, y: m.y, t: 0 });
-    return;
-  }
   m.think -= dt;
   if (m.think <= 0) {
     m.think = 1 + Math.random() * 3;
@@ -1474,7 +1526,7 @@ function updateMob(m, dt) {
   if (wetAt(m)) {
     m.vy = Math.min(m.vy, -SWIM / 2);
   }
-  if (walk(m, dir, MOB_SPEED * (1 - oldness(m) / 2), dt, false)) {
+  if (walk(m, dir, MOB_SPEED, dt, false)) {
     m.vy = -MOB_JUMP;
   }
 }
@@ -1490,7 +1542,7 @@ function breed(a, b) {
   a.love = b.love = 0;
   a.pause = b.pause = BREED_PAUSE;
   const white = Math.random() < (a.white && b.white ? WHITE_PAIR_CHANCE : WHITE_CHANCE);
-  const baby = makeMob((a.x + b.x) / 2, 0, GROW_TIME, white, randLife(), 0);
+  const baby = makeMob((a.x + b.x) / 2, 0, GROW_TIME, white);
   baby.y = a.y + a.h - baby.h;
   if (collides(baby, baby.x, baby.y)) {
     baby.x = a.x;
@@ -1501,6 +1553,17 @@ function breed(a, b) {
 }
 function mobAt(wx, wy) {
   return mobs.find(m => wx > m.x - 0.2 && wx < m.x + m.w + 0.2 && wy > m.y - 0.2 && wy < m.y + m.h + 0.2);
+}
+function strike(m) {
+  if (!inReach(Math.floor(m.x + m.w / 2), Math.floor(m.y + m.h / 2))) {
+    toast("Слишком далеко");
+    Sound.nope();
+    return;
+  }
+  mobs.splice(mobs.indexOf(m), 1);
+  floats.push({ text: "💔", x: m.x + m.w / 2, y: m.y, t: 0 });
+  Sound.slash();
+  wear(inv[sel]);
 }
 function feed(m) {
   if (!inReach(Math.floor(m.x + m.w / 2), Math.floor(m.y + m.h / 2))) {
@@ -1621,6 +1684,27 @@ function egg(shell, spot) {
     [[6, 6], [10, 8], [7, 11], [10, 12]].forEach(([x, y]) => g.fillRect(x, y, 2, 2));
     g.fillStyle = "rgba(255, 255, 255, .7)";
     g.fillRect(5, 5, 1, 2);
+  });
+}
+function bucket(water) {
+  return mkTex(g => {
+    g.strokeStyle = "#70757c";
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.arc(8, 6, 5, Math.PI, 0);
+    g.stroke();
+    g.fillStyle = "#9ea3aa";
+    g.beginPath();
+    g.moveTo(3, 6);
+    g.lineTo(13, 6);
+    g.lineTo(11.5, 14);
+    g.lineTo(4.5, 14);
+    g.closePath();
+    g.fill();
+    g.fillStyle = "#d8dce2";
+    g.fillRect(5, 8, 1, 5);
+    g.fillStyle = water || "#4a4e55";
+    g.fillRect(3.5, 6, 9, 1.6);
   });
 }
 function pick(head, dark) {
@@ -1836,6 +1920,31 @@ const tex = {
   [I.PICK_STONE]: pick("#a0a0a4", "#5c5c61"),
   [I.PICK_IRON]: pick("#e6e9ee", "#80858c"),
   [I.PICK_DIAMOND]: pick("#7ffaf6", "#1f9e9e"),
+  [I.SWORD]: mkTex(g => {
+    g.lineCap = "round";
+    g.strokeStyle = "#80858c";
+    g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(6, 10);
+    g.lineTo(13.5, 2.5);
+    g.stroke();
+    g.strokeStyle = "#e6e9ee";
+    g.lineWidth = 1.4;
+    g.stroke();
+    g.strokeStyle = "#5c5c61";
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(3.5, 8.5);
+    g.lineTo(7.5, 12.5);
+    g.stroke();
+    g.strokeStyle = "#7a5230";
+    g.beginPath();
+    g.moveTo(5.5, 10.5);
+    g.lineTo(2.5, 13.5);
+    g.stroke();
+  }),
+  [I.BUCKET]: bucket(null),
+  [I.WATER_BUCKET]: bucket("#3d7fe0"),
 };
 const wallTex = mkTex((g, r) => speck(g, r, ["#4a3040", "#553849", "#40283a"]));
 const iconCache = {};
@@ -2038,8 +2147,8 @@ function drawHat(g, e, x, y, s, hat) {
     g.arc(0.28, 0.08, 0.06, 0, Math.PI * 2);
     g.fill();
     g.stroke();
-  } else if (hat === 2) {
-    g.fillStyle = "#ffcf33";
+  } else if (hat === 2 || hat === 5) {
+    g.fillStyle = hat === 2 ? "#ffcf33" : "#ff6fb5";
     g.beginPath();
     g.moveTo(0.27, 0.12);
     g.lineTo(0.27, -0.12);
@@ -2051,6 +2160,12 @@ function drawHat(g, e, x, y, s, hat) {
     g.closePath();
     g.fill();
     g.stroke();
+    if (hat === 5) {
+      g.fillStyle = "#fff0f8";
+      g.beginPath();
+      g.arc(0.5, 0.03, 0.05, 0, Math.PI * 2);
+      g.fill();
+    }
   } else if (hat === 3) {
     g.lineWidth = 0.05;
     g.strokeStyle = "#2a0618";
@@ -2120,8 +2235,7 @@ function drawSky() {
 
 function drawMob(m, t) {
   const ts = TILE, x = (m.x - cam.x) * ts, y = (m.y - cam.y) * ts;
-  const old = oldness(m);
-  drawHeart(m, x, y, m.w * ts, t + m.phase, old > 0 ? mixHex(m.body, "#b9aab2", old * 0.8) : m.body);
+  drawHeart(m, x, y, m.w * ts, t + m.phase, m.body);
   if (m.love > 0) {
     const s = ts * 0.3, bob = Math.sin(t * 5 + m.phase) * ts * 0.06;
     ctx.save();
@@ -2287,15 +2401,15 @@ function banner() {
 
 function fillSlot(el, slot) {
   const img = el.querySelector("img"), b = el.querySelector("b"), bar = el.querySelector("i");
-  const wear = slot && pickOf(slot.id) ? slot.dur / pickOf(slot.id).dur : 1;
-  bar.style.width = wear * 76 + "%";
-  bar.style.background = `hsl(${Math.round(wear * 120)}, 85%, 45%)`;
-  bar.style.visibility = wear < 1 ? "visible" : "hidden";
+  const left = slot && durOf(slot.id) ? slot.dur / durOf(slot.id) : 1;
+  bar.style.width = left * 76 + "%";
+  bar.style.background = `hsl(${Math.round(left * 120)}, 85%, 45%)`;
+  bar.style.visibility = left < 1 ? "visible" : "hidden";
   if (slot) {
     img.src = iconURL(slot.id);
     img.style.visibility = "visible";
     b.textContent = slot.n > 1 ? slot.n : "";
-    el.title = nameOf(slot.id) + (pickOf(slot.id) ? ` (прочность ${slot.dur}/${pickOf(slot.id).dur})` : "");
+    el.title = nameOf(slot.id) + (durOf(slot.id) ? ` (прочность ${slot.dur}/${durOf(slot.id)})` : "");
   } else {
     img.style.visibility = "hidden";
     b.textContent = "";
@@ -2327,7 +2441,7 @@ function renderHotbar() {
   $("#selname").textContent = inv[sel] ? nameOf(inv[sel].id) : "";
 }
 
-const sheets = ["craft", "bag", "menu", "store", "news", "login", "hero", "admin", "gift"].map(id => $("#" + id));
+const sheets = ["craft", "bag", "menu", "store", "news", "login", "hero", "admin", "gift", "pass"].map(id => $("#" + id));
 // There is no game behind these sheets (no login, no hero yet, or the admin), so they do not close on their own.
 const blocking = el => ["login", "hero", "admin", "gift"].includes(el.id);
 const openSheet = () => sheets.find(s => !s.hidden);
@@ -2418,7 +2532,7 @@ function renderBag() {
   });
   const p = bestPickSlot();
   $("#bag .pick").textContent = p
-    ? `Работает лучшая кирка: ${nameOf(p.id)}, прочность ${p.dur}/${pickOf(p.id).dur}. ` +
+    ? `Работает лучшая кирка: ${nameOf(p.id)}, прочность ${p.dur}/${durOf(p.id)}. ` +
       "Каждый камень или руда стирает её на единицу."
     : "Кирки пока нет — камень и руды ломаются долго и ничего не дают. Крафт — у верстака.";
 }
@@ -2593,7 +2707,7 @@ function decodeTiles(b64) {
   return w;
 }
 
-const encodeSlot = s => (!s ? null : pickOf(s.id) ? [s.id, s.n, s.dur] : [s.id, s.n]);
+const encodeSlot = s => (!s ? null : durOf(s.id) ? [s.id, s.n, s.dur] : [s.id, s.n]);
 function decodeSlot(s) {
   if (s === null) {
     return null;
@@ -2602,11 +2716,11 @@ function decodeSlot(s) {
   if (!isKnown(id) || !Number.isInteger(n) || n < 1 || n > stackMax(id)) {
     throw new Error("испорчена вещь");
   }
-  if (!pickOf(id)) {
+  if (!durOf(id)) {
     return { id, n };
   }
-  if (!(Number.isInteger(dur) && dur >= 1 && dur <= pickOf(id).dur)) {
-    throw new Error("испорчена прочность кирки");
+  if (!(Number.isInteger(dur) && dur >= 1 && dur <= durOf(id))) {
+    throw new Error("испорчена прочность вещи");
   }
   return { id, n, dur };
 }
@@ -2619,8 +2733,11 @@ function decodeSlots(slots, n) {
 const inWorld = (x, y) => x >= 1 && x < W - 1 && y >= 0 && y < H - 1;
 
 $("#menu").addEventListener("click", e => {
-  if (e.target.dataset && e.target.dataset.act === "logout") {
+  const act = e.target.dataset && e.target.dataset.act;
+  if (act === "logout") {
     netLeave("Вы вышли из игры");
+  } else if (act === "look") {
+    openHero(net.look);
   }
 });
 
@@ -2629,7 +2746,8 @@ $("#menu").addEventListener("click", e => {
 const NET_KEY = "heartcraft-net";
 const NET_SEND_EVERY = 100, NET_KEEPALIVE = 5000, NET_RETRY = 3000;
 const LOOK_COLORS = ["#ff4f9a", "#e53935", "#ff8a1f", "#ffd21f", "#43c06d", "#29b6f6", "#8e6bff", "#ffffff"];
-const HATS = [["✖", "Без украшения"], ["🎀", "Бантик"], ["👑", "Корона"], ["👓", "Очки"], ["🌸", "Цветок"]];
+const HATS = [["✖", "Без украшения"], ["🎀", "Бантик"], ["👑", "Корона"], ["👓", "Очки"], ["🌸", "Цветок"],
+  ["👑", "Розовая корона", "pink"]];
 const lookOf = look => look || { c: 0, h: 0 };
 const peers = new Map();
 const net = { ws: null, want: false, ready: false, shared: false, login: "", code: "", name: "", world: "",
@@ -2855,6 +2973,9 @@ function netMessage(m) {
     if (o) {
       toast(o.name + " выходит из игры");
     }
+    if (passTo === m.id && !$("#pass").hidden) {
+      renderPass();
+    }
   } else if (m.t === "look" && peers.has(m.id)) {
     peers.get(m.id).look = lookOf(m.look);
   } else if (m.t === "pos" && peers.has(m.id)) {
@@ -2864,20 +2985,80 @@ function netMessage(m) {
   } else if (m.t === "chest") {
     remoteChest(m.x, m.y, m.slots);
   } else if (m.t === "gift") {
-    receiveGifts(m.items);
+    receiveGifts(m);
   }
 }
-function receiveGifts(items) {
-  const got = [];
-  let lost = 0;
-  for (const [id, n] of items) {
+// Worn things keep their durability one by one; the rest goes in by addItem, which splits big gifts into stacks.
+function takeStack(id, n, dur) {
+  if (!durOf(id)) {
+    return addItem(id, n);
+  }
+  const keep = Number.isInteger(dur) && dur >= 1 && dur <= durOf(id) ? dur : durOf(id);
+  let left = 0;
+  for (let k = 0; k < n; k++) {
+    left += putInto(inv, { id, n: 1, dur: keep });
+  }
+  return left;
+}
+// A gift from the admin, a stack passed by a player, or one coming back: from a full bag or a player who left.
+function receiveGifts(m) {
+  const got = [], spare = [];
+  for (const [id, n, dur] of m.items) {
     if (isKnown(id)) {
-      lost += addItem(id, n);
-      got.push(`${nameOf(id)} ×${n}`);
+      const left = takeStack(id, n, dur);
+      got.push(`${nameOf(id)} ×${n - left}`);
+      if (left) {
+        spare.push(durOf(id) ? [id, left, dur] : [id, left]);
+      }
     }
   }
-  toast(`🎁 Подарок от админа: ${got.join(", ")}` + (lost ? ` — ${lost} не поместилось в рюкзак` : ""));
+  const what = got.join(", ");
+  toast(m.returned ? `Игрок ушёл — вернулось: ${what}`
+    : m.back ? `У игрока ${m.from} рюкзак полон — вернулось: ${what}`
+    : m.from ? `🎁 ${m.from} передаёт: ${what}` : `🎁 Подарок от админа: ${what}`);
+  if (spare.length && m.from && !m.back && !m.returned) {
+    spare.forEach(slot => netSend({ t: "pass", to: m.fromId, slot, back: true }));
+    floats.push({ text: "Рюкзак полон — лишнее вернулось", x: P.x + P.w / 2, y: P.y, t: 0 });
+  } else if (spare.length) {
+    floats.push({ text: "Рюкзак полон — часть пропала", x: P.x + P.w / 2, y: P.y, t: 0 });
+  }
   Sound.chime();
+}
+
+let passTo = null;
+function openPass(id) {
+  passTo = id;
+  renderPass();
+  show($("#pass"));
+}
+function renderPass() {
+  const o = peers.get(passTo);
+  if (!o) {
+    closeSheets();
+    toast("Этот игрок уже вышел");
+    return;
+  }
+  $("#pass h2").textContent = `🎁 Передать: ${o.name}`;
+  const grid = $("#pass .grid");
+  grid.innerHTML = "";
+  inv.forEach((slot, i) => {
+    const el = makeSlot(() => passSlot(i));
+    fillSlot(el, slot);
+    el.classList.toggle("belt", i < 9);
+    grid.appendChild(el);
+  });
+}
+function passSlot(i) {
+  const s = inv[i], o = peers.get(passTo);
+  if (!s || !o || !net.ready) {
+    return;
+  }
+  netSend({ t: "pass", to: o.id, slot: encodeSlot(s) });
+  inv[i] = null;
+  uiDirty = true;
+  toast(`Передано ${o.name}: ${nameOf(s.id)} ×${s.n}`);
+  Sound.pickup();
+  renderPass();
 }
 
 // ---------- admin ----------
@@ -2934,9 +3115,40 @@ function heroCard(world, hero) {
   give.textContent = "🎁";
   give.title = "Подарить";
   give.addEventListener("click", () => openGift(world, hero));
-  card.append(pic, name, give);
+  const ban = document.createElement("button");
+  ban.className = "btn";
+  ban.textContent = "🚫";
+  ban.title = "Забанить";
+  ban.addEventListener("click", () => banLogin(hero.name));
+  card.append(pic, name, give, ban);
   return card;
 }
+function banLogin(login) {
+  if (login && confirm(`Забанить «${login}»? С этим логином нельзя будет играть ни в одном мире.`)) {
+    adminSend({ t: "ban", login });
+  }
+}
+function renderBans() {
+  const list = $("#bans");
+  list.innerHTML = "";
+  adminState.bans.forEach(login => {
+    const li = document.createElement("li");
+    li.textContent = login + " ";
+    const free = document.createElement("button");
+    free.className = "btn";
+    free.textContent = "Разбанить";
+    free.addEventListener("click", () => adminSend({ t: "unban", login }));
+    li.appendChild(free);
+    list.appendChild(li);
+  });
+  if (!adminState.bans.length) {
+    list.innerHTML = "<li>никого</li>";
+  }
+}
+$("#banBtn").addEventListener("click", () => {
+  banLogin($("#banName").value.trim());
+  $("#banName").value = "";
+});
 function renderAdmin() {
   const list = $("#adminWorlds");
   list.innerHTML = "";
@@ -2976,6 +3188,7 @@ function showAdmin(m) {
   }
   $("#adminStatus").textContent = `Миров: ${m.worlds.length}. Код мира — то, что игрок вписывает при входе.`;
   renderAdmin();
+  renderBans();
   if ($("#admin").hidden && $("#gift").hidden) {
     renderNewOpts();
     setNewOpts(randomOpts());
@@ -3000,7 +3213,7 @@ $("#adminExit").addEventListener("click", () => netLeave("Вы вышли из �
 setInterval(() => !$("#admin").hidden && adminSend({ t: "state" }), 3000);
 
 const giftN = $("#giftN");
-const givable = id => isBlock(id) || Boolean(pickOf(id)) || id === I.HEART_EGG || id === I.FISH_EGG;
+const givable = id => isBlock(id) || stackMax(id) === 1 || id === I.HEART_EGG || id === I.FISH_EGG;
 function openGift(world, hero) {
   giftTo = { code: world.code, login: hero.login };
   $("#gift h2").textContent = `🎁 Подарок для ${hero.name} — мир «${world.name}»`;
@@ -3008,12 +3221,12 @@ function openGift(world, hero) {
   grid.innerHTML = "";
   [...Object.keys(BLOCKS), ...Object.keys(ITEMS)].map(Number).filter(givable).forEach(id => {
     const el = makeSlot(() => {
-      const n = pickOf(id) ? 1 : Math.max(1, Math.min(999, Math.floor(Number(giftN.value)) || 1));
+      const n = stackMax(id) === 1 ? 1 : Math.max(1, Math.min(999, Math.floor(Number(giftN.value)) || 1));
       adminSend({ t: "give", ...giftTo, id, n });
       toast(`Отправлено: ${nameOf(id)} ×${n}`);
       Sound.pickup();
     });
-    fillSlot(el, { id, n: 1, dur: pickOf(id) && pickOf(id).dur });
+    fillSlot(el, { id, n: 1, dur: durOf(id) });
     grid.appendChild(el);
   });
   show($("#gift"));
@@ -3099,25 +3312,31 @@ function renderHero() {
   const colors = $("#lookColors"), hats = $("#lookHats");
   colors.innerHTML = hats.innerHTML = "";
   LOOK_COLORS.forEach((c, i) => (lookButton(colors, heroLook.c === i, () => (heroLook.c = i)).style.background = c));
-  HATS.forEach(([icon, name], i) => {
+  HATS.forEach(([icon, name, tint], i) => {
     const b = lookButton(hats, heroLook.h === i, () => (heroLook.h = i));
-    b.textContent = icon;
+    const span = b.appendChild(document.createElement("span"));
+    span.textContent = icon;
+    span.className = tint || "";
     b.title = name;
   });
   lookCtx.setTransform(1, 0, 0, 1, 0, 0);
   lookCtx.clearRect(0, 0, 240, 240);
   drawHero(lookCtx, { face: 1, vy: 0 }, 50, 70, 140, 1, heroLook);
 }
-function openHero() {
-  heroLook = { c: Math.floor(Math.random() * LOOK_COLORS.length), h: 0 };
+// A new hero gets a random colour; a hero changing the look starts from the current one.
+function openHero(look) {
+  heroLook = look ? { ...look } : { c: Math.floor(Math.random() * LOOK_COLORS.length), h: 0 };
+  $("#hero h2").textContent = look ? "Новый вид героя" : "Какой у тебя герой?";
+  $("#heroBtn").textContent = look ? "Готово" : "В игру!";
   renderHero();
   show($("#hero"));
 }
 $("#heroBtn").addEventListener("click", () => {
+  const fresh = !net.look;
   net.look = { ...heroLook };
   netSend({ t: "look", look: net.look });
   closeSheets();
-  toast(`${net.name}, добро пожаловать в мир «${net.world}»`);
+  toast(fresh ? `${net.name}, добро пожаловать в мир «${net.world}»` : "Вид героя изменён");
   Sound.chime();
 });
 
@@ -3125,9 +3344,17 @@ function renderPlayers() {
   $("#whoami").textContent = net.ready ? `Вы — ${net.name}, мир «${net.world}»` : "";
   const list = $("#players");
   list.innerHTML = "";
-  [net.name + " (вы)", ...[...peers.values()].map(o => o.name)].forEach(n => {
+  const me = document.createElement("li");
+  me.textContent = net.name + " (вы)";
+  list.appendChild(me);
+  peers.forEach(o => {
     const li = document.createElement("li");
-    li.textContent = n;
+    li.textContent = o.name + " ";
+    const give = document.createElement("button");
+    give.className = "btn";
+    give.textContent = "🎁 Передать";
+    give.addEventListener("click", () => openPass(o.id));
+    li.appendChild(give);
     list.appendChild(li);
   });
 }
@@ -3151,9 +3378,10 @@ canvas.addEventListener("pointerdown", e => {
   if (aim) {
     return;
   }
-  const m = inv[sel] && inv[sel].id === B.PINK && mobAt(cam.x + e.clientX / TILE, cam.y + e.clientY / TILE);
+  const hand = inv[sel] && inv[sel].id;
+  const m = (hand === B.PINK || hand === I.SWORD) && mobAt(cam.x + e.clientX / TILE, cam.y + e.clientY / TILE);
   if (m) {
-    feed(m);
+    (hand === I.SWORD ? strike : feed)(m);
     return;
   }
   if (e.isTrusted) {
