@@ -16,7 +16,9 @@
 генерации (сид, рельеф, океан, пещеры, руды, деревья, сердечки - <data>/<код>/settings.json),
 удаляет миры и дарит героям вещи. Подарок приходит сразу, если герой в игре, иначе - при входе.
 Удалённый мир не стирается, а уезжает в <data>/.deleted/. Ещё админ банит логины: забаненный
-не войдёт ни в один мир, пока его не разбанят; список - <data>/bans.json.
+не войдёт ни в один мир, пока его не разбанят; список - <data>/bans.json. И пишет замечания к игре
+(<data>/notes.json): у новых и изменённых «fixed»: null. Исправленным правкой файла ставится
+версия игры с исправлением, пока сервер остановлен: файл читается только при старте.
 
 Игроки передают друг другу вещи: стопка уходит адресату подарком «от игрока», а если адресат
 уже вышел - возвращается отправителю.
@@ -58,6 +60,7 @@ LOOK_COLORS, LOOK_HATS = 8, 6
 CODE = r"[A-Za-z0-9]{3,32}"
 MAX_WORLD_NAME = 40
 MAX_GIFT = 999
+MAX_NOTE = 2000
 # Settings of a new world: how many choices each one has; the game knows what they mean.
 SETTINGS = {"seed": 2 ** 31, "hills": 5, "ocean": 2, "caves": 4, "ores": 3, "trees": 4, "hearts": 4}
 MAX_PLAYERS = 8
@@ -379,6 +382,8 @@ class Worlds:
         self.lock = threading.Lock()
         self.rooms = {}
         self.bans_path = data / "bans.json"
+        self.notes_path = data / "notes.json"
+        self.notes = json.loads(self.notes_path.read_text(encoding="utf-8")) if self.notes_path.exists() else []
         self.bans = json.loads(self.bans_path.read_text(encoding="utf-8")) if self.bans_path.exists() else []
         for line in config.read_text(encoding="utf-8").splitlines():
             if not line.strip() or line.lstrip().startswith("#"):
@@ -431,6 +436,27 @@ class Worlds:
                 return "Такого бана нет"
             self.bans = left
             self.write_bans()
+        return None
+
+    def note_list(self):
+        with self.lock:
+            return [dict(n) for n in self.notes]
+
+    def note(self, nid, text):
+        text = text.strip() if isinstance(text, str) else ""
+        if not text or len(text) > MAX_NOTE:
+            return "Нужен текст замечания, до %d букв" % MAX_NOTE
+        with self.lock:
+            if nid is None:
+                self.notes.append({"id": max((n["id"] for n in self.notes), default=0) + 1, "text": text,
+                                   "fixed": None, "at": time.strftime("%Y-%m-%d %H:%M")})
+            else:
+                note = next((n for n in self.notes if n["id"] == nid), None)
+                if note is None:
+                    return "Нет такого замечания"
+                note.update(text=text, fixed=None)
+            self.data.mkdir(parents=True, exist_ok=True)
+            write(self.notes_path, json.dumps(self.notes, ensure_ascii=False, indent=1))
         return None
 
     def write_bans(self):
@@ -570,7 +596,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             pass
 
     def admin_session(self):
-        reply = {"t": "admin", "worlds": self.worlds.state(), "bans": self.worlds.ban_list(), "error": None}
+        reply = self.admin_state(None)
         while True:
             self.connection.sendall(text_frame(reply))
             msg = self.receive()
@@ -591,9 +617,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 why = self.worlds.ban(msg.get("login"))
             elif t == "unban":
                 why = self.worlds.unban(msg.get("login"))
+            elif t == "note":
+                why = self.worlds.note(msg.get("id"), msg.get("text"))
             elif t != "state":
                 return
-            reply = {"t": "admin", "worlds": self.worlds.state(), "bans": self.worlds.ban_list(), "error": why}
+            reply = self.admin_state(why)
+
+    def admin_state(self, why):
+        return {"t": "admin", "worlds": self.worlds.state(), "bans": self.worlds.ban_list(),
+                "notes": self.worlds.note_list(), "error": why}
 
     def bye(self):
         try:

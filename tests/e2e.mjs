@@ -325,6 +325,20 @@ await boss(`[...document.querySelectorAll("#bans button")].find(b => /Разба
 check("the admin lifts the ban", await until(boss, `/никого/.test(document.querySelector("#bans").textContent)`));
 await e.login("боря", ROSE);
 check("an unbanned player plays again", await until(e, `HC.net.ready && document.querySelector("#login").hidden`));
+check("notes are hidden behind their tab", await boss(`${visible("tab-worlds")} && !${visible("tab-notes")}`));
+await boss(`document.querySelector('#adminTabs [data-tab="notes"]').click(); 1`);
+check("the notes tab shows the notes instead of the worlds", await boss(`${visible("tab-notes")} && !${visible("tab-worlds")}`));
+await boss(`(() => {
+  document.querySelector("#noteText").value = "Добавить лук";
+  document.querySelector("#noteAdd").click();
+  return 1;
+})()`);
+check("the admin adds a note", await until(boss, `/🆕 №1 · .*: Добавить лук/.test(document.querySelector("#notes").textContent)`),
+  await boss(`document.querySelector("#notes").textContent`));
+await boss(`window.prompt = () => "Добавить лук и стрелы"; [...document.querySelectorAll("#notes button")][0].click(); 1`);
+check("the admin edits a note", await until(boss, `/№1 · .*: Добавить лук и стрелы/.test(document.querySelector("#notes").textContent)`));
+check("the notes tab counts the new notes", await boss(`document.querySelector('#adminTabs [data-tab="notes"]').textContent`) === "📝 Замечания (1 🆕)",
+  await boss(`document.querySelector('#adminTabs [data-tab="notes"]').textContent`));
 await boss(`document.querySelector("#adminExit").click(); 1`);
 check("the admin logs out to the login screen", await until(boss, `${visible("login")} && document.querySelector("#admin").hidden`));
 

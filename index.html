@@ -323,19 +323,31 @@
 <div class="sheet" id="admin" hidden>
   <div class="box">
     <h2>🔑 Админ</h2>
-    <p class="hint" id="adminStatus"></p>
-    <h3>Новый мир</h3>
-    <div class="row"><label>Название: <input class="field" id="newName" maxlength="40"></label>
-      <label>Код: <input class="field" id="newCode" maxlength="32" placeholder="придумает сервер"></label></div>
-    <div class="row opts" id="newOpts"></div>
-    <div class="row"><button class="btn" id="newRandom">🎲 Разбросать настройки</button>
-      <button class="btn main" id="newCreate">✨ Создать мир</button></div>
-    <div id="adminWorlds"></div>
-    <h3>🚫 Бан</h3>
-    <div class="hint">Забаненный логин не войдёт ни в один мир, пока его не разбанят. Кто сейчас в игре — вылетит.</div>
-    <div class="row"><label>Логин: <input class="field" id="banName" maxlength="16"></label>
-      <button class="btn" id="banBtn">🚫 Забанить</button></div>
-    <ul class="news" id="bans"></ul>
+    <div class="row" id="adminTabs"><button class="btn main" data-tab="worlds">🌍 Миры</button>
+      <button class="btn" data-tab="notes">📝 Замечания</button></div>
+    <div id="tab-worlds">
+      <p class="hint" id="adminStatus"></p>
+      <h3>Новый мир</h3>
+      <div class="row"><label>Название: <input class="field" id="newName" maxlength="40"></label>
+        <label>Код: <input class="field" id="newCode" maxlength="32" placeholder="придумает сервер"></label></div>
+      <div class="row opts" id="newOpts"></div>
+      <div class="row"><button class="btn" id="newRandom">🎲 Разбросать настройки</button>
+        <button class="btn main" id="newCreate">✨ Создать мир</button></div>
+      <div id="adminWorlds"></div>
+      <h3>🚫 Бан</h3>
+      <div class="hint">Забаненный логин не войдёт ни в один мир, пока его не разбанят. Кто сейчас в игре — вылетит.</div>
+      <div class="row"><label>Логин: <input class="field" id="banName" maxlength="16"></label>
+        <button class="btn" id="banBtn">🚫 Забанить</button></div>
+      <ul class="news" id="bans"></ul>
+    </div>
+    <div id="tab-notes" hidden>
+      <h3>📝 Замечания к игре</h3>
+      <div class="hint">Что поправить или добавить в игру. У исправленных — ✅ и версия игры с исправлением;
+        изменённое замечание снова становится новым.</div>
+      <textarea class="field" id="noteText" rows="3" maxlength="2000" style="width:100%;box-sizing:border-box"></textarea>
+      <div class="row"><button class="btn" id="noteAdd">➕ Добавить замечание</button></div>
+      <ul class="news" id="notes"></ul>
+    </div>
     <div class="row end"><button class="btn" id="adminExit">🚪 Выйти</button></div>
   </div>
 </div>
@@ -3145,6 +3157,46 @@ function renderBans() {
     list.innerHTML = "<li>никого</li>";
   }
 }
+let adminTab = "worlds";
+function showTab(tab) {
+  adminTab = tab;
+  document.querySelectorAll("#adminTabs .btn").forEach(b => b.classList.toggle("main", b.dataset.tab === tab));
+  ["worlds", "notes"].forEach(t => ($("#tab-" + t).hidden = t !== tab));
+}
+$("#adminTabs").addEventListener("click", e => {
+  if (e.target.dataset.tab) {
+    showTab(e.target.dataset.tab);
+    Sound.click();
+  }
+});
+function renderNotes() {
+  const fresh = adminState.notes.filter(n => !n.fixed).length;
+  $('#adminTabs [data-tab="notes"]').textContent = "📝 Замечания" + (fresh ? ` (${fresh} 🆕)` : "");
+  const list = $("#notes");
+  list.innerHTML = "";
+  adminState.notes.forEach(note => {
+    const li = document.createElement("li");
+    li.textContent = `${note.fixed ? `✅ v${note.fixed}` : "🆕"} №${note.id} · ${note.at}: ${note.text} `;
+    const edit = document.createElement("button");
+    edit.className = "btn";
+    edit.textContent = "✏️ Изменить";
+    edit.addEventListener("click", () => {
+      const text = prompt(`Замечание №${note.id}`, note.text);
+      if (text !== null && text.trim() !== note.text) {
+        adminSend({ t: "note", id: note.id, text });
+      }
+    });
+    li.appendChild(edit);
+    list.appendChild(li);
+  });
+  if (!adminState.notes.length) {
+    list.innerHTML = "<li>пока нет</li>";
+  }
+}
+$("#noteAdd").addEventListener("click", () => {
+  adminSend({ t: "note", text: $("#noteText").value });
+  $("#noteText").value = "";
+});
 $("#banBtn").addEventListener("click", () => {
   banLogin($("#banName").value.trim());
   $("#banName").value = "";
@@ -3189,9 +3241,11 @@ function showAdmin(m) {
   $("#adminStatus").textContent = `Миров: ${m.worlds.length}. Код мира — то, что игрок вписывает при входе.`;
   renderAdmin();
   renderBans();
+  renderNotes();
   if ($("#admin").hidden && $("#gift").hidden) {
     renderNewOpts();
     setNewOpts(randomOpts());
+    showTab("worlds");
     show($("#admin"));
   }
 }

@@ -414,5 +414,33 @@ class ServerTest(unittest.TestCase):
         self.assertIsNotNone(c.recv()["error"])
 
 
+    def test_admin_writes_notes_and_sees_them_marked_done_in_the_file_after_a_restart(self):
+        c, state = self.admin()
+        self.assertEqual(state["notes"], [])
+        c.send({"t": "note", "text": "  Добавить лук  "})
+        notes = c.recv()["notes"]
+        self.assertEqual([(n["id"], n["text"], n["fixed"]) for n in notes], [(1, "Добавить лук", None)])
+        self.assertRegex(notes[0]["at"], r"^\d{4}-\d\d-\d\d \d\d:\d\d$")
+        c.send({"t": "note", "text": "Больше рыбок"})
+        self.assertEqual([n["id"] for n in c.recv()["notes"]], [1, 2])
+        path = self.data / "notes.json"
+        on_disk = json.loads(path.read_text(encoding="utf-8"))
+        on_disk[0]["fixed"] = "2.2"
+        path.write_text(json.dumps(on_disk, ensure_ascii=False), encoding="utf-8")
+        c.send({"t": "state"})
+        self.assertEqual([n["fixed"] for n in c.recv()["notes"]], [None, None])
+        self.stop()
+        self.start()
+        c, state = self.admin()
+        self.assertEqual([n["fixed"] for n in state["notes"]], ["2.2", None])
+        c.send({"t": "note", "id": 1, "text": "Добавить лук и стрелы"})
+        reply = c.recv()
+        self.assertEqual((reply["error"], reply["notes"][0]["text"], reply["notes"][0]["fixed"]),
+                         (None, "Добавить лук и стрелы", None))
+        for bad in [{"text": " "}, {"text": "я" * 2001}, {"text": 5}, {"id": 9, "text": "x"}]:
+            c.send(dict({"t": "note"}, **bad))
+            self.assertIsNotNone(c.recv()["error"], bad)
+
+
 if __name__ == "__main__":
     unittest.main()
