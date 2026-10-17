@@ -165,6 +165,22 @@ const craftOut = (ev, id) => ev(`HC.craft(HC.RECIPES.findIndex(r => r.out === ${
 await a(`HC.addItem(HC.I.IRON, 5); HC.addItem(HC.I.STICK, 1); 1`);
 check("a sword is made of a stick and two iron ingots", await craftOut(a, "HC.I.SWORD") === 1 && await a(`HC.count(HC.I.IRON) === 3 && HC.count(HC.I.STICK) === 0`));
 check("a bucket is made of three iron ingots", await craftOut(a, "HC.I.BUCKET") === 1 && await a(`HC.count(HC.I.IRON) === 0`));
+await a(`HC.addItem(HC.I.GOLD, 6); HC.addItem(HC.I.COAL, 6); HC.addItem(HC.I.PINK_GEM, 3); HC.addItem(HC.B.SEAWEED, 3); 1`);
+check("gold ore and coal make a gold ingot", await a(`HC.craft(HC.RECIPES.findIndex(r => r.out === HC.I.GOLD_INGOT), 10)`) === 6);
+check("three gold ingots and three pink gems make a heart egg", await craftOut(a, "HC.I.HEART_EGG") === 1 && await a(`HC.count(HC.I.PINK_GEM) === 0`));
+check("three gold ingots and three seaweed make a fish egg", await craftOut(a, "HC.I.FISH_EGG") === 1 && await a(`HC.count(HC.I.GOLD_INGOT) === 0 && HC.count(HC.B.SEAWEED) === 0`));
+const weed = await a(`(() => {
+  const x = Math.floor(HC.P.x) + 6, top = Math.floor(HC.P.y) - 8;
+  for (let y = top; y < top + 7; y++) HC.setTile(x, y, y >= top + 3 ? HC.B.SEAWEED : HC.B.WATER);
+  const first = HC.growSeaweed(1);
+  const grown = HC.growSeaweed(600) && HC.get(x, top + 2) === HC.B.SEAWEED;
+  HC.growSeaweed(600);
+  return [first, grown, HC.get(x, top + 1) === HC.B.WATER, x, top + 2];
+})()`);
+check("the first player grows seaweed once in ten minutes", !weed[0] && weed[1], weed);
+check("seaweed stops at five blocks", weed[2], weed);
+check("the others see the seaweed grow", await until(b, `HC.get(${weed[3]}, ${weed[4]}) === HC.B.SEAWEED`));
+check("only the first player grows seaweed", await b(`HC.growSeaweed(600)`) === false);
 check("hearts do not age", await a(`HC.mobs.length > 0 && HC.mobs.every(m => !("age" in m) && !("life" in m))`));
 await hold(a, "HC.I.SWORD");
 const kill = await a(`(() => {
@@ -195,8 +211,8 @@ check("a bucket scoops water up", water[0], water);
 check("a bucket pours the water out", water[1], water);
 check("B sees the poured water", await until(b, `HC.get(${water[2][0]}, ${water[2][1]}) === HC.B.WATER`));
 await a(`(() => {
-  document.querySelector("#menuBtn").click();
-  [...document.querySelectorAll("#players button")].find(b => /Передать/.test(b.textContent)).click();
+  document.querySelector("#shareBtn").click();
+  [...document.querySelectorAll("#sharePlayers button")].find(b => /Боря/.test(b.textContent)).click();
   const slot = HC.inv.findIndex(s => s && s.id === HC.I.SWORD);
   document.querySelectorAll("#pass .grid .slot")[slot].dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
   return 1;
@@ -205,8 +221,8 @@ check("A passes the sword to B", await until(b, `HC.inv.some(s => s && s.id === 
   await b(`HC.inv.filter(Boolean)`));
 await a(`document.querySelector("#pass .close").click(); 1`);
 const passTo = (ev, name, id) => ev(`(() => {
-  document.querySelector("#menuBtn").click();
-  [...document.querySelectorAll("#players li")].find(li => li.textContent.startsWith(${JSON.stringify(name)})).querySelector("button").click();
+  document.querySelector("#shareBtn").click();
+  [...document.querySelectorAll("#sharePlayers button")].find(b => b.textContent.endsWith(${JSON.stringify(name)})).click();
   const slot = HC.inv.findIndex(s => s && s.id === ${id});
   document.querySelectorAll("#pass .grid .slot")[slot].dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
   document.querySelector("#pass .close").click();
@@ -337,6 +353,14 @@ check("the admin adds a note", await until(boss, `/🆕 №1 · .*: Добави
   await boss(`document.querySelector("#notes").textContent`));
 await boss(`window.prompt = () => "Добавить лук и стрелы"; [...document.querySelectorAll("#notes button")][0].click(); 1`);
 check("the admin edits a note", await until(boss, `/№1 · .*: Добавить лук и стрелы/.test(document.querySelector("#notes").textContent)`));
+await boss(`window.confirm = () => true; document.querySelector('#notes button[title="Удалить"]').click(); 1`);
+check("the admin deletes a note", await until(boss, `/пока нет/.test(document.querySelector("#notes").textContent)`));
+await boss(`(() => {
+  document.querySelector("#noteText").value = "Ещё одно";
+  document.querySelector("#noteAdd").click();
+  return 1;
+})()`);
+await until(boss, `/Ещё одно/.test(document.querySelector("#notes").textContent)`);
 check("the notes tab counts the new notes", await boss(`document.querySelector('#adminTabs [data-tab="notes"]').textContent`) === "📝 Замечания (1 🆕)",
   await boss(`document.querySelector('#adminTabs [data-tab="notes"]').textContent`));
 await boss(`document.querySelector("#adminExit").click(); 1`);

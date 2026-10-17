@@ -455,9 +455,21 @@ class Worlds:
                 if note is None:
                     return "Нет такого замечания"
                 note.update(text=text, fixed=None)
-            self.data.mkdir(parents=True, exist_ok=True)
-            write(self.notes_path, json.dumps(self.notes, ensure_ascii=False, indent=1))
+            self.write_notes()
         return None
+
+    def drop_note(self, nid):
+        with self.lock:
+            left = [n for n in self.notes if n["id"] != nid]
+            if len(left) == len(self.notes):
+                return "Нет такого замечания"
+            self.notes = left
+            self.write_notes()
+        return None
+
+    def write_notes(self):
+        self.data.mkdir(parents=True, exist_ok=True)
+        write(self.notes_path, json.dumps(self.notes, ensure_ascii=False, indent=1))
 
     def write_bans(self):
         self.data.mkdir(parents=True, exist_ok=True)
@@ -619,6 +631,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 why = self.worlds.unban(msg.get("login"))
             elif t == "note":
                 why = self.worlds.note(msg.get("id"), msg.get("text"))
+            elif t == "dropnote":
+                why = self.worlds.drop_note(msg.get("id"))
             elif t != "state":
                 return
             reply = self.admin_state(why)

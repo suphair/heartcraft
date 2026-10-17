@@ -440,6 +440,12 @@ class ServerTest(unittest.TestCase):
         for bad in [{"text": " "}, {"text": "я" * 2001}, {"text": 5}, {"id": 9, "text": "x"}]:
             c.send(dict({"t": "note"}, **bad))
             self.assertIsNotNone(c.recv()["error"], bad)
+        c.send({"t": "dropnote", "id": 1})
+        reply = c.recv()
+        self.assertEqual((reply["error"], [n["id"] for n in reply["notes"]]), (None, [2]))
+        self.assertEqual([n["id"] for n in json.loads(path.read_text(encoding="utf-8"))], [2])
+        c.send({"t": "dropnote", "id": 1})
+        self.assertIsNotNone(c.recv()["error"])
 
 
 if __name__ == "__main__":

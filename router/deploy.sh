@@ -41,6 +41,6 @@ rssh "/opt/etc/init.d/S99heartcraft restart
       iptables -t nat -S HEARTCRAFT_PRE
       [ -s /opt/heartcraft/host ] || { echo 'хозяина пока нет: запусти host.cmd на Windows'; exit 0; }
       ip=\$(cut -d' ' -f1 /opt/heartcraft/host)
-      wget -qO- http://\$ip:8092/ 2>/dev/null | grep '<title>Сердцекрафт' >/dev/null \
+      python3 -c \"import urllib.request; urllib.request.urlopen('http://\$ip:8092/', timeout=5)\" 2>/dev/null \
         && echo \"сервер на \$ip отвечает\" || echo \"сервер на \$ip не отвечает: запущен ли host.cmd?\""
 echo "деплой завершён."

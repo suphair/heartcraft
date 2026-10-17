@@ -153,6 +153,7 @@
 <div id="top">
   <button class="btn" id="dayBtn" title="Всегда день">☀️</button>
   <button class="btn" id="soundBtn" title="Звук (M)">🔊</button>
+  <button class="btn" id="shareBtn" title="Передать вещи">🎁</button>
   <button class="btn" id="bagBtn" title="Рюкзак (E)">🎒</button>
   <button class="btn" id="menuBtn" title="Меню">☰</button>
 </div>
@@ -204,6 +205,15 @@
   </div>
 </div>
 
+<div class="sheet" id="share" hidden>
+  <div class="box">
+    <h2>🎁 Передать вещи</h2>
+    <div class="hint">Выбери игрока — откроется рюкзак, из которого можно отдать ему вещи.</div>
+    <ul class="news" id="sharePlayers"></ul>
+    <div class="row end"><button class="btn close">Закрыть</button></div>
+  </div>
+</div>
+
 <div class="sheet" id="pass" hidden>
   <div class="box">
     <h2></h2>
@@ -218,13 +228,24 @@
   <div class="box">
     <h2>Что нового</h2>
     <div class="news">
+      <h3>Версия 2.2</h3>
+      <ul>
+        <li><b>Водоросли растут</b> вверх по воде: на блок раз в 10 минут, до 5 блоков.</li>
+        <li><b>Золотой слиток</b> — золотая руда и уголь у верстака. Из золотой руды теперь выпадает
+          «золотая руда», а не «золото».</li>
+        <li><b>Яйца призыва</b> по-новому: сердечко — 3 золотых слитка и 3 розовых кристалла,
+          рыбка — 3 золотых слитка и 3 водоросли.</li>
+        <li>Кнопка <b>🎁 Передать</b> — теперь вверху экрана: нажми и выбери, кому отдать вещи.</li>
+        <li>Админ может удалять замечания к игре.</li>
+      </ul>
       <h3>Версия 2.1</h3>
       <ul>
         <li><b>Сердечки больше не стареют</b> и не умирают от старости.</li>
         <li><b>Меч</b> — палка и 2 железных слитка у верстака. Выбери его в поясе и нажми на сердечко — оно
           исчезнет. У меча есть прочность, как у кирки.</li>
         <li><b>Ведро</b> — 3 железных слитка. Нажми ведром на воду — наберёшь, нажми на пустое место — выльешь.</li>
-        <li><b>Передать вещи</b> другому игроку: меню ☰ → «🎁 Передать» рядом с его именем.</li>
+        <li><b>Передать вещи</b> другому игроку: меню ☰ → «🎁 Передать» рядом с его именем
+          (с версии 2.2 — кнопкой 🎁 вверху экрана).</li>
         <li><b>Сменить вид</b> героя теперь можно когда угодно: меню ☰ → «🎨 Сменить вид».
           Новое украшение — <b>розовая корона</b>.</li>
         <li>Админ может <b>забанить</b> логин — с ним нельзя играть ни в одном мире, пока админ не разбанит.</li>
@@ -395,7 +416,8 @@
       <p><b>Сундук</b> хранит вещи, <b>мусорка</b> их уничтожает — нажми на них, чтобы открыть.
         В <b>океане</b> плавают рыбки; чтобы всплыть, держи прыжок. <b>Ведро</b> набирает воду и выливает её.
         По <b>лестнице</b> можно лазить вверх и вниз.</p>
-      <p><b>Вещи другу</b> — «🎁 Передать» рядом с именем игрока выше. <b>🎨 Сменить вид</b> — цвет и украшение героя.</p>
+      <p><b>Вещи другу</b> — кнопка 🎁 вверху экрана: выбери игрока и нажимай на вещи из рюкзака.
+        <b>🎨 Сменить вид</b> — цвет и украшение героя.</p>
     </div>
   </div>
 </div>
@@ -413,15 +435,16 @@ const MOB_MAX = 80, MOB_SPEED = 2, MOB_JUMP = 9, LOVE_TIME = 15, BREED_PAUSE = 3
 const WHITE_CHANCE = 0.01, WHITE_PAIR_CHANCE = 0.2;
 const SWIM = 5, SWIM_FALL = 3, WATER_GRAV = 0.3, CLIMB = 4, LADDER_SLIDE = 1.5;
 const FISH_COUNT = 30, FISH_MAX = 100, FISH_SPEED = 1.5;
+const SEAWEED_GROW = 600, SEAWEED_MAX = 5;
 const CHEST_SLOTS = 27;
-const VERSION = "2.1";
+const VERSION = "2.2";
 
 const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, COBBLE: 4, SAND: 5, LOG: 6, LEAVES: 7, PLANKS: 8,
   COAL_ORE: 9, IRON_ORE: 10, GOLD_ORE: 11, DIAMOND_ORE: 12, PINK_ORE: 13, BEDROCK: 14, WORKBENCH: 15,
   BRICK: 16, GLASS: 17, TORCH: 18, PINK: 19, GOLD_BLOCK: 20, CHEST: 21, TRASH: 22, WATER: 23, SEAWEED: 24, LADDER: 25 };
 const I = { STICK: 100, COAL: 101, RAW_IRON: 102, IRON: 103, GOLD: 104, DIAMOND: 105, PINK_GEM: 106,
   HEART_METER: 107, HEART_EGG: 108, FISH_EGG: 109, PICK_WOOD: 110, PICK_STONE: 111, PICK_IRON: 112, PICK_DIAMOND: 113,
-  SWORD: 114, BUCKET: 115, WATER_BUCKET: 116 };
+  SWORD: 114, BUCKET: 115, WATER_BUCKET: 116, GOLD_INGOT: 117 };
 
 const BLOCKS = {
   [B.GRASS]: { name: "Трава", hard: 0.5, tier: 0, drop: B.DIRT },
@@ -455,7 +478,8 @@ const ITEMS = {
   [I.COAL]: { name: "Уголь" },
   [I.RAW_IRON]: { name: "Сырое железо" },
   [I.IRON]: { name: "Железный слиток" },
-  [I.GOLD]: { name: "Золото" },
+  [I.GOLD_INGOT]: { name: "Золотой слиток" },
+  [I.GOLD]: { name: "Золотая руда" },
   [I.DIAMOND]: { name: "Алмаз" },
   [I.PINK_GEM]: { name: "Розовый кристалл" },
   [I.HEART_METER]: { name: "Сердцеметр" },
@@ -478,6 +502,7 @@ const RECIPES = [
   { out: I.PICK_WOOD, n: 1, need: [[B.PLANKS, 3], [I.STICK, 2]] },
   { out: I.PICK_STONE, n: 1, need: [[B.COBBLE, 3], [I.STICK, 2]] },
   { out: I.IRON, n: 1, need: [[I.RAW_IRON, 1], [I.COAL, 1]] },
+  { out: I.GOLD_INGOT, n: 1, need: [[I.GOLD, 1], [I.COAL, 1]] },
   { out: I.PICK_IRON, n: 1, need: [[I.IRON, 3], [I.STICK, 2]] },
   { out: I.PICK_DIAMOND, n: 1, need: [[I.DIAMOND, 3], [I.STICK, 2]] },
   { out: B.TORCH, n: 4, need: [[I.STICK, 1], [I.COAL, 1]] },
@@ -489,8 +514,8 @@ const RECIPES = [
   { out: B.TRASH, n: 1, need: [[B.PLANKS, 5]] },
   { out: B.LADDER, n: 3, need: [[I.STICK, 7]] },
   { out: I.HEART_METER, n: 1, need: [[B.PINK, 3], [I.STICK, 5]] },
-  { out: I.HEART_EGG, n: 1, need: [[I.PINK_GEM, 4], [I.GOLD, 1]] },
-  { out: I.FISH_EGG, n: 1, need: [[B.SEAWEED, 4], [I.GOLD, 1]] },
+  { out: I.HEART_EGG, n: 1, need: [[I.GOLD_INGOT, 3], [I.PINK_GEM, 3]] },
+  { out: I.FISH_EGG, n: 1, need: [[I.GOLD_INGOT, 3], [B.SEAWEED, 3]] },
   { out: I.SWORD, n: 1, need: [[I.STICK, 1], [I.IRON, 2]] },
   { out: I.BUCKET, n: 1, need: [[I.IRON, 3]] },
 ];
@@ -1477,6 +1502,7 @@ function update(dt) {
   time = alwaysDay ? 0 : (time + dt / DAY_LEN) % 1;
   mobs.slice().forEach(m => updateMob(m, dt));
   fish.forEach(f => updateFish(f, dt));
+  growSeaweed(dt);
   netTick(dt);
 }
 
@@ -1504,6 +1530,36 @@ function updateFish(f, dt) {
   } else {
     f.vy = -f.vy;
   }
+}
+
+// ---------- seaweed ----------
+
+// The world is shared, so only the player who came first grows the seaweed and tells the others.
+let growT = 0;
+function growSeaweed(dt) {
+  if (!net.ready || [...peers.keys()].some(id => id < net.id)) {
+    return false;
+  }
+  growT += dt;
+  if (growT < SEAWEED_GROW) {
+    return false;
+  }
+  growT = 0;
+  for (let i = W; i < world.length; i++) {
+    if (world[i] !== B.SEAWEED || world[i - W] !== B.WATER) {
+      continue;
+    }
+    let height = 1;
+    while (height < SEAWEED_MAX && world[i + height * W] === B.SEAWEED) {
+      height++;
+    }
+    const x = i % W, y = Math.floor(i / W);
+    if (height < SEAWEED_MAX && inWorld(x, y - 1)) {
+      setTile(x, y - 1, B.SEAWEED);
+      netTile(x, y - 1);
+    }
+  }
+  return true;
 }
 
 // ---------- hearts ----------
@@ -1696,6 +1752,16 @@ function egg(shell, spot) {
     [[6, 6], [10, 8], [7, 11], [10, 12]].forEach(([x, y]) => g.fillRect(x, y, 2, 2));
     g.fillStyle = "rgba(255, 255, 255, .7)";
     g.fillRect(5, 5, 1, 2);
+  });
+}
+function ingot(main, light, dark) {
+  return mkTex(g => {
+    g.fillStyle = main;
+    g.fillRect(3, 7, 10, 4);
+    g.fillStyle = light;
+    g.fillRect(4, 6, 8, 2);
+    g.fillStyle = dark;
+    g.fillRect(3, 10, 10, 1);
   });
 }
 function bucket(water) {
@@ -1894,14 +1960,8 @@ const tex = {
   }),
   [I.COAL]: mkTex((g, r) => lump(g, r, ["#1a1a1a", "#2c2c2c", "#444"])),
   [I.RAW_IRON]: mkTex((g, r) => lump(g, r, ["#d9a57c", "#c38d63", "#ecc19c"])),
-  [I.IRON]: mkTex(g => {
-    g.fillStyle = "#9ea3aa";
-    g.fillRect(3, 7, 10, 4);
-    g.fillStyle = "#d8dce2";
-    g.fillRect(4, 6, 8, 2);
-    g.fillStyle = "#70757c";
-    g.fillRect(3, 10, 10, 1);
-  }),
+  [I.IRON]: ingot("#9ea3aa", "#d8dce2", "#70757c"),
+  [I.GOLD_INGOT]: ingot("#f0b400", "#fff08a", "#b58200"),
   [I.GOLD]: mkTex((g, r) => lump(g, r, ["#ffd23a", "#f0b400", "#fff08a"])),
   [I.DIAMOND]: mkTex(g => gem(g, "#2fd0d0", "#c8fffd")),
   [I.PINK_GEM]: mkTex(g => gem(g, "#ff5fae", "#ffd0e8")),
@@ -2453,7 +2513,8 @@ function renderHotbar() {
   $("#selname").textContent = inv[sel] ? nameOf(inv[sel].id) : "";
 }
 
-const sheets = ["craft", "bag", "menu", "store", "news", "login", "hero", "admin", "gift", "pass"].map(id => $("#" + id));
+const sheets = ["craft", "bag", "menu", "store", "news", "login", "hero", "admin", "gift", "pass", "share"]
+  .map(id => $("#" + id));
 // There is no game behind these sheets (no login, no hero yet, or the admin), so they do not close on their own.
 const blocking = el => ["login", "hero", "admin", "gift"].includes(el.id);
 const openSheet = () => sheets.find(s => !s.hidden);
@@ -2762,7 +2823,7 @@ const HATS = [["✖", "Без украшения"], ["🎀", "Бантик"], ["
   ["👑", "Розовая корона", "pink"]];
 const lookOf = look => look || { c: 0, h: 0 };
 const peers = new Map();
-const net = { ws: null, want: false, ready: false, shared: false, login: "", code: "", name: "", world: "",
+const net = { ws: null, want: false, ready: false, shared: false, id: 0, login: "", code: "", name: "", world: "",
   look: null, sent: "", sentAt: 0, meSent: "", chestSent: "", retry: 0 };
 try {
   const saved = JSON.parse(localStorage.getItem(NET_KEY)) || {};
@@ -2949,6 +3010,7 @@ function netMessage(m) {
       return;
     }
     net.ready = true;
+    net.id = m.id;
     net.sent = net.meSent = "";
     net.name = m.name;
     net.world = m.worldName;
@@ -3037,6 +3099,24 @@ function receiveGifts(m) {
   Sound.chime();
 }
 
+function openShare() {
+  const list = $("#sharePlayers");
+  list.innerHTML = "";
+  peers.forEach(o => {
+    const li = document.createElement("li");
+    const give = document.createElement("button");
+    give.className = "btn";
+    give.textContent = "🎁 " + o.name;
+    give.addEventListener("click", () => openPass(o.id));
+    li.appendChild(give);
+    list.appendChild(li);
+  });
+  if (!peers.size) {
+    list.innerHTML = "<li>Кроме тебя, в мире никого нет</li>";
+  }
+  show($("#share"));
+}
+$("#shareBtn").addEventListener("click", openShare);
 let passTo = null;
 function openPass(id) {
   passTo = id;
@@ -3186,7 +3266,16 @@ function renderNotes() {
         adminSend({ t: "note", id: note.id, text });
       }
     });
-    li.appendChild(edit);
+    const drop = document.createElement("button");
+    drop.className = "btn";
+    drop.textContent = "🗑";
+    drop.title = "Удалить";
+    drop.addEventListener("click", () => {
+      if (confirm(`Удалить замечание №${note.id}?`)) {
+        adminSend({ t: "dropnote", id: note.id });
+      }
+    });
+    li.append(edit, drop);
     list.appendChild(li);
   });
   if (!adminState.notes.length) {
@@ -3398,17 +3487,9 @@ function renderPlayers() {
   $("#whoami").textContent = net.ready ? `Вы — ${net.name}, мир «${net.world}»` : "";
   const list = $("#players");
   list.innerHTML = "";
-  const me = document.createElement("li");
-  me.textContent = net.name + " (вы)";
-  list.appendChild(me);
-  peers.forEach(o => {
+  [net.name + " (вы)", ...[...peers.values()].map(o => o.name)].forEach(n => {
     const li = document.createElement("li");
-    li.textContent = o.name + " ";
-    const give = document.createElement("button");
-    give.className = "btn";
-    give.textContent = "🎁 Передать";
-    give.addEventListener("click", () => openPass(o.id));
-    li.appendChild(give);
+    li.textContent = n;
     list.appendChild(li);
   });
 }
@@ -3609,7 +3690,7 @@ requestAnimationFrame(frameLoop);
 window.HC = { B, I, W, H, RECIPES, P, cam, get world() { return world; }, get inv() { return inv; },
   get seed() { return seed; }, get mobs() { return mobs; }, get time() { return time; }, set time(v) { time = v; },
   get fish() { return fish; }, get chests() { return chests; }, get sel() { return sel; },
-  get trash() { return trash; }, VERSION, terrain, openChest, openTrash, chestAt, breed, banner,
+  get trash() { return trash; }, VERSION, growSeaweed, terrain, openChest, openTrash, chestAt, breed, banner,
   get zoom() { return zoom; }, get TILE() { return TILE; }, get, setTile, finishBreak, addItem, count, craft,
   bestPick, bestPickSlot, hatch, newWorld, generate, usePlace, feed, openCraft, setZoom, toggleDay, daylight, keys,
   touch, Sound, net, peers, netLogin, netLeave, LOOK_COLORS, WORLD_OPTS, get worldOpts() { return worldOpts; } };
