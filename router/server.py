@@ -655,7 +655,8 @@ class Claim:
     def __init__(self, path, ip):
         self.path = path
         self.mark = "%s %s\n" % (ip, secrets.token_hex(8))
-        write(path, self.mark)
+        # Written in place: over SMB Windows refuses to replace a file that someone else holds open.
+        path.write_text(self.mark, encoding="utf-8")
 
     def held(self):
         try:
