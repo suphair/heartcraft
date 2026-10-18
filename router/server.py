@@ -525,9 +525,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
     page = None
 
     def do_GET(self):
-        if self.path == "/ws":
+        path = self.path.split("?")[0]
+        if path == "/ws":
             self.websocket()
-        elif self.path in ("/", "/index.html"):
+        elif path in ("/", "/index.html"):
             self.send_page()
         else:
             self.send_error(404)

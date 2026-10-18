@@ -30,13 +30,13 @@ const call = (method, params = {}, sessionId) => new Promise(r => {
 });
 
 // Every player gets a browser context of its own: tabs of one context share localStorage and the remembered login.
-async function player() {
+async function player(url = base) {
   const { result: { browserContextId } } = await call("Target.createBrowserContext");
   const { result: { targetId } } = await call("Target.createTarget", { url: "about:blank", browserContextId });
   const { result: { sessionId } } = await call("Target.attachToTarget", { targetId, flatten: true });
   await call("Runtime.enable", {}, sessionId);
   await call("Page.enable", {}, sessionId);
-  await call("Page.navigate", { url: base }, sessionId);
+  await call("Page.navigate", { url }, sessionId);
   const ev = async expr => {
     const r = await call("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true }, sessionId);
     if (!r.result || r.result.exceptionDetails) {
@@ -100,10 +100,11 @@ const chooseHero = (ev, c, h) => ev(`(() => {
 
 const a = await player();
 check("the game starts at the login screen", await a(visible("login")));
+check("the login screen links the single player game", await a(`document.querySelector("#soloLink").href`) === "https://suphair.github.io/heartcraft/");
 await a(`document.querySelector("#login").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
   window.dispatchEvent(new KeyboardEvent("keydown", { code: "Escape" })); 1`);
 check("the login screen does not close by itself", await a(visible("login")));
-check("there are no saves and no test mode", await a(`!document.querySelector('[data-act="save"], [data-act="load"], #testBtn, #giveBtn, #file')`));
+check("the network game shows no saves and no test mode", await a(`[...document.querySelectorAll('[data-act="save"], [data-act="load"], #testBtn, #giveBtn')].every(el => getComputedStyle(el).display === "none")`));
 await a.login("Аня", ROSE);
 check("a new hero chooses a look", await until(a, visible("hero")));
 await a.shot("hero");
@@ -371,5 +372,53 @@ check("the menu lists the players", await a(`/Боря/.test(document.querySelec
 await a(`document.querySelector('[data-act="logout"]').click(); 1`);
 check("logout returns to the login screen", await until(a, `${visible("login")} && !HC.net.ready`));
 check("the others see A leave", await until(e, `!${peer("Аня")}`));
+const solo = await player(base + "?solo");
+const shown = id => `getComputedStyle(document.querySelector("#${id}")).display !== "none" && !document.querySelector("#${id}").hidden`;
+check("the single player game starts without a login", await until(solo, `HC.SOLO && !HC.net.ready && document.querySelector("#login").hidden && HC.count(HC.B.WORKBENCH) === 1`));
+check("the single player game has no network buttons", await solo(`!(${shown("shareBtn")}) && ${shown("testBtn")} && !(${shown("players")})`));
+await solo(`document.querySelector("#testBtn").click(); document.querySelector("#giveBtn").click(); 1`);
+await solo(`[...document.querySelectorAll("#give .grid .slot")].find(el => el.title.startsWith("Меч")).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })); 1`);
+check("test mode gives things", await solo(`HC.testMode && HC.count(HC.I.SWORD) === 1`));
+await solo(`document.querySelector("#give .close").click(); 1`);
+check("seaweed grows in the single player game", await solo(`HC.growSeaweed(600)`) === true);
+await solo(`HC.addItem(HC.B.BRICK, 7); document.querySelector("#menuBtn").click(); document.querySelector('[data-act="save"]').click(); 1`);
+const soloSeed = await solo(`HC.seed`);
+await solo(`location.reload(); 1`);
+await sleep(500);
+await solo.loaded();
+check("a saved single player world comes back after a reload", await until(solo, `HC.seed === ${soloSeed} && HC.count(HC.B.BRICK) === 7 && HC.count(HC.I.SWORD) === 1`),
+  await solo(`[HC.seed, HC.count(HC.B.BRICK)]`));
+await solo(`(() => {
+  document.querySelector("#menuBtn").click();
+  document.querySelector('[data-act="reset"]').click();
+  document.querySelector("#soloSeed").value = 4242;
+  const s = { hills: 4, ocean: 0, caves: 3, ores: 2, trees: 3, hearts: 0 };
+  for (const key in s) document.querySelector("#solo-" + key).value = s[key];
+  document.querySelector("#soloCreate").click();
+  return 1;
+})()`);
+check("a new single player world follows its settings", await solo(`HC.seed === 4242 && JSON.stringify(HC.worldOpts) === ${JSON.stringify(JSON.stringify({ hills: 4, ocean: 0, caves: 3, ores: 2, trees: 3, hearts: 0 }))} && HC.mobs.length === 0`),
+  await solo(`[HC.seed, JSON.stringify(HC.worldOpts)]`));
+const old = await solo(`(() => {
+  const d = JSON.parse(HC.serialize());
+  d.v = 4;
+  delete d.opts;
+  d.ocean = true;
+  d.mobs = [[d.player.x, d.player.y, 0, 1, 100, 900]];
+  HC.loadText(JSON.stringify(d), "ok");
+  return [document.querySelector("#toast").textContent, JSON.stringify(HC.worldOpts), HC.mobs.length, HC.mobs[0].white];
+})()`);
+check("a save of version 1.3 still opens", old[0] === "ok" && old[1] === JSON.stringify({ hills: 2, ocean: 1, caves: 2, ores: 1, trees: 2, hearts: 2 }) && old[2] === 1 && old[3] === true, old);
+await solo(`(() => {
+  document.querySelector("#menuBtn").click();
+  document.querySelector('[data-act="look"]').click();
+  return 1;
+})()`);
+await chooseHero(solo, 6, 5);
+await solo(`location.reload(); 1`);
+await sleep(500);
+await solo.loaded();
+check("the single player keeps the look", await until(solo, `JSON.stringify(HC.net.look) === '{"c":6,"h":5}'`), await solo(`JSON.stringify(HC.net.look)`));
+await solo.shot("solo");
 check("no page errors", pageErrors.length === 0, pageErrors);
 process.exit();

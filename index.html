@@ -23,6 +23,8 @@
     display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: calc(100vw - 130px); }
   #top .btn, #zoom .btn { width: 52px; height: 52px; padding: 0; font-size: 26px; }
   #top .btn.on { background: #ffe066; }
+  body.solo .netOnly, body:not(.solo) .soloOnly { display: none !important; }
+  a.btn { display: inline-block; color: inherit; text-decoration: none; }
   #zoom { position: fixed; top: max(10px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left));
     display: flex; gap: 8px; }
   @media (max-width: 480px) {
@@ -153,7 +155,9 @@
 <div id="top">
   <button class="btn" id="dayBtn" title="Всегда день">☀️</button>
   <button class="btn" id="soundBtn" title="Звук (M)">🔊</button>
-  <button class="btn" id="shareBtn" title="Передать вещи">🎁</button>
+  <button class="btn soloOnly" id="giveBtn" title="Выдать себе вещи (G)" hidden>🎁</button>
+  <button class="btn soloOnly" id="testBtn" title="Режим тестирования (T)">🧪</button>
+  <button class="btn netOnly" id="shareBtn" title="Передать вещи">🎁</button>
   <button class="btn" id="bagBtn" title="Рюкзак (E)">🎒</button>
   <button class="btn" id="menuBtn" title="Меню">☰</button>
 </div>
@@ -205,6 +209,30 @@
   </div>
 </div>
 
+<div class="sheet" id="give" hidden>
+  <div class="box">
+    <h2>🧪 Режим тестирования</h2>
+    <div class="hint">Выбери, сколько штук, и нажми на вещь — она появится в рюкзаке.
+      Кирки, меч и вёдра выдаются по одному.</div>
+    <div class="row"><label>Сколько: <input class="field" type="number" id="giveN" min="1" max="999" value="64"></label>
+      <button class="btn" data-n="1">1</button><button class="btn" data-n="10">10</button>
+      <button class="btn" data-n="64">64</button><button class="btn" data-n="99">99</button></div>
+    <div class="grid" style="margin-top:10px"></div>
+    <div class="row end"><button class="btn close">Закрыть</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="newWorld" hidden>
+  <div class="box">
+    <h2>🔄 Новый мир</h2>
+    <div class="hint">Выбери настройки или разбросай их случайно. Всё несохранённое в текущем мире пропадёт.</div>
+    <div class="row opts" id="soloOpts"></div>
+    <div class="row"><button class="btn" id="soloRandom">🎲 Разбросать настройки</button>
+      <button class="btn main" id="soloCreate">✨ Создать мир</button></div>
+    <div class="row end"><button class="btn close">Отмена</button></div>
+  </div>
+</div>
+
 <div class="sheet" id="share" hidden>
   <div class="box">
     <h2>🎁 Передать вещи</h2>
@@ -237,6 +265,9 @@
           рыбка — 3 золотых слитка и 3 водоросли.</li>
         <li>Кнопка <b>🎁 Передать</b> — теперь вверху экрана: нажми и выбери, кому отдать вещи.</li>
         <li>Админ может удалять замечания к игре.</li>
+        <li><b>Одиночная игра</b> на GitHub снова в строю и догнала сетевую: всё новое из версий 2.0–2.2,
+          кроме сети, — настройки нового мира, меч, ведро, рост водорослей, новые рецепты. Сохранения,
+          файлы и режим тестирования 🧪 — только в ней. На экране входа — ссылка «🎮 Играть одному».</li>
       </ul>
       <h3>Версия 2.1</h3>
       <ul>
@@ -324,7 +355,8 @@
     <div class="row"><label>Логин: <input class="field" id="loginName" maxlength="16" autocomplete="username"></label>
       <label>Код мира: <input class="field" id="loginCode" autocomplete="off"></label></div>
     <p class="hint" id="loginStatus"></p>
-    <div class="row end"><button class="btn main" id="loginBtn">Войти</button></div>
+    <div class="row end"><a class="btn" href="https://suphair.github.io/heartcraft/" id="soloLink">🎮 Играть одному</a>
+      <button class="btn main" id="loginBtn">Войти</button></div>
   </div>
 </div>
 
@@ -388,14 +420,20 @@
 <div class="sheet" id="menu" hidden>
   <div class="box">
     <h2>Меню</h2>
-    <p class="hint" id="whoami"></p>
-    <h3>В игре</h3>
-    <ul class="news" id="players"></ul>
+    <p class="hint netOnly" id="whoami"></p>
+    <h3 class="netOnly">В игре</h3>
+    <ul class="news netOnly" id="players"></ul>
     <div class="menu">
+      <button class="btn main soloOnly" data-act="save">💾 Сохранить</button>
+      <button class="btn soloOnly" data-act="load">📂 Загрузить</button>
+      <button class="btn soloOnly" data-act="download">⬇️ Скачать мир в файл</button>
+      <button class="btn soloOnly" data-act="upload">⬆️ Открыть мир из файла</button>
+      <button class="btn soloOnly" data-act="reset">🔄 Новый мир</button>
       <button class="btn" data-act="look">🎨 Сменить вид</button>
-      <button class="btn main" data-act="logout">🚪 Выйти</button>
+      <button class="btn main netOnly" data-act="logout">🚪 Выйти</button>
       <button class="btn close">Закрыть</button>
     </div>
+    <input type="file" id="file" accept=".json,application/json" hidden>
     <div class="help">
       <p><b>Компьютер:</b> A/D или ←/→ — идти, W/↑/Пробел — прыгать, левая кнопка мыши (держать) — ломать,
         правая — поставить блок / открыть верстак, сундук или мусорку, 1–9 или колесо — выбрать ячейку,
@@ -416,7 +454,10 @@
       <p><b>Сундук</b> хранит вещи, <b>мусорка</b> их уничтожает — нажми на них, чтобы открыть.
         В <b>океане</b> плавают рыбки; чтобы всплыть, держи прыжок. <b>Ведро</b> набирает воду и выливает её.
         По <b>лестнице</b> можно лазить вверх и вниз.</p>
-      <p><b>Вещи другу</b> — кнопка 🎁 вверху экрана: выбери игрока и нажимай на вещи из рюкзака.
+      <p class="soloOnly"><b>Одиночная игра:</b> мир живёт в этом браузере — 💾 сохраняет его, 📂 загружает,
+        файлом его можно перенести на другое устройство. 🧪 (T) — режим тестирования, в нём 🎁 (G) выдаёт вещи.</p>
+      <p><b class="netOnly">Вещи другу</b><span class="netOnly"> — кнопка 🎁 вверху экрана: выбери игрока и нажимай
+        на вещи из рюкзака.</span>
         <b>🎨 Сменить вид</b> — цвет и украшение героя.</p>
     </div>
   </div>
@@ -533,6 +574,11 @@ const isEmpty = id => id === B.AIR || id === B.WATER;
 const isWet = id => id === B.WATER || id === B.SEAWEED;
 const lerp = (a, b, t) => a + (b - a) * t;
 const $ = s => document.querySelector(s);
+// One file, two games: served by the game server it plays over the network; on GitHub Pages, from a file
+// or with ?solo it is the single player game that keeps its world in this browser.
+const SOLO = location.hostname.endsWith("github.io") || location.protocol === "file:" ||
+  new URLSearchParams(location.search).has("solo");
+document.body.classList.toggle("solo", SOLO);
 
 // ---------- sound ----------
 
@@ -1537,7 +1583,7 @@ function updateFish(f, dt) {
 // The world is shared, so only the player who came first grows the seaweed and tells the others.
 let growT = 0;
 function growSeaweed(dt) {
-  if (!net.ready || [...peers.keys()].some(id => id < net.id)) {
+  if (!SOLO && (!net.ready || [...peers.keys()].some(id => id < net.id))) {
     return false;
   }
   growT += dt;
@@ -2513,7 +2559,8 @@ function renderHotbar() {
   $("#selname").textContent = inv[sel] ? nameOf(inv[sel].id) : "";
 }
 
-const sheets = ["craft", "bag", "menu", "store", "news", "login", "hero", "admin", "gift", "pass", "share"]
+const sheets = ["craft", "bag", "menu", "store", "news", "login", "hero", "admin", "gift", "pass", "share", "give",
+  "newWorld"]
   .map(id => $("#" + id));
 // There is no game behind these sheets (no login, no hero yet, or the admin), so they do not close on their own.
 const blocking = el => ["login", "hero", "admin", "gift"].includes(el.id);
@@ -2811,6 +2858,20 @@ $("#menu").addEventListener("click", e => {
     netLeave("Вы вышли из игры");
   } else if (act === "look") {
     openHero(net.look);
+  } else if (act === "save") {
+    closeSheets();
+    saveLocal();
+  } else if (act === "load") {
+    closeSheets();
+    loadLocal();
+  } else if (act === "download") {
+    closeSheets();
+    download();
+  } else if (act === "upload") {
+    closeSheets();
+    fileEl.click();
+  } else if (act === "reset") {
+    openNewWorld();
   }
 });
 
@@ -3162,34 +3223,34 @@ function adminSend(msg) {
     net.ws.send(JSON.stringify(msg));
   }
 }
-function renderNewOpts() {
-  const box = $("#newOpts");
+// The admin's new world and the single player's new world share these controls, told apart by the id prefix.
+function renderNewOpts(box, prefix) {
   box.innerHTML = "";
   const seedLabel = document.createElement("label");
-  seedLabel.innerHTML = "Сид <input type='number' id='newSeed' min='0' max='2147483647'>";
+  seedLabel.innerHTML = `Сид <input type='number' id='${prefix}Seed' min='0' max='2147483647'>`;
   box.appendChild(seedLabel);
   NEW_OPTS.forEach(key => {
     const label = document.createElement("label");
     label.textContent = WORLD_OPTS[key].name;
     const select = document.createElement("select");
-    select.id = "new-" + key;
+    select.id = prefix + "-" + key;
     WORLD_OPTS[key].labels.forEach((text, i) => select.add(new Option(text, i)));
     label.appendChild(select);
     box.appendChild(label);
   });
 }
-function setNewOpts(opts) {
-  $("#newSeed").value = opts.seed;
-  NEW_OPTS.forEach(key => ($("#new-" + key).value = opts[key]));
+function setNewOpts(prefix, opts) {
+  $(`#${prefix}Seed`).value = opts.seed;
+  NEW_OPTS.forEach(key => ($(`#${prefix}-${key}`).value = opts[key]));
 }
 function randomOpts() {
   const opts = { seed: randSeed() };
   NEW_OPTS.forEach(key => (opts[key] = Math.floor(Math.random() * WORLD_OPTS[key].values.length)));
   return opts;
 }
-function newOpts() {
-  const opts = { seed: Math.floor(Number($("#newSeed").value)) };
-  NEW_OPTS.forEach(key => (opts[key] = Number($("#new-" + key).value)));
+function newOpts(prefix) {
+  const opts = { seed: Math.floor(Number($(`#${prefix}Seed`).value)) };
+  NEW_OPTS.forEach(key => (opts[key] = Number($(`#${prefix}-${key}`).value)));
   return opts;
 }
 const optsText = opts => (opts ? `сид ${opts.seed}, ` + NEW_OPTS.map(key => WORLD_OPTS[key].labels[opts[key]].toLowerCase()).join(", ")
@@ -3332,18 +3393,18 @@ function showAdmin(m) {
   renderBans();
   renderNotes();
   if ($("#admin").hidden && $("#gift").hidden) {
-    renderNewOpts();
-    setNewOpts(randomOpts());
+    renderNewOpts($("#newOpts"), "new");
+    setNewOpts("new", randomOpts());
     showTab("worlds");
     show($("#admin"));
   }
 }
 $("#newRandom").addEventListener("click", () => {
-  setNewOpts(randomOpts());
+  setNewOpts("new", randomOpts());
   Sound.click();
 });
 $("#newCreate").addEventListener("click", () => {
-  const settings = newOpts();
+  const settings = newOpts("new");
   if (!(settings.seed >= 0 && settings.seed < 2 ** 31)) {
     toast("Сид — целое число от 0 до 2147483647");
     return;
@@ -3478,6 +3539,13 @@ $("#heroBtn").addEventListener("click", () => {
   const fresh = !net.look;
   net.look = { ...heroLook };
   netSend({ t: "look", look: net.look });
+  if (SOLO) {
+    try {
+      localStorage.setItem(LOOK_KEY, JSON.stringify(net.look));
+    } catch (e) {
+      // the look is back to pink after a reload
+    }
+  }
   closeSheets();
   toast(fresh ? `${net.name}, добро пожаловать в мир «${net.world}»` : "Вид героя изменён");
   Sound.chime();
@@ -3492,6 +3560,214 @@ function renderPlayers() {
     li.textContent = n;
     list.appendChild(li);
   });
+}
+
+// ---------- single player ----------
+
+const SAVE_KEY = "heartcraft-save", LOOK_KEY = "heartcraft-look";
+function serialize() {
+  return JSON.stringify({ game: "heartcraft", v: 5, seed, opts: worldOpts, w: W, h: H, tiles: encodeTiles(world),
+    player: { x: P.x, y: P.y }, inv: inv.map(encodeSlot), sel, time,
+    mobs: mobs.map(m => [m.x, m.y, Math.max(0, m.grow), m.white ? 1 : 0]), ocean: hasOcean,
+    fish: fish.map(f => [f.x, f.y]),
+    chests: [...chests].filter(([, c]) => c.some(Boolean)).map(([k, c]) => [k % W, Math.floor(k / W), c.map(encodeSlot)]) });
+}
+const optsOk = o => Boolean(o) && NEW_OPTS.every(k => Number.isInteger(o[k]) && o[k] >= 0 && o[k] < WORLD_OPTS[k].values.length);
+// Saves of 1.x still open: v1 picks had no wear, v4 hearts kept an age, and before v5 every world had the usual settings.
+function deserialize(text) {
+  const d = JSON.parse(text);
+  if (!d || d.game !== "heartcraft" || ![1, 2, 3, 4, 5].includes(d.v)) {
+    throw new Error("это не мир Сердцекрафта");
+  }
+  if (d.w !== W || d.h !== H || !Number.isInteger(d.seed)) {
+    throw new Error("неверный размер мира");
+  }
+  const tiles = decodeTiles(d.tiles);
+  const slots = (list, n) => decodeSlots(Array.isArray(list) && d.v < 2
+    ? list.map(s => (s && durOf(s[0]) ? [s[0], s[1], durOf(s[0])] : s)) : list, n);
+  const bag = slots(d.inv, SLOTS);
+  const { x, y } = d.player || {};
+  if (!inWorld(x, y) || !Number.isInteger(d.sel) || d.sel < 0 || d.sel > 8) {
+    throw new Error("испорчено место героя");
+  }
+  if (d.v >= 2 && !(d.time >= 0 && d.time < 1)) {
+    throw new Error("испорчено время суток");
+  }
+  if (d.v >= 2 && !(Array.isArray(d.mobs) && d.mobs.length <= MOB_MAX && d.mobs.every(m => Array.isArray(m) &&
+      inWorld(m[0], m[1]) && m[2] >= 0 && m[2] <= GROW_TIME && [undefined, 0, 1].includes(m[3])))) {
+    throw new Error("испорчены сердечки");
+  }
+  if (d.v >= 4 && !(Array.isArray(d.fish) && d.fish.length <= FISH_MAX &&
+      d.fish.every(f => Array.isArray(f) && inWorld(f[0], f[1])))) {
+    throw new Error("испорчены рыбки");
+  }
+  if (d.v >= 3 && typeof d.ocean !== "boolean") {
+    throw new Error("испорчен океан");
+  }
+  if (d.v >= 5 && !optsOk(d.opts)) {
+    throw new Error("испорчены настройки мира");
+  }
+  const boxes = new Map();
+  if (d.v >= 3) {
+    if (!Array.isArray(d.chests)) {
+      throw new Error("испорчены сундуки");
+    }
+    d.chests.forEach(c => {
+      if (!Array.isArray(c) || !Number.isInteger(c[0]) || !Number.isInteger(c[1]) || !inWorld(c[0], c[1]) ||
+          tiles[chestKey(c[0], c[1])] !== B.CHEST) {
+        throw new Error("испорчены сундуки");
+      }
+      boxes.set(chestKey(c[0], c[1]), slots(c[2], CHEST_SLOTS));
+    });
+  }
+  seed = d.seed;
+  world = tiles;
+  hasOcean = d.v >= 3 && d.ocean;
+  worldOpts = d.v >= 5 ? Object.fromEntries(NEW_OPTS.map(k => [k, d.opts[k]])) : { ...DEFAULT_OPTS, ocean: hasOcean ? 1 : 0 };
+  surf = terrain(seed, hasOcean, worldOpts.hills).surf;
+  chests = boxes;
+  inv = bag;
+  sel = d.sel;
+  time = d.v >= 2 ? d.time : 0;
+  if (d.v >= 2) {
+    mobs = d.mobs.map(([mx, my, grow, white]) => makeMob(mx, my, grow, white === 1));
+  } else {
+    spawnMobs();
+  }
+  if (d.v >= 4) {
+    fish = d.fish.map(([fx, fy]) => makeFish(fx, fy));
+  } else {
+    spawnFish();
+  }
+  P.x = x;
+  P.y = y;
+  P.vx = P.vy = 0;
+  brk = null;
+  snapCamera();
+  uiDirty = true;
+}
+
+function saveLocal() {
+  try {
+    localStorage.setItem(SAVE_KEY, serialize());
+    toast("Мир сохранён");
+    Sound.chime();
+  } catch (e) {
+    toast("Не получилось сохранить: " + e.message);
+    Sound.nope();
+  }
+}
+function loadLocal() {
+  let text;
+  try {
+    text = localStorage.getItem(SAVE_KEY);
+  } catch (e) {
+    toast("Хранилище браузера недоступно: " + e.message);
+    return;
+  }
+  if (!text) {
+    toast("Сохранения пока нет");
+    return;
+  }
+  loadText(text, "Мир загружен");
+}
+function loadText(text, ok) {
+  try {
+    deserialize(text);
+    toast(ok);
+    Sound.chime();
+  } catch (e) {
+    toast("Не получилось загрузить: " + e.message);
+    Sound.nope();
+  }
+}
+function download() {
+  const blob = new Blob([serialize()], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `heartcraft-${new Date().toISOString().slice(0, 16).replace(/[T:]/g, "-")}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const fileEl = $("#file");
+fileEl.addEventListener("change", () => {
+  const f = fileEl.files[0];
+  fileEl.value = "";
+  if (f) {
+    f.text().then(t => loadText(t, "Мир открыт из файла"), e => toast("Не получилось прочитать файл: " + e.message));
+  }
+});
+
+function openNewWorld() {
+  renderNewOpts($("#soloOpts"), "solo");
+  setNewOpts("solo", { seed: randSeed(), ...DEFAULT_OPTS });
+  show($("#newWorld"));
+}
+$("#soloRandom").addEventListener("click", () => {
+  setNewOpts("solo", randomOpts());
+  Sound.click();
+});
+$("#soloCreate").addEventListener("click", () => {
+  const { seed: s, ...opts } = newOpts("solo");
+  if (!(s >= 0 && s < 2 ** 31)) {
+    toast("Сид — целое число от 0 до 2147483647");
+    return;
+  }
+  newWorld(s, opts);
+  closeSheets();
+  toast("Новый мир готов");
+  Sound.chime();
+});
+
+let testMode = false;
+const giveN = $("#giveN");
+function openGive() {
+  const grid = $("#give .grid");
+  grid.innerHTML = "";
+  [...Object.keys(BLOCKS), ...Object.keys(ITEMS)].map(Number).filter(givable).forEach(id => {
+    const el = makeSlot(() => {
+      const n = stackMax(id) === 1 ? 1 : Math.max(1, Math.min(999, Math.floor(Number(giveN.value)) || 1));
+      const left = addItem(id, n);
+      toast(left ? `Рюкзак полон: выдано ${nameOf(id)} ×${n - left}` : `Выдано: ${nameOf(id)} ×${n}`);
+      Sound.pickup();
+    });
+    fillSlot(el, { id, n: 1, dur: durOf(id) });
+    grid.appendChild(el);
+  });
+  show($("#give"));
+}
+$("#give .row").addEventListener("click", e => {
+  if (e.target.dataset.n) {
+    giveN.value = e.target.dataset.n;
+  }
+});
+const testBtn = $("#testBtn"), giveBtn = $("#giveBtn");
+function toggleTest() {
+  testMode = !testMode;
+  testBtn.classList.toggle("on", testMode);
+  giveBtn.hidden = !testMode;
+  toast(testMode ? "Режим тестирования включён — 🎁 выдаёт вещи" : "Режим тестирования выключен");
+  Sound.click();
+}
+testBtn.addEventListener("click", toggleTest);
+giveBtn.addEventListener("click", openGive);
+
+function startSolo() {
+  let look = null, save = null;
+  try {
+    look = JSON.parse(localStorage.getItem(LOOK_KEY));
+    save = localStorage.getItem(SAVE_KEY);
+  } catch (e) {
+    toast("Хранилище браузера недоступно — сохраняйте мир в файл");
+  }
+  const lookOk = look && Number.isInteger(look.c) && look.c >= 0 && look.c < LOOK_COLORS.length &&
+    Number.isInteger(look.h) && look.h >= 0 && look.h < HATS.length;
+  net.look = lookOk ? { c: look.c, h: look.h } : { c: 0, h: 0 };
+  if (save) {
+    loadText(save, "Загружен сохранённый мир");
+  }
 }
 
 // ---------- input ----------
@@ -3591,6 +3867,14 @@ window.addEventListener("keydown", e => {
     toggleSound();
     return;
   }
+  if (SOLO && e.code === "KeyT") {
+    toggleTest();
+    return;
+  }
+  if (SOLO && e.code === "KeyG" && testMode) {
+    openGive();
+    return;
+  }
   if (e.code === "Equal" || e.code === "NumpadAdd" || e.code === "Minus" || e.code === "NumpadSubtract") {
     setZoom(zoom + (e.code === "Equal" || e.code === "NumpadAdd" ? 1 : -1));
     return;
@@ -3644,7 +3928,9 @@ resize();
 window.addEventListener("resize", resize);
 setZoom(zoom);
 newWorld(randSeed());
-if (net.want && net.login && net.code) {
+if (SOLO) {
+  startSolo();
+} else if (net.want && net.login && net.code) {
   netConnect();
 } else {
   showLogin("");
@@ -3690,7 +3976,7 @@ requestAnimationFrame(frameLoop);
 window.HC = { B, I, W, H, RECIPES, P, cam, get world() { return world; }, get inv() { return inv; },
   get seed() { return seed; }, get mobs() { return mobs; }, get time() { return time; }, set time(v) { time = v; },
   get fish() { return fish; }, get chests() { return chests; }, get sel() { return sel; },
-  get trash() { return trash; }, VERSION, growSeaweed, terrain, openChest, openTrash, chestAt, breed, banner,
+  get trash() { return trash; }, VERSION, growSeaweed, SOLO, serialize, loadText, get testMode() { return testMode; }, terrain, openChest, openTrash, chestAt, breed, banner,
   get zoom() { return zoom; }, get TILE() { return TILE; }, get, setTile, finishBreak, addItem, count, craft,
   bestPick, bestPickSlot, hatch, newWorld, generate, usePlace, feed, openCraft, setZoom, toggleDay, daylight, keys,
   touch, Sound, net, peers, netLogin, netLeave, LOOK_COLORS, WORLD_OPTS, get worldOpts() { return worldOpts; } };

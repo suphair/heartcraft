@@ -72,8 +72,9 @@ class ServerTest(unittest.TestCase):
 
     def test_serves_page(self):
         port = self.httpd.server_address[1]
-        body = urllib.request.urlopen("http://127.0.0.1:%d/" % port).read().decode()
-        self.assertIn("<title>Сердцекрафт</title>", body)
+        for path in ("/", "/?solo"):
+            body = urllib.request.urlopen("http://127.0.0.1:%d%s" % (port, path)).read().decode()
+            self.assertIn("<title>Сердцекрафт</title>", body)
 
     def test_wrong_code_is_refused(self):
         c, msg = self.join("Вася", "nope")
