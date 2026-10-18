@@ -1,6 +1,7 @@
 #!/bin/sh
-# The game server runs on a Windows machine; the router only forwards 192.168.1.1:8092 to it
-# and points the KeenDNS proxy (https://heartcraft.<name>.keenetic.link) at it.
+# The game server runs on a Windows machine (port 8092 there); the router forwards 192.168.1.1:8094 to it
+# and points the KeenDNS proxy (https://hcplay.<name>.keenetic.link) at it. Port 8092 of the router itself
+# is the start page (lighttpd.conf).
 # host.cmd there writes "<ip> <token>" into /opt/heartcraft/host over SMB.
 #   hub.sh loop  - keeps the forwarding and the proxy in step with that file (started by S99heartcraft)
 #   hub.sh apply - sets the rules once: Keenetic drops foreign rules when it rebuilds its tables
@@ -11,8 +12,9 @@ HOST_FILE=/opt/heartcraft/host
 LAN=br0
 ROUTER=192.168.1.1
 NET=192.168.1.0/24
-PORT=8092
-PROXY=heartcraft
+PORT=8094
+GAME_PORT=8092
+PROXY=hcplay
 
 target() {
     ip=$(cut -d' ' -f1 "$HOST_FILE" 2>/dev/null)
@@ -30,9 +32,9 @@ apply() {
     chain nat POSTROUTING HEARTCRAFT_POST
     chain filter FORWARD HEARTCRAFT_FWD
     [ -n "$1" ] || return 0
-    iptables -t nat -A HEARTCRAFT_PRE -i $LAN -d $ROUTER -p tcp --dport $PORT -j DNAT --to-destination "$1:$PORT"
-    iptables -t nat -A HEARTCRAFT_POST -o $LAN -s $NET -d "$1" -p tcp --dport $PORT -j MASQUERADE
-    iptables -t filter -A HEARTCRAFT_FWD -i $LAN -o $LAN -d "$1" -p tcp --dport $PORT -j ACCEPT
+    iptables -t nat -A HEARTCRAFT_PRE -i $LAN -d $ROUTER -p tcp --dport $PORT -j DNAT --to-destination "$1:$GAME_PORT"
+    iptables -t nat -A HEARTCRAFT_POST -o $LAN -s $NET -d "$1" -p tcp --dport $GAME_PORT -j MASQUERADE
+    iptables -t filter -A HEARTCRAFT_FWD -i $LAN -o $LAN -d "$1" -p tcp --dport $GAME_PORT -j ACCEPT
 }
 
 case "$1" in
@@ -47,7 +49,7 @@ case "$1" in
         while true; do
             ip=$(target)
             if [ "$ip" != "$last" ]; then
-                apply "$ip" && ndmc -c "ip http proxy $PROXY upstream http ${ip:-127.0.0.1} $PORT" >/dev/null && last=$ip
+                apply "$ip" && ndmc -c "ip http proxy $PROXY upstream http ${ip:-127.0.0.1} $GAME_PORT" >/dev/null && last=$ip
                 echo "$(date '+%F %T') forwarding :$PORT -> ${ip:-nobody}"
             fi
             sleep 5

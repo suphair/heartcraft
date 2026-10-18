@@ -1,13 +1,15 @@
 #!/bin/sh
 # Entware autostart: rc.unslung calls it when the router boots.
-# start-stop-daemon -b detaches the hub, otherwise it dies with the ssh session.
+# start-stop-daemon -b detaches the hub, otherwise it dies with the ssh session; lighttpd detaches itself.
 case "$1" in
     start)
         pgrep -f "[/]opt/heartcraft/hub.sh loop" >/dev/null 2>&1 || \
             start-stop-daemon -S -b -x /opt/heartcraft/hub.sh -- loop
+        pgrep -f "[/]opt/heartcraft/lighttpd.conf" >/dev/null 2>&1 || \
+            /opt/sbin/lighttpd -f /opt/heartcraft/lighttpd.conf
         ;;
     stop)
-        for pid in $(pgrep -f "[/]opt/heartcraft/hub.sh loop" 2>/dev/null); do
+        for pid in $(pgrep -f "[/]opt/heartcraft/(hub.sh loop|lighttpd.conf)" 2>/dev/null); do
             kill "$pid" 2>/dev/null
         done
         /opt/heartcraft/hub.sh clear

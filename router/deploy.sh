@@ -4,7 +4,8 @@
 #   ./router/deploy.sh
 #
 # Сервер игры работает на Windows-машине: она запускает host.cmd с SMB-шары роутера, берёт оттуда код,
-# а миры пишет туда же. Роутер только пробрасывает 192.168.1.1:8092 на эту машину (hub.sh + iptables).
+# а миры пишет туда же. Роутер пробрасывает на эту машину 192.168.1.1:8094 (hub.sh + iptables), а на своём
+# 8092 отдаёт страницу выбора режима (lighttpd.conf, www/).
 # Транспорт как у судоку и ds-бота: tar-стрим через ssh (scp/rsync на роутере нет),
 # пароль SSH-root даёт SSH_ASKPASS из ~/.config/keenetic/askpass.sh.
 # Список миров (worlds), админ (admin), данные миров (data/) и хозяин (host) живут только на роутере и
@@ -28,7 +29,7 @@ rssh "command -v iptables >/dev/null" || { echo "на роутере нет ipta
 
 echo "заливаю страницу, сервер и проброс в /opt/heartcraft..."
 rssh "mkdir -p /opt/heartcraft /opt/etc/ndm/netfilter.d"
-COPYFILE_DISABLE=1 tar czf - index.html -C router server.py host.cmd hub.sh | rssh "cd /opt/heartcraft && tar xzf - && chmod +x hub.sh && sh -n hub.sh"
+COPYFILE_DISABLE=1 tar czf - index.html -C router server.py host.cmd hub.sh lighttpd.conf www | rssh "cd /opt/heartcraft && tar xzf - && chmod +x hub.sh && sh -n hub.sh"
 COPYFILE_DISABLE=1 tar czf - -C router S99heartcraft | rssh "cd /opt/etc/init.d && tar xzf - && chmod +x S99heartcraft"
 COPYFILE_DISABLE=1 tar czf - -C router 100-heartcraft.sh | rssh "cd /opt/etc/ndm/netfilter.d && tar xzf - && chmod +x 100-heartcraft.sh"
 
@@ -39,6 +40,8 @@ rssh "/opt/etc/init.d/S99heartcraft restart
       sleep 2
       pgrep -f '[/]opt/heartcraft/hub.sh loop' >/dev/null || { echo 'ПУСТО: hub.sh не запустился'; exit 1; }
       iptables -t nat -S HEARTCRAFT_PRE
+      python3 -c \"import urllib.request; assert 'Во что играем' in urllib.request.urlopen('http://127.0.0.1:8092/', timeout=5).read().decode()\" \
+        && echo 'страница выбора отвечает' || { echo 'ПУСТО: страница выбора не отвечает'; exit 1; }
       [ -s /opt/heartcraft/host ] || { echo 'хозяина пока нет: запусти host.cmd на Windows'; exit 0; }
       ip=\$(cut -d' ' -f1 /opt/heartcraft/host)
       python3 -c \"import urllib.request; urllib.request.urlopen('http://\$ip:8092/', timeout=5)\" 2>/dev/null \
