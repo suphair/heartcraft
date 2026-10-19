@@ -332,10 +332,10 @@ await boss(`window.confirm = () => true; [...document.querySelectorAll("#adminWo
 check("deleting a world sends its players out", await until(f, `${visible("login")} && /удалён/.test(document.querySelector("#loginStatus").textContent)`),
   await f(`document.querySelector("#loginStatus").textContent`));
 check("the deleted world is gone from the list", await until(boss, `![...document.querySelectorAll("#adminWorlds code")].some(c => c.textContent === "peaks")`));
-await boss(`window.confirm = () => true; [...document.querySelectorAll("#adminWorlds .heroCard")].find(c => /Боря/.test(c.textContent)).querySelectorAll(".btn")[1].click(); 1`);
-check("a banned player is sent out", await until(e, `${visible("login")} && /забанен/.test(document.querySelector("#loginStatus").textContent)`),
+await boss(`window.prompt = () => "грубил"; [...document.querySelectorAll("#adminWorlds .heroCard")].find(c => /Боря/.test(c.textContent)).querySelectorAll(".btn")[1].click(); 1`);
+check("a banned player is sent out with the reason", await until(e, `${visible("login")} && /забанен: грубил/.test(document.querySelector("#loginStatus").textContent)`),
   await e(`document.querySelector("#loginStatus").textContent`));
-check("the admin sees the ban", await until(boss, `/Боря/.test(document.querySelector("#bans").textContent)`));
+check("the admin sees the ban with the reason", await until(boss, `/Боря — грубил/.test(document.querySelector("#bans").textContent)`));
 await e.login("БОРЯ", MINT);
 check("a banned login is refused in every world", await until(e, `/забанен/.test(document.querySelector("#loginStatus").textContent) && !HC.net.ready`));
 await boss(`[...document.querySelectorAll("#bans button")].find(b => /Разбанить/.test(b.textContent)).click(); 1`);
@@ -379,6 +379,7 @@ check("the single player game has no network buttons", await solo(`!(${shown("sh
 await solo(`document.querySelector("#testBtn").click(); document.querySelector("#giveBtn").click(); 1`);
 await solo(`[...document.querySelectorAll("#give .grid .slot")].find(el => el.title.startsWith("Меч")).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })); 1`);
 check("test mode gives things", await solo(`HC.testMode && HC.count(HC.I.SWORD) === 1`));
+check("the single player gives with a box, not a gift", await solo(`document.querySelector("#giveBtn").textContent`) === "📦");
 await solo(`document.querySelector("#give .close").click(); 1`);
 check("seaweed grows in the single player game", await solo(`HC.growSeaweed(600)`) === true);
 await solo(`HC.addItem(HC.B.BRICK, 7); document.querySelector("#menuBtn").click(); document.querySelector('[data-act="save"]').click(); 1`);

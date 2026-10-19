@@ -16,7 +16,7 @@
 генерации (сид, рельеф, океан, пещеры, руды, деревья, сердечки - <data>/<код>/settings.json),
 удаляет миры и дарит героям вещи. Подарок приходит сразу, если герой в игре, иначе - при входе.
 Удалённый мир не стирается, а уезжает в <data>/.deleted/. Ещё админ банит логины: забаненный
-не войдёт ни в один мир, пока его не разбанят; список - <data>/bans.json. И пишет замечания к игре
+не войдёт ни в один мир, пока его не разбанят, и видит причину бана; список - <data>/bans.json. И пишет замечания к игре
 (<data>/notes.json): у новых и изменённых «fixed»: null. Исправленным правкой файла ставится
 версия игры с исправлением, пока сервер остановлен: файл читается только при старте.
 
@@ -61,6 +61,7 @@ CODE = r"[A-Za-z0-9]{3,32}"
 MAX_WORLD_NAME = 40
 MAX_GIFT = 999
 MAX_NOTE = 2000
+MAX_BAN_REASON = 200
 # Settings of a new world: how many choices each one has; the game knows what they mean.
 SETTINGS = {"seed": 2 ** 31, "hills": 5, "ocean": 2, "caves": 4, "ores": 3, "trees": 4, "hearts": 4}
 MAX_PLAYERS = 8
@@ -384,7 +385,9 @@ class Worlds:
         self.bans_path = data / "bans.json"
         self.notes_path = data / "notes.json"
         self.notes = json.loads(self.notes_path.read_text(encoding="utf-8")) if self.notes_path.exists() else []
-        self.bans = json.loads(self.bans_path.read_text(encoding="utf-8")) if self.bans_path.exists() else []
+        bans = json.loads(self.bans_path.read_text(encoding="utf-8")) if self.bans_path.exists() else []
+        # Bans of 2.1-2.2 were bare logins, without a reason.
+        self.bans = [{"login": b, "reason": ""} if isinstance(b, str) else b for b in bans]
         for line in config.read_text(encoding="utf-8").splitlines():
             if not line.strip() or line.lstrip().startswith("#"):
                 continue
@@ -410,28 +413,35 @@ class Worlds:
 
     def ban_list(self):
         with self.lock:
-            return list(self.bans)
+            return [dict(b) for b in self.bans]
 
     def banned(self, login):
+        """Что сказать забаненному, или None."""
         with self.lock:
-            return any(b.casefold() == login.casefold() for b in self.bans)
+            ban = next((b for b in self.bans if b["login"].casefold() == login.casefold()), None)
+        if ban is None:
+            return None
+        return "Этот логин забанен" + (": " + ban["reason"] if ban["reason"] else "")
 
-    def ban(self, login):
+    def ban(self, login, reason):
         login = login.strip() if isinstance(login, str) else ""
+        reason = " ".join(reason.split()) if isinstance(reason, str) else ""
         if not login or len(login) > MAX_LOGIN:
             return "Нужен логин, до %d букв" % MAX_LOGIN
+        if len(reason) > MAX_BAN_REASON:
+            return "Причина бана - до %d букв" % MAX_BAN_REASON
         if self.banned(login):
             return "%s уже забанен" % login
         with self.lock:
-            self.bans.append(login)
+            self.bans.append({"login": login, "reason": reason})
             self.write_bans()
         for room in self.all():
-            room.kick_login(login.casefold(), "Этот логин забанен")
+            room.kick_login(login.casefold(), self.banned(login))
         return None
 
     def unban(self, login):
         with self.lock:
-            left = [b for b in self.bans if not isinstance(login, str) or b.casefold() != login.casefold()]
+            left = [b for b in self.bans if not isinstance(login, str) or b["login"].casefold() != login.casefold()]
             if len(left) == len(self.bans):
                 return "Такого бана нет"
             self.bans = left
@@ -592,8 +602,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.refuse("Логин длиннее %d букв" % MAX_LOGIN)
         if (login.strip().casefold(), msg.get("code")) == self.admin:
             return "admin"
-        if self.worlds.banned(login.strip()):
-            return self.refuse("Этот логин забанен")
+        ban = self.worlds.banned(login.strip())
+        if ban:
+            return self.refuse(ban)
         room = self.worlds.get(msg.get("code"))
         if not room:
             return self.refuse("Неверный код мира")
@@ -627,7 +638,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 else:
                     why = room.give(msg.get("login"), item, n)
             elif t == "ban":
-                why = self.worlds.ban(msg.get("login"))
+                why = self.worlds.ban(msg.get("login"), msg.get("reason"))
             elif t == "unban":
                 why = self.worlds.unban(msg.get("login"))
             elif t == "note":

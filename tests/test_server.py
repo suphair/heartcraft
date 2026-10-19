@@ -393,26 +393,40 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(a.recv()["t"], "join")
         c, state = self.admin()
         self.assertEqual(state["bans"], [])
-        c.send({"t": "ban", "login": "АНЯ"})
+        c.send({"t": "ban", "login": "АНЯ", "reason": "  ломала  чужие дома "})
         reply = c.recv()
-        self.assertEqual((reply["error"], reply["bans"]), (None, ["АНЯ"]))
-        self.assertEqual(a.recv(), {"t": "error", "msg": "Этот логин забанен"})
+        self.assertEqual((reply["error"], reply["bans"]), (None, [{"login": "АНЯ", "reason": "ломала чужие дома"}]))
+        banned = {"t": "error", "msg": "Этот логин забанен: ломала чужие дома"}
+        self.assertEqual(a.recv(), banned)
         self.assertEqual(watcher.recv(), {"t": "leave", "id": 1})
         for code in ("rose", "mint"):
-            self.assertEqual(self.join("аня", code)[1], {"t": "error", "msg": "Этот логин забанен"})
-        c.send({"t": "ban", "login": "аня"})
-        self.assertIsNotNone(c.recv()["error"])
+            self.assertEqual(self.join("аня", code)[1], banned)
+        for bad in [{"login": "аня"}, {"login": "Боря", "reason": "я" * 201}]:
+            c.send(dict({"t": "ban"}, **bad))
+            self.assertIsNotNone(c.recv()["error"], bad)
+        c.send({"t": "ban", "login": "Вася"})
+        self.assertEqual(c.recv()["bans"][1], {"login": "Вася", "reason": ""})
+        self.assertEqual(self.join("вася")[1], {"t": "error", "msg": "Этот логин забанен"})
         self.stop()
         self.start()
-        self.assertEqual(self.join("Аня")[1], {"t": "error", "msg": "Этот логин забанен"})
+        self.assertEqual(self.join("Аня")[1], banned)
         c, _ = self.admin()
         c.send({"t": "unban", "login": "аня"})
         reply = c.recv()
-        self.assertEqual((reply["error"], reply["bans"]), (None, []))
+        self.assertEqual((reply["error"], reply["bans"]), (None, [{"login": "Вася", "reason": ""}]))
         _, welcome = self.join("Аня")
         self.assertEqual(welcome["t"], "welcome")
         c.send({"t": "unban", "login": "аня"})
         self.assertIsNotNone(c.recv()["error"])
+
+    def test_bans_of_bare_logins_still_hold(self):
+        self.stop()
+        self.data.mkdir(parents=True, exist_ok=True)
+        (self.data / "bans.json").write_text(json.dumps(["Аня"]), encoding="utf-8")
+        self.start()
+        self.assertEqual(self.join("аня")[1], {"t": "error", "msg": "Этот логин забанен"})
+        _, state = self.admin()
+        self.assertEqual(state["bans"], [{"login": "Аня", "reason": ""}])
 
 
     def test_admin_writes_notes_and_sees_them_marked_done_in_the_file_after_a_restart(self):

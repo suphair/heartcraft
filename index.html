@@ -155,7 +155,7 @@
 <div id="top">
   <button class="btn" id="dayBtn" title="Всегда день">☀️</button>
   <button class="btn" id="soundBtn" title="Звук (M)">🔊</button>
-  <button class="btn soloOnly" id="giveBtn" title="Выдать себе вещи (G)" hidden>🎁</button>
+  <button class="btn soloOnly" id="giveBtn" title="Выдать себе вещи (G)" hidden>📦</button>
   <button class="btn soloOnly" id="testBtn" title="Режим тестирования (T)">🧪</button>
   <button class="btn netOnly" id="shareBtn" title="Передать вещи">🎁</button>
   <button class="btn" id="bagBtn" title="Рюкзак (E)">🎒</button>
@@ -256,6 +256,12 @@
   <div class="box">
     <h2>Что нового</h2>
     <div class="news">
+      <h3>Версия 2.3</h3>
+      <ul>
+        <li>Админ пишет <b>причину бана</b> — её видит забаненный игрок при входе и в списке банов админ.</li>
+        <li>В одиночной игре кнопка «выдать себе» в режиме тестирования — теперь 📦, чтобы не путать
+          с 🎁 «Передать».</li>
+      </ul>
       <h3>Версия 2.2</h3>
       <ul>
         <li><b>Водоросли растут</b> вверх по воде: на блок раз в 10 минут, до 5 блоков.</li>
@@ -390,6 +396,7 @@
       <h3>🚫 Бан</h3>
       <div class="hint">Забаненный логин не войдёт ни в один мир, пока его не разбанят. Кто сейчас в игре — вылетит.</div>
       <div class="row"><label>Логин: <input class="field" id="banName" maxlength="16"></label>
+        <label>Причина: <input class="field" id="banReason" maxlength="200"></label>
         <button class="btn" id="banBtn">🚫 Забанить</button></div>
       <ul class="news" id="bans"></ul>
     </div>
@@ -455,7 +462,7 @@
         В <b>океане</b> плавают рыбки; чтобы всплыть, держи прыжок. <b>Ведро</b> набирает воду и выливает её.
         По <b>лестнице</b> можно лазить вверх и вниз.</p>
       <p class="soloOnly"><b>Одиночная игра:</b> мир живёт в этом браузере — 💾 сохраняет его, 📂 загружает,
-        файлом его можно перенести на другое устройство. 🧪 (T) — режим тестирования, в нём 🎁 (G) выдаёт вещи.</p>
+        файлом его можно перенести на другое устройство. 🧪 (T) — режим тестирования, в нём 📦 (G) выдаёт вещи.</p>
       <p><b class="netOnly">Вещи другу</b><span class="netOnly"> — кнопка 🎁 вверху экрана: выбери игрока и нажимай
         на вещи из рюкзака.</span>
         <b>🎨 Сменить вид</b> — цвет и украшение героя.</p>
@@ -478,7 +485,7 @@ const SWIM = 5, SWIM_FALL = 3, WATER_GRAV = 0.3, CLIMB = 4, LADDER_SLIDE = 1.5;
 const FISH_COUNT = 30, FISH_MAX = 100, FISH_SPEED = 1.5;
 const SEAWEED_GROW = 600, SEAWEED_MAX = 5;
 const CHEST_SLOTS = 27;
-const VERSION = "2.2";
+const VERSION = "2.3";
 
 const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, COBBLE: 4, SAND: 5, LOG: 6, LEAVES: 7, PLANKS: 8,
   COAL_ORE: 9, IRON_ORE: 10, GOLD_ORE: 11, DIAMOND_ORE: 12, PINK_ORE: 13, BEDROCK: 14, WORKBENCH: 15,
@@ -3272,21 +3279,21 @@ function heroCard(world, hero) {
   ban.className = "btn";
   ban.textContent = "🚫";
   ban.title = "Забанить";
-  ban.addEventListener("click", () => banLogin(hero.name));
+  ban.addEventListener("click", () => {
+    const reason = prompt(`Забанить «${hero.name}»? Причина бана (её увидит игрок):`, "");
+    if (reason !== null) {
+      adminSend({ t: "ban", login: hero.name, reason });
+    }
+  });
   card.append(pic, name, give, ban);
   return card;
-}
-function banLogin(login) {
-  if (login && confirm(`Забанить «${login}»? С этим логином нельзя будет играть ни в одном мире.`)) {
-    adminSend({ t: "ban", login });
-  }
 }
 function renderBans() {
   const list = $("#bans");
   list.innerHTML = "";
-  adminState.bans.forEach(login => {
+  adminState.bans.forEach(({ login, reason }) => {
     const li = document.createElement("li");
-    li.textContent = login + " ";
+    li.textContent = login + (reason ? ` — ${reason} ` : " ");
     const free = document.createElement("button");
     free.className = "btn";
     free.textContent = "Разбанить";
@@ -3348,8 +3355,11 @@ $("#noteAdd").addEventListener("click", () => {
   $("#noteText").value = "";
 });
 $("#banBtn").addEventListener("click", () => {
-  banLogin($("#banName").value.trim());
-  $("#banName").value = "";
+  const login = $("#banName").value.trim();
+  if (login && confirm(`Забанить «${login}»? С этим логином нельзя будет играть ни в одном мире.`)) {
+    adminSend({ t: "ban", login, reason: $("#banReason").value });
+    $("#banName").value = $("#banReason").value = "";
+  }
 });
 function renderAdmin() {
   const list = $("#adminWorlds");
@@ -3748,7 +3758,7 @@ function toggleTest() {
   testMode = !testMode;
   testBtn.classList.toggle("on", testMode);
   giveBtn.hidden = !testMode;
-  toast(testMode ? "Режим тестирования включён — 🎁 выдаёт вещи" : "Режим тестирования выключен");
+  toast(testMode ? "Режим тестирования включён — 📦 выдаёт вещи" : "Режим тестирования выключен");
   Sound.click();
 }
 testBtn.addEventListener("click", toggleTest);
