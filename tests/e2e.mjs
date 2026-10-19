@@ -250,6 +250,58 @@ await chooseHero(b, 0, 5);
 check("A sees B in the pink crown", await until(a, `${peer("Боря")}.look.h === 5`));
 check("B keeps the new look", await until(b, `document.querySelector("#hero").hidden && HC.net.look.h === 5`));
 
+check("A, who came first, runs the mobs", await a(`HC.leading()`) && !(await b(`HC.leading()`)));
+check("there are sheep in the world", await a(`HC.sheep.length > 0`));
+const sameMobs = `JSON.stringify(HC.mobs.map(m => m.id).sort()) === ${JSON.stringify(JSON.stringify(await a(`HC.mobs.map(m => m.id).sort()`)))}`;
+check("B sees the same hearts as A", await until(b, sameMobs), await b(`HC.mobs.map(m => m.id)`));
+const drift = await b(`(() => {
+  const theirs = ${JSON.stringify(await a(`HC.mobs.map(m => [m.id, m.x, m.y])`))};
+  return Math.max(...theirs.map(([id, x, y]) => { const m = HC.mobs.find(o => o.id === id); return Math.hypot(m.x - x, m.y - y); }));
+})()`);
+check("B sees the hearts where A has them", drift < 2, drift);
+await hold(b, "HC.I.SWORD");
+const lamb = await b(`(() => {
+  const o = HC.sheep[0];
+  o.x = o.tx = HC.P.x + 1;
+  o.y = o.ty = HC.P.y;
+  const r = document.querySelector("#view").getBoundingClientRect();
+  document.querySelector("#view").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, pointerType: "mouse",
+    clientX: r.left + (o.x + o.w / 2 - HC.cam.x) * HC.TILE, clientY: r.top + (o.y + o.h / 2 - HC.cam.y) * HC.TILE }));
+  return [o.id, HC.count(HC.B.WOOL)];
+})()`);
+check("a sheep killed with the sword gives wool", lamb[1] === 1, lamb);
+check("the sheep B killed is gone for A too", await until(a, `!HC.sheep.some(o => o.id === ${lamb[0]})`));
+await b(`HC.addItem(HC.B.PINK, 1); 1`);
+await hold(b, "HC.B.PINK");
+const loved = await b(`(() => {
+  const m = HC.mobs.find(o => o.grow <= 0 && o.love <= 0 && o.pause <= 0);
+  m.x = m.tx = HC.P.x + 1;
+  m.y = m.ty = HC.P.y;
+  HC.feed(m);
+  return m.id;
+})()`);
+check("a heart B makes fall in love is in love for A", await until(a, `HC.mobs.some(m => m.id === ${loved} && m.love > 0)`));
+await a(`HC.addItem(HC.B.PLANKS, 3); HC.addItem(HC.B.WOOL, 3); 1`);
+check("a bed is made of three planks and three wool", await craftOut(a, "HC.B.BED") === 1);
+const bedAt = await place(a, "HC.B.BED");
+check("A placed a bed", bedAt !== null);
+check("there is no bed button before a bed is chosen", await a(`document.querySelector("#bedBtn").hidden`));
+await a(`HC.usePlace(${bedAt[0]}, ${bedAt[1]}); 1`);
+check("pressing the bed makes it A's", await a(`JSON.stringify(HC.bed)`) === JSON.stringify({ x: bedAt[0], y: bedAt[1] }));
+check("the bed button shows up", await until(a, `!document.querySelector("#bedBtn").hidden`));
+await a(`HC.P.x += 12; document.querySelector("#bedBtn").click(); 1`);
+check("the bed button brings A to the bed", await a(`Math.floor(HC.P.x + HC.P.w / 2) === ${bedAt[0]} && Math.floor(HC.P.y + HC.P.h / 2) === ${bedAt[1]}`),
+  await a(`[HC.P.x, HC.P.y]`));
+await a(`(() => {
+  document.querySelector("#menuBtn").click();
+  document.querySelector('[data-act="settings"]').click();
+  document.querySelector("#dayBtn").click();
+  return 1;
+})()`);
+check("the settings hold the sound and the day", await a(`${visible("settings")} && /Звук/.test(document.querySelector("#soundBtn").textContent) && /Всегда день: да/.test(document.querySelector("#dayBtn").textContent)`));
+check("the sound and day buttons left the top bar", await a(`!document.querySelector("#top #soundBtn") && !document.querySelector("#top #dayBtn")`));
+await a(`document.querySelector("#dayBtn").click(); document.querySelector("#settings .close").click(); 1`);
+
 await a(`HC.addItem(HC.B.BRICK, 5); 1`);
 const ax = await a(`HC.P.x`);
 await sleep(500);
@@ -263,6 +315,7 @@ check("A is where A stood", Math.abs(await a(`HC.P.x`) - ax) < 1, [ax, await a(`
 check("A is not asked for a look again", await a(`document.querySelector("#hero").hidden`));
 check("A sees B's glass after the reload", await a(`HC.get(${glass[0]}, ${glass[1]}) === HC.B.GLASS`));
 check("A sees the chest contents after the reload", await a(`HC.chests.get(${key})[0].n === 7`));
+check("A keeps the bed after the reload", await a(`JSON.stringify(HC.bed)`) === JSON.stringify({ x: bedAt[0], y: bedAt[1] }));
 
 const c = await player();
 await c.login("Аня", MINT);
@@ -382,12 +435,14 @@ check("test mode gives things", await solo(`HC.testMode && HC.count(HC.I.SWORD) 
 check("the single player gives with a box, not a gift", await solo(`document.querySelector("#giveBtn").textContent`) === "📦");
 await solo(`document.querySelector("#give .close").click(); 1`);
 check("seaweed grows in the single player game", await solo(`HC.growSeaweed(600)`) === true);
+const flock = await solo(`HC.sheep.length`);
+check("the single player game has sheep", flock > 0);
 await solo(`HC.addItem(HC.B.BRICK, 7); document.querySelector("#menuBtn").click(); document.querySelector('[data-act="save"]').click(); 1`);
 const soloSeed = await solo(`HC.seed`);
 await solo(`location.reload(); 1`);
 await sleep(500);
 await solo.loaded();
-check("a saved single player world comes back after a reload", await until(solo, `HC.seed === ${soloSeed} && HC.count(HC.B.BRICK) === 7 && HC.count(HC.I.SWORD) === 1`),
+check("a saved single player world comes back after a reload", await until(solo, `HC.seed === ${soloSeed} && HC.count(HC.B.BRICK) === 7 && HC.count(HC.I.SWORD) === 1 && HC.sheep.length === ${flock}`),
   await solo(`[HC.seed, HC.count(HC.B.BRICK)]`));
 await solo(`(() => {
   document.querySelector("#menuBtn").click();

@@ -19,7 +19,8 @@ WORLD = {"t": "world", "seed": 42, "ocean": True, "tiles": "AAE="}
 INV = [[1, 5]] + [None] * 34 + [[110, 1, 30]]
 CHEST = [[8, 4]] + [None] * 26
 LOOK = {"c": 3, "h": 2}
-NEW_HERO = {"look": None, "inv": None, "sel": 0, "x": None, "y": None}
+NEW_HERO = {"look": None, "inv": None, "sel": 0, "x": None, "y": None, "bed": None}
+MOBS = {"hearts": [[1, 10.5, 20, 1, 0, 0, 0, 0, 2]], "sheep": [[2, 30, 20.4, -1]], "fish": [[3, 50.5, 70.5, 1, 4]]}
 SETTINGS = {"seed": 7, "hills": 4, "ocean": 0, "caves": 3, "ores": 2, "trees": 3, "hearts": 1}
 
 
@@ -107,7 +108,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(watcher.recv()["x"], 5.5)
         _, welcome = self.join("Боря")
         self.assertEqual(welcome["world"], {"seed": 42, "ocean": True, "tiles": "AAE=",
-                                            "changes": [[2 * 1024 + 3, 8]], "chests": [[6 * 1024 + 5, CHEST]]})
+                                            "changes": [[2 * 1024 + 3, 8]], "chests": [[6 * 1024 + 5, CHEST]], "mobs": None})
         self.assertEqual(welcome["players"][0], {"id": 1, "name": "Аня", "look": None, "pos": {"x": 5.5, "y": 7, "f": -1}})
 
     def test_worlds_are_separate(self):
@@ -132,7 +133,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(a.recv()["t"], "join")
         b.send(dict(WORLD, seed=7))
         self.assertEqual(b.recv(), {"t": "load", "world": {"seed": 42, "ocean": True, "tiles": "AAE=",
-                                                           "changes": [], "chests": []}, "settings": None})
+                                                           "changes": [], "chests": [], "mobs": None}, "settings": None})
 
     def test_moves_blocks_chests_and_looks_reach_others_but_not_sender(self):
         a, _ = self.join("Аня")
@@ -174,7 +175,7 @@ class ServerTest(unittest.TestCase):
         a.send_raw(8, b"")
         self.assertEqual(watcher.recv(), {"t": "leave", "id": 1})
         _, welcome = self.join("аНя")
-        self.assertEqual(welcome["me"], {"look": LOOK, "inv": INV, "sel": 3, "x": 12.5, "y": 30})
+        self.assertEqual(welcome["me"], {"look": LOOK, "inv": INV, "sel": 3, "x": 12.5, "y": 30, "bed": None})
         self.assertEqual(welcome["name"], "Аня")
         self.assertEqual(watcher.recv(), {"t": "join", "id": 3, "name": "Аня", "look": LOOK})
 
@@ -461,6 +462,62 @@ class ServerTest(unittest.TestCase):
         self.assertEqual([n["id"] for n in json.loads(path.read_text(encoding="utf-8"))], [2])
         c.send({"t": "dropnote", "id": 1})
         self.assertIsNotNone(c.recv()["error"])
+
+
+    def test_the_first_player_runs_the_mobs_and_they_survive_a_restart(self):
+        a, _ = self.join("Аня")
+        b, _ = self.join("Боря")
+        self.assertEqual(a.recv()["t"], "join")
+        a.send(WORLD)
+        b.send({"t": "mobs", **MOBS, "hearts": []})
+        a.send({"t": "mobs", **MOBS})
+        self.assertEqual(b.recv(), dict(MOBS, t="mobs"))
+        self.synced(a, b)
+        self.save()
+        self.stop()
+        self.start()
+        _, welcome = self.join("Аня")
+        self.assertEqual(welcome["world"]["mobs"], MOBS)
+
+    def test_the_next_player_takes_the_mobs_over_and_gets_the_actions(self):
+        a, _ = self.join("Аня")
+        b, _ = self.join("Боря")
+        c, _ = self.join("Вера")
+        self.assertEqual([a.recv()["t"], a.recv()["t"], b.recv()["t"]], ["join", "join", "join"])
+        a.send(WORLD)
+        b.send({"t": "mobact", "act": "kill", "id": 7})
+        self.assertEqual(a.recv(), {"t": "mobact", "act": "kill", "id": 7})
+        a.send({"t": "mobact", "act": "love", "id": 7})
+        a.send_raw(8, b"")
+        self.assertEqual(b.recv(), {"t": "leave", "id": 1})
+        self.assertEqual(c.recv(), {"t": "leave", "id": 1})
+        b.send({"t": "mobs", **MOBS})
+        self.assertEqual(c.recv(), dict(MOBS, t="mobs"))
+        c.send({"t": "mobact", "act": "hatch", "egg": 108, "x": 10, "y": 20})
+        self.assertEqual(b.recv(), {"t": "mobact", "act": "hatch", "egg": 108, "x": 10, "y": 20})
+
+    def test_bad_mobs_drop_the_sender(self):
+        for bad in [{"t": "mobs", **MOBS, "fish": [[1, 2]]}, {"t": "mobs", "hearts": []},
+                    {"t": "mobs", **MOBS, "sheep": [[1, 2, 3, "x"]]}, {"t": "mobact", "act": "eat", "id": 1},
+                    {"t": "mobact", "act": "kill", "id": "1"}]:
+            c, _ = self.join("Аня")
+            c.send(bad)
+            self.assertIsNone(c.recv(), bad)
+
+    def test_the_bed_is_kept_with_the_hero(self):
+        a, _ = self.join("Аня")
+        a.send({"t": "me", "inv": INV, "sel": 0, "bed": [40, 60]})
+        a.send({"t": "pos", "x": 1, "y": 1, "f": 1})
+        a.close()
+        for _ in range(50):
+            if server.Handler.worlds.get("rose").accounts["аня"].get("bed"):
+                break
+            threading.Event().wait(0.02)
+        _, welcome = self.join("Аня")
+        self.assertEqual(welcome["me"]["bed"], [40, 60])
+        c, _ = self.join("Боря")
+        c.send({"t": "me", "inv": INV, "sel": 0, "bed": [40, 999]})
+        self.assertIsNone(c.recv())
 
 
 if __name__ == "__main__":

@@ -20,6 +20,9 @@
 (<data>/notes.json): у новых и изменённых «fixed»: null. Исправленным правкой файла ставится
 версия игры с исправлением, пока сервер остановлен: файл читается только при старте.
 
+Сердечками, овцами и рыбками управляет игрок, вошедший в мир раньше всех: он шлёт их снимок,
+сервер раздаёт его остальным и хранит в world.json, а их действия с мобами пересылает ему.
+
 Игроки передают друг другу вещи: стопка уходит адресату подарком «от игрока», а если адресат
 уже вышел - возвращается отправителю.
 
@@ -43,6 +46,7 @@ import base64
 import hashlib
 import http.server
 import json
+import math
 import os
 import pathlib
 import re
@@ -62,6 +66,9 @@ MAX_WORLD_NAME = 40
 MAX_GIFT = 999
 MAX_NOTE = 2000
 MAX_BAN_REASON = 200
+MOB_KINDS = {"hearts": 9, "sheep": 4, "fish": 5}
+MAX_MOBS = 300
+MOB_ACTS = ("kill", "love", "hatch")
 # Settings of a new world: how many choices each one has; the game knows what they mean.
 SETTINGS = {"seed": 2 ** 31, "hills": 5, "ocean": 2, "caves": 4, "ores": 3, "trees": 4, "hearts": 4}
 MAX_PLAYERS = 8
@@ -146,6 +153,17 @@ def settings_ok(v):
     return isinstance(v, dict) and set(v) == set(SETTINGS) and all(whole(v[k], top) for k, top in SETTINGS.items())
 
 
+def real(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def mobs_ok(msg):
+    """Снимок мобов: по каждому виду список строк из чисел, первое - номер моба; смысл чисел знает игра."""
+    return all(isinstance(msg.get(kind), list) and len(msg[kind]) <= MAX_MOBS and all(
+        isinstance(row, list) and len(row) == n and all(real(x) for x in row) for row in msg[kind])
+        for kind, n in MOB_KINDS.items())
+
+
 def slots_ok(v, n):
     """Ячейки рюкзака или сундука: null или [id, сколько] / [id, сколько, прочность]."""
     return isinstance(v, list) and len(v) == n and all(
@@ -196,6 +214,7 @@ class Room:
         self.players = {}
         self.next_id = 1
         self.world = None
+        self.mobs = None
         self.changes = {}
         self.chests = {}
         self.accounts = {}
@@ -205,11 +224,12 @@ class Room:
             self.world = {"seed": d["seed"], "ocean": d["ocean"], "tiles": d["tiles"]}
             self.changes = {int(i): t for i, t in d["changes"]}
             self.chests = {int(i): s for i, s in d["chests"]}
+            self.mobs = d.get("mobs")
         if self.accounts_path.exists():
             self.accounts = json.loads(self.accounts_path.read_text(encoding="utf-8"))
 
     def snapshot(self):
-        return dict(self.world, changes=list(self.changes.items()), chests=list(self.chests.items()))
+        return dict(self.world, changes=list(self.changes.items()), chests=list(self.chests.items()), mobs=self.mobs)
 
     def join(self, login, conn):
         """Логин без учёта регистра - один герой: «Аня» и «аня» попадают в одну учётку."""
@@ -231,7 +251,7 @@ class Room:
             self.next_id += 1
             others = [o.info() for o in self.players.values()]
             self.players[p.id] = p
-            me = {k: acc[k] for k in ("look", "inv", "sel", "x", "y")}
+            me = dict({k: acc[k] for k in ("look", "inv", "sel", "x", "y")}, bed=acc.get("bed"))
             p.send({"t": "welcome", "id": p.id, "name": p.name, "worldName": self.name, "players": others, "me": me,
                     "world": self.snapshot() if self.world else None, "settings": self.settings})
             self.broadcast(p, {"t": "join", "id": p.id, "name": p.name, "look": acc["look"]})
@@ -263,11 +283,25 @@ class Room:
                 self.dirty = True
                 self.broadcast(p, dict(p.pos, t="pos", id=p.id))
             elif t == "me":
-                inv, sel = msg.get("inv"), msg.get("sel")
-                if not (slots_ok(inv, SLOTS) and whole(sel, BELT)):
+                inv, sel, bed = msg.get("inv"), msg.get("sel"), msg.get("bed")
+                bed_ok = bed is None or (isinstance(bed, list) and len(bed) == 2 and whole(bed[0], W) and whole(bed[1], H))
+                if not (slots_ok(inv, SLOTS) and whole(sel, BELT) and bed_ok):
                     return False
-                p.account["inv"], p.account["sel"] = inv, sel
+                p.account["inv"], p.account["sel"], p.account["bed"] = inv, sel, bed
                 self.dirty = True
+            elif t == "mobs":
+                if not mobs_ok(msg):
+                    return False
+                if p.id == min(self.players):
+                    self.mobs = {kind: msg[kind] for kind in MOB_KINDS}
+                    self.dirty = True
+                    self.broadcast(p, dict(self.mobs, t="mobs"))
+            elif t == "mobact":
+                if msg.get("act") not in MOB_ACTS or not all(real(msg.get(k, 0)) for k in ("id", "egg", "x", "y")):
+                    return False
+                leader = self.players[min(self.players)]
+                if leader is not p:
+                    leader.send({k: msg[k] for k in ("t", "act", "id", "egg", "x", "y") if k in msg})
             elif t == "look":
                 look = msg.get("look")
                 if not look_ok(look):
@@ -313,6 +347,7 @@ class Room:
                 if not (isinstance(seed, int) and isinstance(ocean, bool) and isinstance(tiles, str)):
                     return False
                 self.world = {"seed": seed, "ocean": ocean, "tiles": tiles}
+                self.mobs = None
                 self.changes = {}
                 self.chests = {}
                 self.dirty = True
