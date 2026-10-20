@@ -1,3 +1,4 @@
+import base64
 import http.server
 import json
 import pathlib
@@ -15,7 +16,31 @@ sys.path.insert(0, str(ROOT / "tests"))
 import server  # noqa: E402
 from wsclient import Client  # noqa: E402
 
-WORLD = {"t": "world", "seed": 42, "ocean": True, "tiles": "AAE="}
+
+
+def rle(tiles):
+    """Blocks in the game's RLE: block id, then the run length in 7-bit pieces."""
+    out, i = bytearray(), 0
+    while i < len(tiles):
+        run = 1
+        while i + run < len(tiles) and tiles[i + run] == tiles[i]:
+            run += 1
+        out.append(tiles[i])
+        r = run
+        while r >= 128:
+            out.append((r & 127) | 128)
+            r >>= 7
+        out.append(r)
+        i += run
+    return base64.b64encode(bytes(out)).decode()
+
+
+# Air above row 100, stone from it down, and a pond of water hanging at x 40-59, y 60-79.
+GROUND = bytearray(server.W * server.H)
+for _y in range(server.H):
+    for _x in range(server.W):
+        GROUND[_y * server.W + _x] = 3 if _y >= 100 else 23 if 40 <= _x < 60 and 60 <= _y < 80 else 0
+WORLD = {"t": "world", "seed": 42, "ocean": True, "tiles": rle(GROUND)}
 INV = [[1, 5]] + [None] * 34 + [[110, 1, 30]]
 CHEST = [[8, 4]] + [None] * 26
 LOOK = {"c": 3, "h": 2}
@@ -107,7 +132,7 @@ class ServerTest(unittest.TestCase):
         a.send({"t": "pos", "x": 5.5, "y": 7, "f": -1})
         self.assertEqual(watcher.recv()["x"], 5.5)
         _, welcome = self.join("Боря")
-        self.assertEqual(welcome["world"], {"seed": 42, "ocean": True, "tiles": "AAE=",
+        self.assertEqual(welcome["world"], {"seed": 42, "ocean": True, "tiles": WORLD["tiles"],
                                             "changes": [[2 * 1024 + 3, 8]], "chests": [[6 * 1024 + 5, CHEST]], "mobs": None})
         self.assertEqual(welcome["players"][0], {"id": 1, "name": "Аня", "look": None, "pos": {"x": 5.5, "y": 7, "f": -1}})
 
@@ -132,7 +157,7 @@ class ServerTest(unittest.TestCase):
         a.send(WORLD)
         self.assertEqual(a.recv()["t"], "join")
         b.send(dict(WORLD, seed=7))
-        self.assertEqual(b.recv(), {"t": "load", "world": {"seed": 42, "ocean": True, "tiles": "AAE=",
+        self.assertEqual(b.recv(), {"t": "load", "world": {"seed": 42, "ocean": True, "tiles": WORLD["tiles"],
                                                            "changes": [], "chests": [], "mobs": None}, "settings": None})
 
     def test_moves_blocks_chests_and_looks_reach_others_but_not_sender(self):
@@ -268,10 +293,11 @@ class ServerTest(unittest.TestCase):
     def test_big_world_message_passes(self):
         a, _ = self.join("Аня")
         watcher, _ = self.join("Вера")
-        a.send(dict(WORLD, tiles="A" * 300000))
+        tiles = rle(bytes([1, 2]) * (server.W * server.H // 2))
+        a.send(dict(WORLD, tiles=tiles))
         self.synced(a, watcher)
         _, welcome = self.join("Боря")
-        self.assertEqual(len(welcome["world"]["tiles"]), 300000)
+        self.assertEqual(welcome["world"]["tiles"], tiles)
 
     def admin(self):
         c, state = self.join("Boss", "999")
@@ -464,14 +490,28 @@ class ServerTest(unittest.TestCase):
         self.assertIsNotNone(c.recv()["error"])
 
 
-    def test_the_first_player_runs_the_mobs_and_they_survive_a_restart(self):
+    def mobs(self, c):
+        while True:
+            msg = c.recv()
+            if msg["t"] == "mobs":
+                return msg
+
+    def run_mobs(self, seconds):
+        room = server.Handler.worlds.get("rose")
+        for _ in range(round(seconds / server.TICK)):
+            room.tick(server.TICK, False)
+        room.tick(0, True)
+
+    def test_the_first_mobs_come_once_and_survive_a_restart(self):
         a, _ = self.join("Аня")
         b, _ = self.join("Боря")
         self.assertEqual(a.recv()["t"], "join")
+        b.send({"t": "mobs", **MOBS})
         a.send(WORLD)
-        b.send({"t": "mobs", **MOBS, "hearts": []})
-        a.send({"t": "mobs", **MOBS})
-        self.assertEqual(b.recv(), dict(MOBS, t="mobs"))
+        self.synced(a, b)
+        b.send({"t": "mobs", **MOBS})
+        self.assertEqual(a.recv(), dict(MOBS, t="mobs"))
+        a.send({"t": "mobs", **MOBS, "hearts": []})
         self.synced(a, b)
         self.save()
         self.stop()
@@ -479,27 +519,79 @@ class ServerTest(unittest.TestCase):
         _, welcome = self.join("Аня")
         self.assertEqual(welcome["world"]["mobs"], MOBS)
 
-    def test_the_next_player_takes_the_mobs_over_and_gets_the_actions(self):
+    def test_the_server_moves_the_mobs_for_everyone(self):
         a, _ = self.join("Аня")
         b, _ = self.join("Боря")
-        c, _ = self.join("Вера")
-        self.assertEqual([a.recv()["t"], a.recv()["t"], b.recv()["t"]], ["join", "join", "join"])
         a.send(WORLD)
-        b.send({"t": "mobact", "act": "kill", "id": 7})
-        self.assertEqual(a.recv(), {"t": "mobact", "act": "kill", "id": 7})
-        a.send({"t": "mobact", "act": "love", "id": 7})
+        a.send({"t": "mobs", **MOBS})
+        self.synced(a, b)
+        self.run_mobs(5)
+        for c in (a, b):
+            mobs = self.mobs(c)
+            heart, lamb, fish = mobs["hearts"][0], mobs["sheep"][0], mobs["fish"][0]
+            self.assertAlmostEqual(heart[2], 99.5, delta=0.01)
+            self.assertAlmostEqual(lamb[2], 99.4, delta=0.01)
+            self.assertTrue(40 <= fish[1] < 60 and 60 <= fish[2] < 80, fish)
+
+    def test_the_mobs_stand_still_without_players(self):
+        a, _ = self.join("Аня")
+        a.send(WORLD)
+        a.send({"t": "mobs", **MOBS})
         a.send_raw(8, b"")
-        self.assertEqual(b.recv(), {"t": "leave", "id": 1})
-        self.assertEqual(c.recv(), {"t": "leave", "id": 1})
-        b.send({"t": "mobs", **MOBS})
-        self.assertEqual(c.recv(), dict(MOBS, t="mobs"))
-        c.send({"t": "mobact", "act": "hatch", "egg": 108, "x": 10, "y": 20})
-        self.assertEqual(b.recv(), {"t": "mobact", "act": "hatch", "egg": 108, "x": 10, "y": 20})
+        self.assertIsNone(a.recv())
+        room = server.Handler.worlds.get("rose")
+        while room.players:
+            pass
+        self.run_mobs(1)
+        self.assertEqual(room.snapshot()["mobs"], MOBS)
+
+    def test_what_the_players_do_reaches_the_mobs(self):
+        a, _ = self.join("Аня")
+        b, _ = self.join("Боря")
+        a.send(WORLD)
+        a.send({"t": "mobs", **MOBS})
+        self.synced(a, b)
+        b.send({"t": "mobact", "act": "kill", "id": 2})
+        b.send({"t": "mobact", "act": "love", "id": 1})
+        b.send({"t": "mobact", "act": "hatch", "egg": 108, "x": 10, "y": 95})
+        b.send({"t": "mobact", "act": "hatch", "egg": 109, "x": 45, "y": 70})
+        b.send({"t": "mobact", "act": "hatch", "egg": 109, "x": 0, "y": 70})
+        b.send({"t": "mobact", "act": "kill"})
+        self.synced(b, a)
+        self.run_mobs(0)
+        mobs = self.mobs(a)
+        self.assertEqual(mobs["sheep"], [])
+        self.assertEqual(mobs["hearts"][0][6], server.LOVE_TIME)
+        self.assertEqual([m[0] for m in mobs["hearts"][1:]], [4])
+        self.assertEqual([[f[0], f[1], f[2]] for f in mobs["fish"][1:]], [[5, 45.5, 70.5]])
+
+    def test_a_broken_block_lets_a_mob_fall(self):
+        a, _ = self.join("Аня")
+        b, _ = self.join("Боря")
+        a.send(WORLD)
+        a.send({"t": "mobs", **MOBS})
+        a.send({"t": "set", "x": 30, "y": 100, "id": 0})
+        self.synced(a, b)
+        with unittest.mock.patch("server.random.choice", return_value=0):
+            self.run_mobs(5)
+        self.assertAlmostEqual(self.mobs(b)["sheep"][0][2], 100.4, delta=0.01)
+
+    def test_hearts_in_love_get_a_baby(self):
+        hearts = [[1, 10, 99.5, 1, 0, 0, 15, 0, 0], [2, 10.3, 99.5, 1, 0, 1, 15, 0, 1]]
+        herd = server.Herd(GROUND, {"hearts": hearts, "sheep": [], "fish": []})
+        herd.step(server.TICK)
+        baby = herd.rows()["hearts"][2]
+        self.assertEqual((baby[0], baby[4]), (3, server.GROW_TIME))
+        self.assertEqual([m[6] for m in herd.rows()["hearts"][:2]], [0, 0])
+        for _ in range(round((server.GROW_TIME + 1) / server.TICK)):
+            herd.step(server.TICK)
+        self.assertEqual(herd.rows()["hearts"][2][4], 0)
 
     def test_bad_mobs_drop_the_sender(self):
         for bad in [{"t": "mobs", **MOBS, "fish": [[1, 2]]}, {"t": "mobs", "hearts": []},
                     {"t": "mobs", **MOBS, "sheep": [[1, 2, 3, "x"]]}, {"t": "mobact", "act": "eat", "id": 1},
-                    {"t": "mobact", "act": "kill", "id": "1"}]:
+                    {"t": "mobact", "act": "kill", "id": "1"}, dict(WORLD, tiles="AAE="),
+                    dict(WORLD, tiles="не base64")]:
             c, _ = self.join("Аня")
             c.send(bad)
             self.assertIsNone(c.recv(), bad)

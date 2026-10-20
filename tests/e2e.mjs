@@ -250,7 +250,6 @@ await chooseHero(b, 0, 5);
 check("A sees B in the pink crown", await until(a, `${peer("Боря")}.look.h === 5`));
 check("B keeps the new look", await until(b, `document.querySelector("#hero").hidden && HC.net.look.h === 5`));
 
-check("A, who came first, runs the mobs", await a(`HC.leading()`) && !(await b(`HC.leading()`)));
 check("there are sheep in the world", await a(`HC.sheep.length > 0`));
 const sameMobs = `JSON.stringify(HC.mobs.map(m => m.id).sort()) === ${JSON.stringify(JSON.stringify(await a(`HC.mobs.map(m => m.id).sort()`)))}`;
 check("B sees the same hearts as A", await until(b, sameMobs), await b(`HC.mobs.map(m => m.id)`));
@@ -259,6 +258,10 @@ const drift = await b(`(() => {
   return Math.max(...theirs.map(([id, x, y]) => { const m = HC.mobs.find(o => o.id === id); return Math.hypot(m.x - x, m.y - y); }));
 })()`);
 check("B sees the hearts where A has them", drift < 2, drift);
+const spots = `JSON.stringify([...HC.mobs, ...HC.sheep].map(o => [o.id, Math.round(o.x * 10), Math.round(o.y * 10)]))`;
+const spotsA = await a(spots), spotsB = await b(spots);
+check("the server moves the mobs for A", await until(a, `${spots} !== ${JSON.stringify(spotsA)}`));
+check("the server moves the mobs for B", await until(b, `${spots} !== ${JSON.stringify(spotsB)}`));
 await hold(b, "HC.I.SWORD");
 const lamb = await b(`(() => {
   const o = HC.sheep[0];

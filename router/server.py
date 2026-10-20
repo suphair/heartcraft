@@ -20,16 +20,18 @@
 (<data>/notes.json): у новых и изменённых «fixed»: null. Исправленным правкой файла ставится
 версия игры с исправлением, пока сервер остановлен: файл читается только при старте.
 
-Сердечками, овцами и рыбками управляет игрок, вошедший в мир раньше всех: он шлёт их снимок,
-сервер раздаёт его остальным и хранит в world.json, а их действия с мобами пересылает ему.
+Сердечек, овец и рыбок считает сервер (Herd - те же правила, что у игры в одиночку): пока в мире
+кто-то есть, мобы ходят, а их снимок раз в MOBS_SEND_EVERY уходит всем игрокам и хранится в
+world.json. Первых мобов расселяет игрок, создавший мир, - присылает их снимок, пока у мира мобов
+нет. Что сделали с мобами игроки - убили, влюбили, вылупили из яйца, - приходит серверу.
 
 Игроки передают друг другу вещи: стопка уходит адресату подарком «от игрока», а если адресат
 уже вышел - возвращается отправителю.
 
-Сервер мир не считает: он хранит снимок, который прислал первый вошедший в этот мир
+Мир, кроме мобов, сервер не считает: он хранит снимок, который прислал первый вошедший в этот мир
 (свой случайный сид, океан и блоки в RLE), поверх него - изменённые клетки и
 содержимое сундуков. Вошедший получает всё это, дальше игроки шлют друг другу через
-сервер блоки, сундуки и положения героев. Сердечки, рыбки и время суток у каждого свои.
+сервер блоки, сундуки и положения героев. Время суток у каждого своё.
 
 Мир и учётки пишутся в <data>/<код>/ не чаще раза в SAVE_EVERY секунд и при остановке.
 
@@ -49,6 +51,7 @@ import json
 import math
 import os
 import pathlib
+import random
 import re
 import secrets
 import signal
@@ -69,6 +72,19 @@ MAX_BAN_REASON = 200
 MOB_KINDS = {"hearts": 9, "sheep": 4, "fish": 5}
 MAX_MOBS = 300
 MOB_ACTS = ("kill", "love", "hatch")
+# The mobs as the game moves them in the single player game: speeds, gravity, water, love and growing up.
+TICK, MOBS_SEND_EVERY = 0.05, 0.3
+MOB_MAX, FISH_MAX = 80, 100
+MOB_SPEED, MOB_JUMP, SHEEP_SPEED, FISH_SPEED = 2, 9, 1.2, 1.5
+LOVE_TIME, BREED_PAUSE, GROW_TIME = 15, 30, 60
+WHITE_CHANCE, WHITE_PAIR_CHANCE = 0.01, 0.2
+GRAV, MAX_FALL, SWIM, SWIM_FALL, WATER_GRAV = 32, 22, 5, 3, 0.3
+HEART_TONES, FISH_TONES = 4, 5
+HEART_EGG, FISH_EGG = 108, 109
+BEDROCK = 14
+# Blocks a body passes through: air, torch, water, seaweed, ladder, bed; the wet ones are water and seaweed.
+OPEN = {0, 18, 23, 24, 25, 27}
+WET = {23, 24}
 # Settings of a new world: how many choices each one has; the game knows what they mean.
 SETTINGS = {"seed": 2 ** 31, "hills": 5, "ocean": 2, "caves": 4, "ores": 3, "trees": 4, "hearts": 4}
 MAX_PLAYERS = 8
@@ -170,6 +186,222 @@ def slots_ok(v, n):
         s is None or (isinstance(s, list) and len(s) in (2, 3) and all(whole(x, 100000) for x in s)) for s in v)
 
 
+def decode_tiles(b64):
+    """Блоки мира из RLE игры: id блока, за ним длина серии по 7 бит, старший бит - «дальше ещё»."""
+    s = base64.b64decode(b64, validate=True)
+    tiles = bytearray(W * H)
+    p = i = 0
+    while i < len(s):
+        block = s[i]
+        i += 1
+        run = shift = 0
+        while True:
+            if i >= len(s):
+                raise ValueError("карта обрывается")
+            c = s[i]
+            i += 1
+            run |= (c & 127) << shift
+            shift += 7
+            if not c & 128:
+                break
+        if p + run > len(tiles):
+            raise ValueError("в карте лишние блоки")
+        tiles[p:p + run] = bytes([block]) * run
+        p += run
+    if p != len(tiles):
+        raise ValueError("в карте не хватает блоков")
+    return tiles
+
+
+class Herd:
+    """Мобы мира по правилам игры (index.html, updateMob/updateSheep/updateFish): блоки - общие с комнатой."""
+
+    def __init__(self, tiles, rows):
+        self.tiles = tiles
+        self.hearts = [self.heart(r[1], r[2], r[4], r[5] == 1, int(r[0]), int(r[8]) % HEART_TONES,
+                                  face=-1 if r[3] < 0 else 1, love=r[6], pause=r[7]) for r in rows["hearts"]]
+        self.sheep = [self.lamb(r[1], r[2], int(r[0]), face=-1 if r[3] < 0 else 1) for r in rows["sheep"]]
+        self.fish = [self.fishy(r[1], r[2], int(r[0]), int(r[4]) % FISH_TONES, -1 if r[3] < 0 else 1)
+                     for r in rows["fish"]]
+        self.seq = max([o["id"] + 1 for o in self.hearts + self.sheep + self.fish], default=1)
+
+    def next_id(self):
+        self.seq += 1
+        return self.seq - 1
+
+    def heart(self, x, y, grow, white, mid=None, tone=None, face=1, love=0, pause=0):
+        s = 0.32 if grow > 0 else 0.5
+        return {"id": self.next_id() if mid is None else mid, "x": x, "y": y, "w": s, "h": s, "vx": 0, "vy": 0,
+                "ground": False, "face": face, "dir": 0, "think": 0, "love": love, "pause": pause, "grow": grow,
+                "white": white, "tone": random.randrange(HEART_TONES) if tone is None else tone}
+
+    def lamb(self, x, y, mid, face=1):
+        return {"id": mid, "x": x, "y": y, "w": 0.8, "h": 0.6, "vx": 0, "vy": 0, "ground": False, "face": face,
+                "dir": 0, "think": 0}
+
+    def fishy(self, x, y, mid=None, tone=None, face=None):
+        return {"id": self.next_id() if mid is None else mid, "x": x, "y": y, "vy": 0, "think": 0,
+                "face": random.choice((-1, 1)) if face is None else face,
+                "tone": random.randrange(FISH_TONES) if tone is None else tone}
+
+    def rows(self):
+        return {
+            "hearts": [[m["id"], round(m["x"], 2), round(m["y"], 2), m["face"], round(max(0, m["grow"]), 2),
+                        1 if m["white"] else 0, round(max(0, m["love"]), 2), round(m["pause"], 2), m["tone"]]
+                       for m in self.hearts],
+            "sheep": [[o["id"], round(o["x"], 2), round(o["y"], 2), o["face"]] for o in self.sheep],
+            "fish": [[f["id"], round(f["x"], 2), round(f["y"], 2), f["face"], f["tone"]] for f in self.fish],
+        }
+
+    def get(self, x, y):
+        return self.tiles[y * W + x] if 0 <= x < W and 0 <= y < H else BEDROCK
+
+    def wet_cell(self, x, y):
+        return self.get(math.floor(x), math.floor(y)) in WET
+
+    def wet_at(self, e):
+        return self.wet_cell(e["x"] + e["w"] / 2, e["y"] + e["h"] / 2)
+
+    def collides(self, e, x, y):
+        for ty in range(math.floor(y), math.floor(y + e["h"] - 1e-9) + 1):
+            for tx in range(math.floor(x), math.floor(x + e["w"] - 1e-9) + 1):
+                if ty >= 0 and self.get(tx, ty) not in OPEN:
+                    return True
+        return False
+
+    def move_x(self, e, dx):
+        e["x"] += dx
+        if not self.collides(e, e["x"], e["y"]):
+            return False
+        e["x"] = math.floor(e["x"] + e["w"]) - e["w"] - 1e-6 if dx > 0 else math.floor(e["x"]) + 1
+        e["vx"] = 0
+        return True
+
+    def move_y(self, e, dy):
+        e["y"] += dy
+        if e["y"] < 0:
+            e["y"] = 0
+            e["vy"] = max(0, e["vy"])
+        if not self.collides(e, e["x"], e["y"]):
+            return
+        if dy > 0:
+            e["y"] = math.floor(e["y"] + e["h"]) - e["h"] - 1e-6
+            e["ground"] = True
+        else:
+            e["y"] = math.floor(e["y"]) + 1
+        e["vy"] = 0
+
+    def walk(self, e, d, speed, dt):
+        """True, когда тело упёрлось в ступеньку в один блок и может на неё запрыгнуть."""
+        wet = self.wet_at(e)
+        e["vx"] += (d * speed - e["vx"]) * min(1, dt * (14 if e["ground"] else 6))
+        e["vy"] = min(SWIM_FALL if wet else MAX_FALL, e["vy"] + GRAV * (WATER_GRAV if wet else 1) * dt)
+        was_ground = e["ground"]
+        e["ground"] = False
+        steps = max(1, math.ceil(max(abs(e["vx"] * dt), abs(e["vy"] * dt)) / 0.3))
+        blocked = False
+        for _ in range(steps):
+            blocked = self.move_x(e, e["vx"] * dt / steps) or blocked
+            self.move_y(e, e["vy"] * dt / steps)
+        return blocked and d != 0 and (was_ground or wet) and not self.collides(e, e["x"] + d * 0.1, e["y"] - 1.05)
+
+    def step(self, dt):
+        for m in list(self.hearts):
+            self.step_heart(m, dt)
+        for o in self.sheep:
+            self.step_sheep(o, dt)
+        for f in self.fish:
+            self.step_fish(f, dt)
+
+    def step_heart(self, m, dt):
+        m["think"] -= dt
+        if m["think"] <= 0:
+            m["think"] = 1 + random.random() * 3
+            m["dir"] = random.choice((-1, 0, 0, 1))
+        d = m["dir"]
+        m["pause"] = max(0, m["pause"] - dt)
+        if m["love"] > 0:
+            m["love"] -= dt
+            mate = next((o for o in self.hearts if o is not m and o["love"] > 0 and
+                         math.hypot(o["x"] - m["x"], o["y"] - m["y"]) < 8), None)
+            if mate:
+                d = 0 if abs(mate["x"] - m["x"]) < 0.2 else (1 if mate["x"] > m["x"] else -1)
+                if math.hypot(mate["x"] - m["x"], mate["y"] - m["y"]) < 0.8:
+                    self.breed(m, mate)
+        if m["grow"] > 0:
+            m["grow"] -= dt
+            if m["grow"] <= 0 and not self.grow_up(m):
+                m["grow"] = 1
+        if d:
+            m["face"] = d
+        if self.wet_at(m):
+            m["vy"] = min(m["vy"], -SWIM / 2)
+        if self.walk(m, d, MOB_SPEED, dt):
+            m["vy"] = -MOB_JUMP
+
+    def grow_up(self, m):
+        grown = dict(m, w=0.5, h=0.5, y=m["y"] + m["h"] - 0.5, x=m["x"] + (m["w"] - 0.5) / 2)
+        if self.collides(grown, grown["x"], grown["y"]):
+            return False
+        m.update(w=0.5, h=0.5, x=grown["x"], y=grown["y"], grow=0)
+        return True
+
+    def breed(self, a, b):
+        a["love"] = b["love"] = 0
+        a["pause"] = b["pause"] = BREED_PAUSE
+        white = random.random() < (WHITE_PAIR_CHANCE if a["white"] and b["white"] else WHITE_CHANCE)
+        baby = self.heart((a["x"] + b["x"]) / 2, 0, GROW_TIME, white)
+        baby["y"] = a["y"] + a["h"] - baby["h"]
+        if self.collides(baby, baby["x"], baby["y"]):
+            baby["x"] = a["x"]
+        self.hearts.append(baby)
+
+    def step_sheep(self, o, dt):
+        o["think"] -= dt
+        if o["think"] <= 0:
+            o["think"] = 2 + random.random() * 4
+            o["dir"] = random.choice((-1, 0, 0, 0, 1))
+        if o["dir"]:
+            o["face"] = o["dir"]
+        if self.wet_at(o):
+            o["vy"] = min(o["vy"], -SWIM / 2)
+        if self.walk(o, o["dir"], SHEEP_SPEED, dt):
+            o["vy"] = -MOB_JUMP
+
+    def step_fish(self, f, dt):
+        f["think"] -= dt
+        if f["think"] <= 0:
+            f["think"] = 1 + random.random() * 3
+            f["vy"] = (random.random() - 0.5) * 1.2
+            if random.random() < 0.3:
+                f["face"] = -f["face"]
+        nx = f["x"] + f["face"] * FISH_SPEED * dt
+        if self.wet_cell(nx + f["face"] * 0.3, f["y"]):
+            f["x"] = nx
+        else:
+            f["face"] = -f["face"]
+        ny = f["y"] + f["vy"] * dt
+        if self.wet_cell(f["x"], ny - 0.2) and self.wet_cell(f["x"], ny + 0.2):
+            f["y"] = ny
+        else:
+            f["vy"] = -f["vy"]
+
+    def act(self, a):
+        """Что игрок сделал с мобом; невозможное (моба уже нет, мир полон) молча не происходит."""
+        if a["act"] == "kill":
+            for herd in (self.hearts, self.sheep):
+                herd[:] = [o for o in herd if o["id"] != a.get("id")]
+        elif a["act"] == "love":
+            m = next((o for o in self.hearts if o["id"] == a.get("id")), None)
+            if m and m["grow"] <= 0 and m["love"] <= 0 and m["pause"] <= 0 and len(self.hearts) < MOB_MAX:
+                m["love"] = LOVE_TIME
+        elif a["act"] == "hatch" and 1 <= a.get("x", -1) < W - 1 and 0 <= a.get("y", -1) < H - 1:
+            if a.get("egg") == HEART_EGG and len(self.hearts) < MOB_MAX:
+                self.hearts.append(self.heart(a["x"] + 0.25, a["y"] + 0.5, 0, False))
+            elif a.get("egg") == FISH_EGG and len(self.fish) < FISH_MAX:
+                self.fish.append(self.fishy(a["x"] + 0.5, a["y"] + 0.5))
+
+
 class Player:
     def __init__(self, room, pid, key, name, account, conn):
         self.room = room
@@ -214,7 +446,8 @@ class Room:
         self.players = {}
         self.next_id = 1
         self.world = None
-        self.mobs = None
+        self.tiles = None
+        self.herd = None
         self.changes = {}
         self.chests = {}
         self.accounts = {}
@@ -224,12 +457,26 @@ class Room:
             self.world = {"seed": d["seed"], "ocean": d["ocean"], "tiles": d["tiles"]}
             self.changes = {int(i): t for i, t in d["changes"]}
             self.chests = {int(i): s for i, s in d["chests"]}
-            self.mobs = d.get("mobs")
+            self.tiles = decode_tiles(d["tiles"])
+            for i, t in self.changes.items():
+                self.tiles[i] = t
+            if d.get("mobs"):
+                self.herd = Herd(self.tiles, d["mobs"])
         if self.accounts_path.exists():
             self.accounts = json.loads(self.accounts_path.read_text(encoding="utf-8"))
 
     def snapshot(self):
-        return dict(self.world, changes=list(self.changes.items()), chests=list(self.chests.items()), mobs=self.mobs)
+        return dict(self.world, changes=list(self.changes.items()), chests=list(self.chests.items()),
+                    mobs=self.herd.rows() if self.herd else None)
+
+    def tick(self, dt, send):
+        with self.lock:
+            if not self.players or not self.herd:
+                return
+            self.herd.step(dt)
+            self.dirty = True
+            if send:
+                self.broadcast(None, dict(self.herd.rows(), t="mobs"))
 
     def join(self, login, conn):
         """Логин без учёта регистра - один герой: «Аня» и «аня» попадают в одну учётку."""
@@ -292,16 +539,15 @@ class Room:
             elif t == "mobs":
                 if not mobs_ok(msg):
                     return False
-                if p.id == min(self.players):
-                    self.mobs = {kind: msg[kind] for kind in MOB_KINDS}
+                if self.world and not self.herd:
+                    self.herd = Herd(self.tiles, msg)
                     self.dirty = True
-                    self.broadcast(p, dict(self.mobs, t="mobs"))
+                    self.broadcast(p, dict(self.herd.rows(), t="mobs"))
             elif t == "mobact":
                 if msg.get("act") not in MOB_ACTS or not all(real(msg.get(k, 0)) for k in ("id", "egg", "x", "y")):
                     return False
-                leader = self.players[min(self.players)]
-                if leader is not p:
-                    leader.send({k: msg[k] for k in ("t", "act", "id", "egg", "x", "y") if k in msg})
+                if self.herd:
+                    self.herd.act(msg)
             elif t == "look":
                 look = msg.get("look")
                 if not look_ok(look):
@@ -315,6 +561,7 @@ class Room:
                     return False
                 if self.world:
                     self.changes[y * W + x] = b
+                    self.tiles[y * W + x] = b
                     self.chests.pop(y * W + x, None)
                     self.dirty = True
                     self.broadcast(p, {"t": "set", "x": x, "y": y, "id": b})
@@ -346,8 +593,12 @@ class Room:
                 seed, ocean, tiles = msg.get("seed"), msg.get("ocean"), msg.get("tiles")
                 if not (isinstance(seed, int) and isinstance(ocean, bool) and isinstance(tiles, str)):
                     return False
+                try:
+                    self.tiles = decode_tiles(tiles)
+                except ValueError:
+                    return False
                 self.world = {"seed": seed, "ocean": ocean, "tiles": tiles}
-                self.mobs = None
+                self.herd = None
                 self.changes = {}
                 self.chests = {}
                 self.dirty = True
@@ -727,6 +978,19 @@ def saver(worlds, stop, claim=None, server=None):
             return
 
 
+def herder(worlds, stop):
+    """Шаг мобов во всех мирах раз в TICK; отставший шаг не длиннее TICK - как кадр игры."""
+    last = sent = time.monotonic()
+    while not stop.wait(TICK):
+        now = time.monotonic()
+        send = now - sent >= MOBS_SEND_EVERY
+        if send:
+            sent = now
+        for room in worlds.all():
+            room.tick(min(TICK, now - last), send)
+        last = now
+
+
 def read_admin(path):
     parts = path.read_text(encoding="utf-8").split()
     if len(parts) != 2:
@@ -758,6 +1022,7 @@ def main():
     server.daemon_threads = True
     stop = threading.Event()
     threading.Thread(target=saver, args=(Handler.worlds, stop, claim, server), daemon=True).start()
+    threading.Thread(target=herder, args=(Handler.worlds, stop), daemon=True).start()
     signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown).start())
     try:
         server.serve_forever()

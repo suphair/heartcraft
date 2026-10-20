@@ -267,6 +267,11 @@
   <div class="box">
     <h2>Что нового</h2>
     <div class="news">
+      <h3>Версия 2.5</h3>
+      <ul>
+        <li>В сетевой игре <b>сердечками, овцами и рыбками управляет сервер</b>: они ходят одинаково у всех
+          и не замирают, если у кого-то свернулась вкладка или осталась старая версия игры.</li>
+      </ul>
       <h3>Версия 2.4</h3>
       <ul>
         <li><b>Овцы</b> бродят по траве. Ударь овцу мечом — получишь блок шерсти.</li>
@@ -509,7 +514,7 @@ const FISH_COUNT = 30, FISH_MAX = 100, FISH_SPEED = 1.5;
 const SEAWEED_GROW = 600, SEAWEED_MAX = 5;
 const SHEEP_COUNT = 15, SHEEP_SPEED = 1.2;
 const CHEST_SLOTS = 27;
-const VERSION = "2.4";
+const VERSION = "2.5";
 
 const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, COBBLE: 4, SAND: 5, LOG: 6, LEAVES: 7, PLANKS: 8,
   COAL_ORE: 9, IRON_ORE: 10, GOLD_ORE: 11, DIAMOND_ORE: 12, PINK_ORE: 13, BEDROCK: 14, WORKBENCH: 15,
@@ -1053,7 +1058,7 @@ let uiDirty = true;
 let mobs = [];
 let fish = [];
 let sheep = [];
-// Every heart, sheep and fish has a number: in the network game the player who runs them tells the others by it.
+// Every heart, sheep and fish has a number: in the network game the server tells the players about them by it.
 let mobSeq = 1;
 // The bed the hero sleeps in: 🛏 brings the hero back to it.
 let bed = null;
@@ -1466,7 +1471,7 @@ function hatch(egg, x, y, here) {
   } else if (egg === I.HEART_EGG && mobs.length >= MOB_MAX) {
     toast("Сердечек в мире уже очень много");
   } else {
-    if (leading()) {
+    if (SOLO) {
       hatchAt(egg, x, y);
     } else {
       netSend({ t: "mobact", act: "hatch", egg, x, y });
@@ -1631,7 +1636,7 @@ function update(dt) {
 
   floats = floats.filter(f => (f.t += dt) < 1.2);
   time = alwaysDay ? 0 : (time + dt / DAY_LEN) % 1;
-  if (leading()) {
+  if (SOLO) {
     mobs.slice().forEach(m => updateMob(m, dt));
     sheep.forEach(o => updateSheep(o, dt));
     fish.forEach(f => updateFish(f, dt));
@@ -1670,7 +1675,7 @@ function updateFish(f, dt) {
 
 // ---------- seaweed ----------
 
-// The world is shared, so only the player who came first runs the seaweed and the mobs and tells the others.
+// The world is shared, so only the player who came first runs the seaweed and tells the others; the mobs are run by the server.
 const leading = () => SOLO || (net.ready && ![...peers.keys()].some(id => id < net.id));
 let growT = 0;
 function growSeaweed(dt) {
@@ -1730,7 +1735,7 @@ function encodeMobs() {
   };
 }
 const mobRow = (row, n) => Array.isArray(row) && row.length === n && row.every(Number.isFinite) && Number.isInteger(row[0]);
-// Mobs from the player who runs them: known ones glide to their new place, new ones appear there, gone ones vanish.
+// Mobs from the server: known ones glide to their new place, new ones appear there, gone ones vanish.
 function applyMobs(d, jump) {
   const merge = (list, rows, n, make, set) => {
     if (!Array.isArray(rows) || !rows.every(row => mobRow(row, n))) {
@@ -1784,24 +1789,6 @@ function removeMob(m) {
     list.splice(list.indexOf(m), 1);
   }
 }
-// What the other players did to the mobs reaches the one who runs them.
-function mobAction(a) {
-  if (a.act === "kill") {
-    const m = [...mobs, ...sheep].find(o => o.id === a.id);
-    if (m) {
-      removeMob(m);
-    }
-  } else if (a.act === "love") {
-    const m = mobs.find(o => o.id === a.id);
-    if (m && m.grow <= 0 && m.love <= 0 && m.pause <= 0) {
-      m.love = LOVE_TIME;
-    }
-  } else if (a.act === "hatch" && inWorld(a.x, a.y) &&
-      (a.egg === I.HEART_EGG ? mobs.length < MOB_MAX : a.egg === I.FISH_EGG && fish.length < FISH_MAX)) {
-    hatchAt(a.egg, a.x, a.y);
-  }
-}
-
 // ---------- hearts ----------
 
 function updateMob(m, dt) {
@@ -1869,7 +1856,7 @@ function strike(m) {
     return;
   }
   removeMob(m);
-  if (!leading()) {
+  if (!SOLO) {
     netSend({ t: "mobact", act: "kill", id: m.id });
   }
   if (m.kind === "sheep") {
@@ -1901,7 +1888,7 @@ function feed(m) {
     Sound.nope();
   } else {
     removeItem(B.PINK, 1);
-    if (leading()) {
+    if (SOLO) {
       m.love = LOVE_TIME;
     } else {
       netSend({ t: "mobact", act: "love", id: m.id });
@@ -3138,14 +3125,14 @@ $("#menu").addEventListener("click", e => {
 // ---------- network ----------
 
 const NET_KEY = "heartcraft-net";
-const NET_SEND_EVERY = 100, NET_KEEPALIVE = 5000, NET_RETRY = 3000, MOBS_SEND_EVERY = 300;
+const NET_SEND_EVERY = 100, NET_KEEPALIVE = 5000, NET_RETRY = 3000;
 const LOOK_COLORS = ["#ff4f9a", "#e53935", "#ff8a1f", "#ffd21f", "#43c06d", "#29b6f6", "#8e6bff", "#ffffff"];
 const HATS = [["✖", "Без украшения"], ["🎀", "Бантик"], ["👑", "Корона"], ["👓", "Очки"], ["🌸", "Цветок"],
   ["👑", "Розовая корона", "pink"]];
 const lookOf = look => look || { c: 0, h: 0 };
 const peers = new Map();
 const net = { ws: null, want: false, ready: false, shared: false, id: 0, login: "", code: "", name: "", world: "",
-  look: null, sent: "", sentAt: 0, meSent: "", chestSent: "", mobsSent: "", mobsAt: 0, retry: 0 };
+  look: null, sent: "", sentAt: 0, meSent: "", chestSent: "", seedMobs: false, retry: 0 };
 try {
   const saved = JSON.parse(localStorage.getItem(NET_KEY)) || {};
   net.login = saved.login || "";
@@ -3257,10 +3244,13 @@ function shareWorld(w, settings) {
   }
   if (w.mobs) {
     applyMobs(w.mobs, true);
-  } else if (!same) {
-    spawnMobs();
-    spawnFish();
-    spawnSheep();
+  } else {
+    if (!same) {
+      spawnMobs();
+      spawnFish();
+      spawnSheep();
+    }
+    net.seedMobs = true;
   }
 }
 // The hero kept by the server: a new login starts with a workbench at the spawn point.
@@ -3338,7 +3328,7 @@ function netMessage(m) {
     }
     net.ready = true;
     net.id = m.id;
-    net.sent = net.meSent = net.mobsSent = "";
+    net.sent = net.meSent = "";
     net.name = m.name;
     net.world = m.worldName;
     peers.clear();
@@ -3346,6 +3336,7 @@ function netMessage(m) {
     if (!m.world) {
       net.shared = true;
       netSend({ t: "world", seed, ocean: hasOcean, tiles: encodeTiles(world) });
+      net.seedMobs = true;
     }
     Sound.chime();
     if (net.look) {
@@ -3387,14 +3378,12 @@ function netMessage(m) {
     remoteChest(m.x, m.y, m.slots);
   } else if (m.t === "gift") {
     receiveGifts(m);
-  } else if (m.t === "mobs" && !leading()) {
+  } else if (m.t === "mobs") {
     try {
       applyMobs(m, false);
     } catch (e) {
       // a broken snapshot is skipped, the next one comes in a moment
     }
-  } else if (m.t === "mobact" && leading()) {
-    mobAction(m);
   }
 }
 // Worn things keep their durability one by one; the rest goes in by addItem, which splits big gifts into stacks.
@@ -3745,13 +3734,9 @@ function netPulse() {
     net.ws.send(me);
     net.meSent = me;
   }
-  if (leading() && now - net.mobsAt >= MOBS_SEND_EVERY) {
-    const mobsText = JSON.stringify({ t: "mobs", ...encodeMobs() });
-    if (mobsText !== net.mobsSent) {
-      net.ws.send(mobsText);
-      net.mobsSent = mobsText;
-    }
-    net.mobsAt = now;
+  if (net.seedMobs) {
+    net.ws.send(JSON.stringify({ t: "mobs", ...encodeMobs() }));
+    net.seedMobs = false;
   }
   if (openedChest && storeSlots) {
     const slots = storeSlots.map(encodeSlot), text = JSON.stringify(slots);
