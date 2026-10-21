@@ -219,14 +219,29 @@ await until(b, `HC.get(${cx + 6}, ${cy}) === HC.B.BUTTON`);
 check("B presses the button", await useAt(b, 6, 0) === await b(`HC.B.BUTTON_ON`));
 check("the pressed button lights the lamp", await until(b, `HC.powered.has(${at(7, 0)})`));
 check("the first player lets the button go", await until(b, `HC.get(${cx + 6}, ${cy}) === HC.B.BUTTON && !HC.powered.has(${at(7, 0)})`, 4000));
+await a(`(() => {
+  [[0, HC.B.LEVER], [1, HC.B.STICKY], [2, HC.B.COBBLE], [3, HC.B.AIR], [4, HC.B.AIR]].forEach(([dx, id]) => {
+    HC.setTile(${cx} + dx, ${cy - 3}, id);
+    HC.netTile(${cx} + dx, ${cy - 3});
+  });
+  return 1;
+})()`);
+await sleep(300);
+await useAt(a, 0, -3);
+check("a sticky piston pushes like a piston", await until(a, `HC.get(${cx + 3}, ${cy - 3}) === HC.B.COBBLE && HC.get(${cx + 2}, ${cy - 3}) === HC.B.AIR`));
+await useAt(a, 0, -3);
+check("a sticky piston pulls the block back without power", await until(a, `HC.get(${cx + 2}, ${cy - 3}) === HC.B.COBBLE && HC.get(${cx + 3}, ${cy - 3}) === HC.B.AIR`));
+check("B sees the block pulled back", await until(b, `HC.get(${cx + 2}, ${cy - 3}) === HC.B.COBBLE && HC.get(${cx + 3}, ${cy - 3}) === HC.B.AIR`));
 check("a lever that is on drops a lever", await a(`HC.finishBreak(${cx}, ${cy}) && HC.count(HC.B.LEVER) === 1 && HC.count(HC.B.LEVER_ON) === 0`));
-const benchHas = (ev, bench) => ev(`(() => {
+const benchHas = (ev, bench, what = "Поршень") => ev(`(() => {
   HC.openCraft(${bench});
-  const has = [...document.querySelectorAll("#craft .rec")].some(r => r.textContent.includes("Поршень"));
+  const has = [...document.querySelectorAll("#craft .rec .rn")].some(r => r.firstChild.textContent.startsWith(${JSON.stringify(what)}));
   document.querySelector("#craft .close").click();
   return has;
 })()`);
 check("mechanisms are made only at the green workbench", !await benchHas(a, "true") && await benchHas(a, '"green"'));
+check("the usual things are made only at the usual workbench", await benchHas(a, "true", "Сундук") && !await benchHas(a, '"green"', "Сундук"));
+check("green gems are made at both workbenches", await benchHas(a, "true", "Зелёный кристалл") && await benchHas(a, '"green"', "Зелёный кристалл"));
 await a(`HC.addItem(HC.B.SEAWEED, 1); 1`);
 check("one seaweed makes two green gems", await craftOut(a, "HC.I.GREEN_GEM") === 1 && await a(`HC.count(HC.I.GREEN_GEM) === 2`));
 const split = await a(`(() => {
@@ -238,6 +253,16 @@ const split = await a(`(() => {
   return HC.inv.filter(s => s && s.id === HC.I.GREEN_GEM).map(s => s.n);
 })()`);
 check("a stack splits in two halves", JSON.stringify(split) === "[1,1]", split);
+const merged = await a(`(() => {
+  HC.openBag();
+  const [i, j] = HC.inv.map((s, k) => s && s.id === HC.I.GREEN_GEM ? k : -1).filter(k => k >= 0);
+  const slots = document.querySelectorAll("#bag .grid .slot");
+  slots[i].dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  document.querySelectorAll("#bag .grid .slot")[j].dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  document.querySelector("#bag .close").click();
+  return HC.inv.filter(s => s && s.id === HC.I.GREEN_GEM).map(s => s.n);
+})()`);
+check("equal stacks merge into one", JSON.stringify(merged) === "[2]", merged);
 check("hearts do not age", await a(`HC.mobs.length > 0 && HC.mobs.every(m => !("age" in m) && !("life" in m))`));
 await hold(a, "HC.I.SWORD");
 const kill = await a(`(() => {

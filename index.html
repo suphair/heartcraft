@@ -190,7 +190,8 @@
 <div class="sheet" id="bag" hidden>
   <div class="box">
     <h2>Рюкзак</h2>
-    <div class="hint">Нажми на ячейку, потом на другую — они поменяются местами. Верхний ряд — пояс внизу экрана.
+    <div class="hint">Нажми на ячейку, потом на другую — они поменяются местами, а одинаковые вещи сложатся
+      в одну стопку. Верхний ряд — пояс внизу экрана.
       Выбери стопку и нажми ✂️ — половина ляжет в свободную ячейку.</div>
     <div class="grid" style="margin-top:10px"></div>
     <p class="pick hint"></p>
@@ -269,6 +270,15 @@
   <div class="box">
     <h2>Что нового</h2>
     <div class="news">
+      <h3>Версия 2.7</h3>
+      <ul>
+        <li><b>Липкий поршень</b> — 6 булыжника, 3 доски и 5 зелёных кристаллов у зелёного верстака. Толкает
+          блок как обычный, а когда сигнал пропадает — тянет его обратно.</li>
+        <li>Обычные рецепты — только у обычного верстака, у зелёного — механизмы, зелёные кристаллы
+          и зелёный верстак.</li>
+        <li>В рюкзаке одинаковые вещи <b>складываются в одну стопку</b>: нажми на одну, потом на другую.</li>
+        <li>Под землёй за рычагом — стена пещеры, а не небо.</li>
+      </ul>
       <h3>Версия 2.6</h3>
       <ul>
         <li><b>Зелёные кристаллы</b>: 1 водоросль даёт 2 кристалла у любого верстака. 4 кристалла — <b>зелёный
@@ -525,7 +535,7 @@ const FISH_COUNT = 30, FISH_MAX = 100, FISH_SPEED = 1.5;
 const SEAWEED_GROW = 600, SEAWEED_MAX = 5;
 const SHEEP_COUNT = 15, SHEEP_SPEED = 1.2;
 const CHEST_SLOTS = 27;
-const VERSION = "2.6";
+const VERSION = "2.7";
 // A button stays pressed this long; the circuit is worked out at most this often; music is heard this far.
 const BUTTON_TIME = 1, CIRCUIT_STEP = 0.1, MUSIC_RANGE = 10;
 
@@ -533,7 +543,7 @@ const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, COBBLE: 4, SAND: 5, LOG: 6, LEA
   COAL_ORE: 9, IRON_ORE: 10, GOLD_ORE: 11, DIAMOND_ORE: 12, PINK_ORE: 13, BEDROCK: 14, WORKBENCH: 15,
   BRICK: 16, GLASS: 17, TORCH: 18, PINK: 19, GOLD_BLOCK: 20, CHEST: 21, TRASH: 22, WATER: 23, SEAWEED: 24, LADDER: 25,
   WOOL: 26, BED: 27, GREEN_BENCH: 28, ELECTRIC: 29, LEVER: 30, LEVER_ON: 31, BUTTON: 32, BUTTON_ON: 33, LAMP: 34,
-  MUSIC: 35, WIRE: 36, PISTON: 40 };
+  MUSIC: 35, WIRE: 36, PISTON: 40, STICKY: 44 };
 const I = { STICK: 100, COAL: 101, RAW_IRON: 102, IRON: 103, GOLD: 104, DIAMOND: 105, PINK_GEM: 106,
   HEART_METER: 107, HEART_EGG: 108, FISH_EGG: 109, PICK_WOOD: 110, PICK_STONE: 111, PICK_IRON: 112, PICK_DIAMOND: 113,
   SWORD: 114, BUCKET: 115, WATER_BUCKET: 116, GOLD_INGOT: 117, GREEN_GEM: 118 };
@@ -576,10 +586,11 @@ const BLOCKS = {
   [B.MUSIC]: { name: "Музыкальный блок", hard: 1.2, tier: 0 },
   [B.WIRE]: { name: "Проводник", hard: 0.5, tier: 0 },
   [B.PISTON]: { name: "Поршень", hard: 1.5, tier: 0 },
+  [B.STICKY]: { name: "Липкий поршень", hard: 1.5, tier: 0 },
 };
 // A lever or a button that is on, a wire or a piston turned away from the right: the state lives in the block id,
 // so the server keeps and shares it as any other block.
-for (const base of [B.WIRE, B.PISTON]) {
+for (const base of [B.WIRE, B.PISTON, B.STICKY]) {
   for (let d = 1; d < 4; d++) {
     BLOCKS[base + d] = { ...BLOCKS[base], of: base };
   }
@@ -631,8 +642,8 @@ const RECIPES = [
   { out: I.SWORD, n: 1, need: [[I.STICK, 1], [I.IRON, 2]] },
   { out: I.BUCKET, n: 1, need: [[I.IRON, 3]] },
   { out: B.BED, n: 1, need: [[B.PLANKS, 3], [B.WOOL, 3]] },
-  { out: I.GREEN_GEM, n: 2, need: [[B.SEAWEED, 1]] },
-  { out: B.GREEN_BENCH, n: 1, need: [[I.GREEN_GEM, 4]] },
+  { out: I.GREEN_GEM, n: 2, need: [[B.SEAWEED, 1]], any: true },
+  { out: B.GREEN_BENCH, n: 1, need: [[I.GREEN_GEM, 4]], any: true },
   { out: B.ELECTRIC, n: 1, need: [[I.GREEN_GEM, 9]], green: true },
   { out: B.LEVER, n: 1, need: [[I.STICK, 1], [I.GREEN_GEM, 1], [B.COBBLE, 1]], green: true },
   { out: B.BUTTON, n: 1, need: [[B.PLANKS, 1], [I.GREEN_GEM, 1]], green: true },
@@ -640,6 +651,7 @@ const RECIPES = [
   { out: B.PISTON, n: 1, need: [[B.COBBLE, 6], [B.PLANKS, 3], [I.GREEN_GEM, 3]], green: true },
   { out: B.MUSIC, n: 1, need: [[B.PLANKS, 8], [I.GREEN_GEM, 1]], green: true },
   { out: B.LAMP, n: 1, need: [[B.PLANKS, 3], [B.GLASS, 5], [I.GREEN_GEM, 1]], green: true },
+  { out: B.STICKY, n: 1, need: [[B.COBBLE, 6], [B.PLANKS, 3], [I.GREEN_GEM, 5]], green: true },
 ];
 
 const isBlock = id => id in BLOCKS;
@@ -1443,7 +1455,7 @@ const USE = {
   [B.BUTTON]: (x, y) => switchTo(x, y, B.BUTTON_ON),
 };
 for (let d = 0; d < 4; d++) {
-  USE[B.WIRE + d] = USE[B.PISTON + d] = turnBlock;
+  USE[B.WIRE + d] = USE[B.PISTON + d] = USE[B.STICKY + d] = turnBlock;
 }
 function setBed(x, y) {
   bed = { x, y };
@@ -1796,7 +1808,8 @@ function growSeaweed(dt) {
 // and turns a quarter clockwise when pressed.
 const DX = [1, 0, -1, 0], DY = [0, 1, 0, -1];
 const isWire = id => id >= B.WIRE && id < B.WIRE + 4;
-const isPiston = id => id >= B.PISTON && id < B.PISTON + 4;
+const isSticky = id => id >= B.STICKY && id < B.STICKY + 4;
+const isPiston = id => (id >= B.PISTON && id < B.PISTON + 4) || isSticky(id);
 const turns = id => isWire(id) || isPiston(id);
 const dirOf = id => id - baseOf(id);
 const SOURCES = new Set([B.ELECTRIC, B.LEVER_ON, B.BUTTON_ON]);
@@ -1856,19 +1869,21 @@ function powerUp() {
   }
   return on;
 }
-// The piston moves the block in front of it one step further, if there is room and nobody stands there.
-function push(i) {
+// A piston that gets power moves the block in front of it one step further; a sticky one that loses power pulls
+// the block two steps ahead back in front of it. Only if there is room and nobody stands there.
+function push(i, back) {
   const x = i % W, y = (i - x) / W, d = dirOf(world[i]);
-  const fx = x + DX[d], fy = y + DY[d], tx = fx + DX[d], ty = fy + DY[d];
-  const id = get(fx, fy);
-  if (!inWorld(tx, ty) || isEmpty(id) || FIXED.has(id) || !isEmpty(get(tx, ty)) ||
-    (solidId(id) && [P, ...mobs, ...peers.values()].some(e => overlaps(e, tx, ty)))) {
+  const nx = x + DX[d], ny = y + DY[d], fx = nx + DX[d], fy = ny + DY[d];
+  const [ax, ay, bx, by] = back ? [fx, fy, nx, ny] : [nx, ny, fx, fy];
+  const id = get(ax, ay);
+  if (!inWorld(fx, fy) || isEmpty(id) || FIXED.has(id) || !isEmpty(get(bx, by)) ||
+    (solidId(id) && [P, ...mobs, ...peers.values()].some(e => overlaps(e, bx, by)))) {
     return;
   }
-  setTile(tx, ty, id);
-  setTile(fx, fy, holeAfter(fx, fy, id));
-  netTile(tx, ty);
-  netTile(fx, fy);
+  setTile(bx, by, id);
+  setTile(ax, ay, holeAfter(ax, ay, id));
+  netTile(bx, by);
+  netTile(ax, ay);
   if (Math.hypot(x + 0.5 - (P.x + P.w / 2), y + 0.5 - (P.y + P.h / 2)) <= MUSIC_RANGE) {
     Sound.place(B.COBBLE);
   }
@@ -1902,7 +1917,8 @@ function circuitTick(dt) {
     const was = powered;
     powered = powerUp();
     if (lead) {
-      [...powered].filter(i => isPiston(world[i]) && !was.has(i)).forEach(push);
+      [...powered].filter(i => isPiston(world[i]) && !was.has(i)).forEach(i => push(i, false));
+      [...was].filter(i => isSticky(world[i]) && !powered.has(i)).forEach(i => push(i, true));
     }
   }
   let near = Infinity;
@@ -2511,12 +2527,13 @@ function wire(on) {
     g.fillRect(1, 3, 2, 10);
   });
 }
-function piston(on) {
+function piston(on, sticky) {
   return mkTex((g, r) => {
     speck(g, r, ["#8e8e92", "#a0a0a4", "#7e7e83"]);
+    const face = sticky ? ["#6fd46a", "#5cc25a", "#8be086"] : ["#c8955a", "#b98549", "#d4a36a"];
     for (let y = 0; y < 16; y++) {
       for (let x = 12; x < 16; x++) {
-        px(g, x, y, ["#c8955a", "#b98549", "#d4a36a"][Math.floor(r() * 3)]);
+        px(g, x, y, face[Math.floor(r() * 3)]);
       }
     }
     g.fillStyle = "#8a5d2e";
@@ -2617,7 +2634,7 @@ Object.assign(tex, {
   }),
 });
 texOn[B.LAMP] = lamp(true);
-for (const [base, draw] of [[B.WIRE, wire], [B.PISTON, piston]]) {
+for (const [base, draw] of [[B.WIRE, wire], [B.PISTON, piston], [B.STICKY, on => piston(on, true)]]) {
   const off = draw(false), on = draw(true);
   for (let d = 0; d < 4; d++) {
     tex[base + d] = turn(off, d);
@@ -2989,7 +3006,7 @@ function render(t) {
     for (let x = x0; x <= x1; x++) {
       const id = world[y * W + x];
       const sx = Math.round((x - cam.x) * ts), sw = Math.round((x + 1 - cam.x) * ts) - sx;
-      if (y > surf[x] + 1 && (id === B.AIR || !solidId(id) || id === B.GLASS || id === B.LEAVES)) {
+      if (y > surf[x] + 1 && (id === B.AIR || !solidId(id) || [B.GLASS, B.LEAVES, B.LEVER, B.LEVER_ON].includes(id))) {
         ctx.drawImage(wallTex, sx, sy, sw, sh);
       }
       if (id === B.SEAWEED) {
@@ -3176,14 +3193,15 @@ sheets.forEach(s => {
   s.querySelectorAll(".close").forEach(b => b.addEventListener("click", closeSheets));
 });
 
-// false without a workbench, true at a workbench, "green" at a green one: it also makes the mechanisms.
+// false without a workbench, true at a workbench, "green" at a green one: it makes the mechanisms instead of the rest;
+// the green gems and the green workbench are made at both.
 let atBench = false;
 function openCraft(bench) {
   atBench = bench;
   $("#craft h2").textContent = bench === "green" ? "Зелёный верстак" : bench ? "Верстак" : "Крафт без верстака";
   $("#craft .hint").textContent = "Подсвечено то, на что хватает материалов. «×10» делает сколько получится, " +
-    "но не больше десяти." + (bench === "green" ? "" : bench ? " Механизмы — у зелёного верстака."
-      : " Остальные рецепты — у верстака.");
+    "но не больше десяти." + (bench === "green" ? " Остальные рецепты — у обычного верстака."
+      : bench ? " Механизмы — у зелёного верстака." : " Остальные рецепты — у верстака.");
   renderCraft();
   show($("#craft"));
 }
@@ -3191,7 +3209,7 @@ function renderCraft() {
   const list = $("#craft .list");
   list.innerHTML = "";
   RECIPES.forEach((r, i) => {
-    if ((!atBench && !r.hand) || (r.green && atBench !== "green")) {
+    if (!(atBench === "green" ? r.green || r.any : atBench ? !r.green : r.hand)) {
       return;
     }
     const can = canCraft(r);
@@ -3231,7 +3249,15 @@ function renderBag() {
       if (held === null) {
         held = i;
       } else {
-        [inv[held], inv[i]] = [inv[i], inv[held]];
+        const from = inv[held], to = inv[i];
+        const k = held !== i && from && to && from.id === to.id ? Math.min(from.n, stackMax(to.id) - to.n) : 0;
+        if (k) {
+          to.n += k;
+          from.n -= k;
+          inv[held] = from.n ? from : null;
+        } else {
+          [inv[held], inv[i]] = [inv[i], inv[held]];
+        }
         held = null;
         uiDirty = true;
       }
