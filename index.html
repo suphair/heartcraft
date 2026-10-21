@@ -190,10 +190,12 @@
 <div class="sheet" id="bag" hidden>
   <div class="box">
     <h2>Рюкзак</h2>
-    <div class="hint">Нажми на ячейку, потом на другую — они поменяются местами. Верхний ряд — пояс внизу экрана.</div>
+    <div class="hint">Нажми на ячейку, потом на другую — они поменяются местами. Верхний ряд — пояс внизу экрана.
+      Выбери стопку и нажми ✂️ — половина ляжет в свободную ячейку.</div>
     <div class="grid" style="margin-top:10px"></div>
     <p class="pick hint"></p>
-    <div class="row end"><button class="btn" id="handBtn">🛠 Крафт без верстака (C)</button>
+    <div class="row end"><button class="btn" id="splitBtn">✂️ Разделить пополам</button>
+      <button class="btn" id="handBtn">🛠 Крафт без верстака (C)</button>
       <button class="btn close">Закрыть</button></div>
   </div>
 </div>
@@ -267,6 +269,15 @@
   <div class="box">
     <h2>Что нового</h2>
     <div class="news">
+      <h3>Версия 2.6</h3>
+      <ul>
+        <li><b>Зелёные кристаллы</b>: 1 водоросль даёт 2 кристалла у любого верстака. 4 кристалла — <b>зелёный
+          верстак</b>, механизмы делаются только у него.</li>
+        <li><b>Механизмы</b>: электрический блок (всегда включён), рычаг, кнопка, проводник, лампа, поршень
+          и музыкальный блок. Нажми на рычаг или кнопку, чтобы включить; проводник и поршень при нажатии
+          поворачиваются.</li>
+        <li>В рюкзаке стопку можно <b>разделить пополам</b>: выбери её и нажми ✂️.</li>
+      </ul>
       <h3>Версия 2.5</h3>
       <ul>
         <li>В сетевой игре <b>сердечками, овцами и рыбками управляет сервер</b>: они ходят одинаково у всех
@@ -514,15 +525,18 @@ const FISH_COUNT = 30, FISH_MAX = 100, FISH_SPEED = 1.5;
 const SEAWEED_GROW = 600, SEAWEED_MAX = 5;
 const SHEEP_COUNT = 15, SHEEP_SPEED = 1.2;
 const CHEST_SLOTS = 27;
-const VERSION = "2.5";
+const VERSION = "2.6";
+// A button stays pressed this long; the circuit is worked out at most this often; music is heard this far.
+const BUTTON_TIME = 1, CIRCUIT_STEP = 0.1, MUSIC_RANGE = 10;
 
 const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, COBBLE: 4, SAND: 5, LOG: 6, LEAVES: 7, PLANKS: 8,
   COAL_ORE: 9, IRON_ORE: 10, GOLD_ORE: 11, DIAMOND_ORE: 12, PINK_ORE: 13, BEDROCK: 14, WORKBENCH: 15,
   BRICK: 16, GLASS: 17, TORCH: 18, PINK: 19, GOLD_BLOCK: 20, CHEST: 21, TRASH: 22, WATER: 23, SEAWEED: 24, LADDER: 25,
-  WOOL: 26, BED: 27 };
+  WOOL: 26, BED: 27, GREEN_BENCH: 28, ELECTRIC: 29, LEVER: 30, LEVER_ON: 31, BUTTON: 32, BUTTON_ON: 33, LAMP: 34,
+  MUSIC: 35, WIRE: 36, PISTON: 40 };
 const I = { STICK: 100, COAL: 101, RAW_IRON: 102, IRON: 103, GOLD: 104, DIAMOND: 105, PINK_GEM: 106,
   HEART_METER: 107, HEART_EGG: 108, FISH_EGG: 109, PICK_WOOD: 110, PICK_STONE: 111, PICK_IRON: 112, PICK_DIAMOND: 113,
-  SWORD: 114, BUCKET: 115, WATER_BUCKET: 116, GOLD_INGOT: 117 };
+  SWORD: 114, BUCKET: 115, WATER_BUCKET: 116, GOLD_INGOT: 117, GREEN_GEM: 118 };
 
 const BLOCKS = {
   [B.GRASS]: { name: "Трава", hard: 0.5, tier: 0, drop: B.DIRT },
@@ -552,7 +566,24 @@ const BLOCKS = {
   [B.LADDER]: { name: "Лестница", hard: 0.6, tier: 0, solid: false },
   [B.WOOL]: { name: "Шерсть", hard: 0.8, tier: 0 },
   [B.BED]: { name: "Кровать", hard: 0.8, tier: 0, solid: false },
+  [B.GREEN_BENCH]: { name: "Зелёный верстак", hard: 1.2, tier: 0 },
+  [B.ELECTRIC]: { name: "Электрический блок", hard: 1.5, tier: 0 },
+  [B.LEVER]: { name: "Рычаг", hard: 0.5, tier: 0 },
+  [B.LEVER_ON]: { name: "Рычаг", hard: 0.5, tier: 0, of: B.LEVER },
+  [B.BUTTON]: { name: "Кнопка", hard: 0.5, tier: 0 },
+  [B.BUTTON_ON]: { name: "Кнопка", hard: 0.5, tier: 0, of: B.BUTTON },
+  [B.LAMP]: { name: "Лампа", hard: 0.6, tier: 0 },
+  [B.MUSIC]: { name: "Музыкальный блок", hard: 1.2, tier: 0 },
+  [B.WIRE]: { name: "Проводник", hard: 0.5, tier: 0 },
+  [B.PISTON]: { name: "Поршень", hard: 1.5, tier: 0 },
 };
+// A lever or a button that is on, a wire or a piston turned away from the right: the state lives in the block id,
+// so the server keeps and shares it as any other block.
+for (const base of [B.WIRE, B.PISTON]) {
+  for (let d = 1; d < 4; d++) {
+    BLOCKS[base + d] = { ...BLOCKS[base], of: base };
+  }
+}
 const ITEMS = {
   [I.STICK]: { name: "Палка" },
   [I.COAL]: { name: "Уголь" },
@@ -572,6 +603,7 @@ const ITEMS = {
   [I.SWORD]: { name: "Меч", dur: 150 },
   [I.BUCKET]: { name: "Ведро", single: true },
   [I.WATER_BUCKET]: { name: "Ведро воды", single: true },
+  [I.GREEN_GEM]: { name: "Зелёный кристалл" },
 };
 const HAND = { tier: 0, speed: 1 };
 
@@ -599,11 +631,21 @@ const RECIPES = [
   { out: I.SWORD, n: 1, need: [[I.STICK, 1], [I.IRON, 2]] },
   { out: I.BUCKET, n: 1, need: [[I.IRON, 3]] },
   { out: B.BED, n: 1, need: [[B.PLANKS, 3], [B.WOOL, 3]] },
+  { out: I.GREEN_GEM, n: 2, need: [[B.SEAWEED, 1]] },
+  { out: B.GREEN_BENCH, n: 1, need: [[I.GREEN_GEM, 4]] },
+  { out: B.ELECTRIC, n: 1, need: [[I.GREEN_GEM, 9]], green: true },
+  { out: B.LEVER, n: 1, need: [[I.STICK, 1], [I.GREEN_GEM, 1], [B.COBBLE, 1]], green: true },
+  { out: B.BUTTON, n: 1, need: [[B.PLANKS, 1], [I.GREEN_GEM, 1]], green: true },
+  { out: B.WIRE, n: 4, need: [[I.STICK, 2], [I.GREEN_GEM, 1]], green: true },
+  { out: B.PISTON, n: 1, need: [[B.COBBLE, 6], [B.PLANKS, 3], [I.GREEN_GEM, 3]], green: true },
+  { out: B.MUSIC, n: 1, need: [[B.PLANKS, 8], [I.GREEN_GEM, 1]], green: true },
+  { out: B.LAMP, n: 1, need: [[B.PLANKS, 3], [B.GLASS, 5], [I.GREEN_GEM, 1]], green: true },
 ];
 
 const isBlock = id => id in BLOCKS;
 const isKnown = id => id in BLOCKS || id in ITEMS;
 const nameOf = id => (BLOCKS[id] || ITEMS[id]).name;
+const baseOf = id => (BLOCKS[id] && BLOCKS[id].of) || id;
 const pickOf = id => ITEMS[id] && ITEMS[id].pick;
 // Picks and the sword wear out: such a thing keeps its durability and never stacks.
 const durOf = id => ITEMS[id] && ITEMS[id].dur;
@@ -625,7 +667,7 @@ document.body.classList.toggle("solo", SOLO);
 // Everything is synthesized with WebAudio: the game stays a single file.
 const Sound = (() => {
   const KEY = "heartcraft-sound";
-  let ac = null, master = null, musicBus = null, timer = 0;
+  let ac = null, master = null, musicBus = null, boxBus = null, timer = 0;
   let on = true;
   try {
     on = localStorage.getItem(KEY) !== "off";
@@ -648,6 +690,9 @@ const Sound = (() => {
     musicBus = ac.createGain();
     musicBus.gain.value = 0.2;
     musicBus.connect(master);
+    boxBus = ac.createGain();
+    boxBus.gain.value = 0;
+    boxBus.connect(master);
     return true;
   }
   const live = () => ac && on && ac.state === "running";
@@ -695,8 +740,9 @@ const Sound = (() => {
   }
 
   const SOFT = new Set([B.GRASS, B.DIRT, B.SAND, B.LEAVES, B.SEAWEED, B.WOOL]);
-  const WOOD = new Set([B.LOG, B.PLANKS, B.WORKBENCH, B.TORCH, B.CHEST, B.TRASH, B.LADDER, B.BED]);
-  const matOf = id => (SOFT.has(id) ? "soft" : WOOD.has(id) ? "wood" : id === B.GLASS ? "glass" : "stone");
+  const WOOD = new Set([B.LOG, B.PLANKS, B.WORKBENCH, B.TORCH, B.CHEST, B.TRASH, B.LADDER, B.BED, B.GREEN_BENCH,
+    B.BUTTON, B.MUSIC, B.WIRE]);
+  const matOf = id => (SOFT.has(id) ? "soft" : WOOD.has(baseOf(id)) ? "wood" : id === B.GLASS ? "glass" : "stone");
 
   // Background loop: 8 chords, arpeggio patterns and a phrase on top; the surface and the depths
   // differ in mode, tempo, timbre and ambience (birds above, drips below).
@@ -711,11 +757,30 @@ const Sound = (() => {
   const PHRASES = [[5, 0, 4, 3], [0, 3, 5, 0], [4, 5, 0, 3], [3, 4, 5, 4]];
   const PENTA = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2];
   let scene = SCENES.surface, next = 0, bar = 0, ambAt = 0;
+  // The music block tune, eighth notes with rests; its loudness follows the nearest playing block.
+  const TUNE = [C, C, G, G, A, A, G, 0, F, F, E, E, D, D, C, 0, G, G, F, F, E, E, D, 0, G, G, F, F, E, E, D, 0];
+  let boxVol = 0, boxNext = 0, boxStep = 0;
+  function scheduleBox() {
+    if (!boxVol) {
+      return;
+    }
+    boxNext = Math.max(boxNext, ac.currentTime + 0.05);
+    while (boxNext < ac.currentTime + 0.5) {
+      const f = TUNE[boxStep % TUNE.length];
+      if (f) {
+        note({ from: f * 2, dur: 0.6, gain: 0.25, type: "sine", at: boxNext, bus: boxBus });
+        note({ from: f * 4, dur: 0.25, gain: 0.06, type: "sine", at: boxNext, bus: boxBus });
+      }
+      boxNext += 0.28;
+      boxStep++;
+    }
+  }
 
   function schedule() {
     if (!live()) {
       return;
     }
+    scheduleBox();
     while (next < ac.currentTime + 0.5) {
       const ch = scene.chords[bar % scene.chords.length];
       PATTERNS[bar % PATTERNS.length].forEach((step, i) => {
@@ -782,6 +847,18 @@ const Sound = (() => {
       }
       music(on);
       return on;
+    },
+    box(vol) {
+      if (vol === boxVol) {
+        return;
+      }
+      if (!boxVol) {
+        boxStep = 0;
+      }
+      boxVol = vol;
+      if (boxBus) {
+        boxBus.gain.setTargetAtTime(vol, ac.currentTime, 0.1);
+      }
     },
     scene(name) {
       const want = SCENES[name];
@@ -1082,6 +1159,7 @@ try {
 const get = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? B.BEDROCK : world[y * W + x]);
 function setTile(x, y, id) {
   world[y * W + x] = id;
+  circuitDirty = true;
 }
 function solidAt(x, y) {
   if (y < 0) {
@@ -1296,7 +1374,7 @@ function dropOf(id) {
     return Math.random() < 0.15 ? I.STICK : null;
   }
   const d = BLOCKS[id];
-  return "drop" in d ? d.drop : id;
+  return "drop" in d ? d.drop : baseOf(id);
 }
 const chestKey = (x, y) => y * W + x;
 function chestAt(x, y) {
@@ -1356,10 +1434,17 @@ function overlaps(e, x, y) {
 }
 const USE = {
   [B.WORKBENCH]: () => openCraft(true),
+  [B.GREEN_BENCH]: () => openCraft("green"),
   [B.CHEST]: (x, y) => openChest(x, y),
   [B.TRASH]: () => openTrash(),
   [B.BED]: (x, y) => setBed(x, y),
+  [B.LEVER]: (x, y) => switchTo(x, y, B.LEVER_ON),
+  [B.LEVER_ON]: (x, y) => switchTo(x, y, B.LEVER),
+  [B.BUTTON]: (x, y) => switchTo(x, y, B.BUTTON_ON),
 };
+for (let d = 0; d < 4; d++) {
+  USE[B.WIRE + d] = USE[B.PISTON + d] = turnBlock;
+}
 function setBed(x, y) {
   bed = { x, y };
   uiDirty = true;
@@ -1421,7 +1506,7 @@ function usePlace(x, y) {
   if (solidId(slot.id) && [P, ...mobs, ...peers.values()].some(e => overlaps(e, x, y))) {
     return;
   }
-  setTile(x, y, slot.id);
+  setTile(x, y, slot.id + (turns(slot.id) ? facing(x, y) : 0));
   netTile(x, y);
   Sound.place(slot.id);
   if (slot.id === B.PINK && !masterSeen) {
@@ -1644,6 +1729,7 @@ function update(dt) {
     followMobs(dt);
   }
   growSeaweed(dt);
+  circuitTick(dt);
   netTick(dt);
 }
 
@@ -1702,6 +1788,131 @@ function growSeaweed(dt) {
     }
   }
   return true;
+}
+
+// ---------- mechanisms ----------
+
+// Directions: 0 right, 1 down, 2 left, 3 up; a wire or a piston is placed facing away from the hero
+// and turns a quarter clockwise when pressed.
+const DX = [1, 0, -1, 0], DY = [0, 1, 0, -1];
+const isWire = id => id >= B.WIRE && id < B.WIRE + 4;
+const isPiston = id => id >= B.PISTON && id < B.PISTON + 4;
+const turns = id => isWire(id) || isPiston(id);
+const dirOf = id => id - baseOf(id);
+const SOURCES = new Set([B.ELECTRIC, B.LEVER_ON, B.BUTTON_ON]);
+const FIXED = new Set([B.BEDROCK, B.WATER, B.SEAWEED, B.CHEST, B.BED]);
+// Wires that are on and lamps, music blocks and pistons that touch something on.
+let powered = new Set();
+let circuitWorld = null, circuitDirty = true, circuitT = 0, clock = 0;
+// When each pressed button was first seen pressed: whoever runs the circuit lets it go BUTTON_TIME later.
+const pressedAt = new Map();
+
+function facing(x, y) {
+  const dx = x + 0.5 - (P.x + P.w / 2), dy = y + 0.5 - (P.y + P.h / 2);
+  return Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 0 : 2) : (dy > 0 ? 1 : 3);
+}
+function turnBlock(x, y) {
+  const id = get(x, y);
+  setTile(x, y, baseOf(id) + (dirOf(id) + 1) % 4);
+  netTile(x, y);
+  Sound.click();
+}
+function switchTo(x, y, id) {
+  setTile(x, y, id);
+  netTile(x, y);
+  Sound.click();
+}
+// A source is on toward every side, a wire that is on toward every side but its back.
+function emits(i, d, on) {
+  const id = world[i];
+  return SOURCES.has(id) || (isWire(id) && on.has(i) && d !== (dirOf(id) + 2) % 4);
+}
+// A wire takes power only through its back, so the power spreads from the sources and never feeds itself in a loop.
+function powerUp() {
+  const on = new Set(), q = [];
+  for (let i = 0; i < world.length; i++) {
+    if (SOURCES.has(world[i])) {
+      q.push(i);
+      if (world[i] === B.BUTTON_ON && !pressedAt.has(i)) {
+        pressedAt.set(i, clock);
+      }
+    }
+  }
+  for (let h = 0; h < q.length; h++) {
+    const i = q[h], x = i % W, y = (i - x) / W;
+    for (let d = 0; d < 4; d++) {
+      const nx = x + DX[d], ny = y + DY[d];
+      if (nx < 0 || nx >= W || ny < 0 || ny >= H || !emits(i, d, on)) {
+        continue;
+      }
+      const n = ny * W + nx, id = world[n];
+      if (isWire(id) && dirOf(id) === d && !on.has(n)) {
+        on.add(n);
+        q.push(n);
+      } else if (id === B.LAMP || id === B.MUSIC || isPiston(id)) {
+        on.add(n);
+      }
+    }
+  }
+  return on;
+}
+// The piston moves the block in front of it one step further, if there is room and nobody stands there.
+function push(i) {
+  const x = i % W, y = (i - x) / W, d = dirOf(world[i]);
+  const fx = x + DX[d], fy = y + DY[d], tx = fx + DX[d], ty = fy + DY[d];
+  const id = get(fx, fy);
+  if (!inWorld(tx, ty) || isEmpty(id) || FIXED.has(id) || !isEmpty(get(tx, ty)) ||
+    (solidId(id) && [P, ...mobs, ...peers.values()].some(e => overlaps(e, tx, ty)))) {
+    return;
+  }
+  setTile(tx, ty, id);
+  setTile(fx, fy, holeAfter(fx, fy, id));
+  netTile(tx, ty);
+  netTile(fx, fy);
+  if (Math.hypot(x + 0.5 - (P.x + P.w / 2), y + 0.5 - (P.y + P.h / 2)) <= MUSIC_RANGE) {
+    Sound.place(B.COBBLE);
+  }
+}
+// Everyone works out the power from the blocks to draw it; only the player who grows the seaweed moves the pistons
+// and lets the buttons go, and the others get the blocks that changed. A world just loaded moves nothing.
+function circuitTick(dt) {
+  clock += dt;
+  circuitT += dt;
+  if (world !== circuitWorld) {
+    circuitWorld = world;
+    pressedAt.clear();
+    powered = powerUp();
+    circuitDirty = false;
+    return;
+  }
+  const lead = leading();
+  for (const [i, t] of pressedAt) {
+    if (world[i] !== B.BUTTON_ON) {
+      pressedAt.delete(i);
+    } else if (lead && clock - t >= BUTTON_TIME) {
+      pressedAt.delete(i);
+      const x = i % W;
+      setTile(x, (i - x) / W, B.BUTTON);
+      netTile(x, (i - x) / W);
+    }
+  }
+  if (circuitDirty && circuitT >= CIRCUIT_STEP) {
+    circuitT = 0;
+    circuitDirty = false;
+    const was = powered;
+    powered = powerUp();
+    if (lead) {
+      [...powered].filter(i => isPiston(world[i]) && !was.has(i)).forEach(push);
+    }
+  }
+  let near = Infinity;
+  for (const i of powered) {
+    if (world[i] === B.MUSIC) {
+      const x = i % W;
+      near = Math.min(near, Math.hypot(x + 0.5 - (P.x + P.w / 2), (i - x) / W + 0.5 - (P.y + P.h / 2)));
+    }
+  }
+  Sound.box(near <= MUSIC_RANGE ? Math.round((1 - near / (MUSIC_RANGE + 1)) * 20) / 20 : 0);
 }
 
 // ---------- sheep ----------
@@ -2273,6 +2484,146 @@ const tex = {
   [I.BUCKET]: bucket(null),
   [I.WATER_BUCKET]: bucket("#3d7fe0"),
 };
+// Mechanisms: a wire and a piston are drawn facing right and turned; a wire that is on and a lit lamp look different.
+const GREEN_OFF = "#2f8a45", GREEN_ON = "#5cff7a";
+const texOn = {};
+function turn(c, d) {
+  const o = document.createElement("canvas");
+  o.width = o.height = 16;
+  const g = o.getContext("2d");
+  g.translate(8, 8);
+  g.rotate(d * Math.PI / 2);
+  g.drawImage(c, -8, -8);
+  return o;
+}
+function wire(on) {
+  return mkTex(g => {
+    g.fillStyle = "#4a4f58";
+    g.fillRect(0, 0, 16, 16);
+    frame(g, "#363a41");
+    g.fillStyle = on ? GREEN_ON : GREEN_OFF;
+    g.fillRect(7, 1, 2, 14);
+    g.fillRect(3, 7, 9, 2);
+    g.fillRect(10, 5, 2, 6);
+    g.fillRect(12, 6, 1, 4);
+    g.fillRect(13, 7, 1, 2);
+    g.fillStyle = "#1d2026";
+    g.fillRect(1, 3, 2, 10);
+  });
+}
+function piston(on) {
+  return mkTex((g, r) => {
+    speck(g, r, ["#8e8e92", "#a0a0a4", "#7e7e83"]);
+    for (let y = 0; y < 16; y++) {
+      for (let x = 12; x < 16; x++) {
+        px(g, x, y, ["#c8955a", "#b98549", "#d4a36a"][Math.floor(r() * 3)]);
+      }
+    }
+    g.fillStyle = "#8a5d2e";
+    g.fillRect(12, 0, 1, 16);
+    g.fillStyle = "#5c5c61";
+    g.fillRect(4, 6, 8, 4);
+    g.fillStyle = on ? GREEN_ON : GREEN_OFF;
+    g.fillRect(5, 7, 4, 2);
+  });
+}
+function lever(on) {
+  return mkTex((g, r) => {
+    for (let y = 11; y < 16; y++) {
+      for (let x = 2; x < 14; x++) {
+        px(g, x, y, ["#8e8e92", "#a0a0a4", "#7e7e83"][Math.floor(r() * 3)]);
+      }
+    }
+    g.lineCap = "round";
+    g.strokeStyle = "#7a5230";
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(8, 12);
+    g.lineTo(on ? 12 : 4, 4);
+    g.stroke();
+    g.fillStyle = on ? GREEN_ON : GREEN_OFF;
+    g.fillRect(on ? 11 : 2, 2, 3, 3);
+  });
+}
+function button(on) {
+  return mkTex((g, r) => {
+    planks(g, r);
+    g.fillStyle = "#5b3a21";
+    g.fillRect(4, 4, 8, 8);
+    g.fillStyle = on ? GREEN_ON : GREEN_OFF;
+    g.fillRect(5, on ? 6 : 5, 6, on ? 5 : 6);
+    if (!on) {
+      g.fillStyle = "#7fd88f";
+      g.fillRect(5, 5, 6, 1);
+    }
+  });
+}
+function lamp(on) {
+  return mkTex(g => {
+    g.fillStyle = on ? "#ffe066" : "#6b6450";
+    g.fillRect(0, 0, 16, 16);
+    if (on) {
+      g.fillStyle = "#fffbe0";
+      g.fillRect(5, 5, 6, 6);
+    }
+    g.fillStyle = "#8a5d2e";
+    frame(g, "#8a5d2e");
+    g.fillRect(7, 0, 2, 16);
+    g.fillRect(0, 7, 16, 2);
+  });
+}
+Object.assign(tex, {
+  [I.GREEN_GEM]: mkTex(g => gem(g, "#3ccf5a", "#d0ffd8")),
+  [B.GREEN_BENCH]: mkTex((g, r) => {
+    planks(g, r);
+    g.fillStyle = "#2a7a3e";
+    g.fillRect(0, 0, 16, 4);
+    g.fillStyle = GREEN_ON;
+    g.fillRect(2, 1, 4, 2);
+    g.fillRect(10, 1, 4, 2);
+    g.fillStyle = "#5b3a21";
+    g.fillRect(1, 4, 2, 12);
+    g.fillRect(13, 4, 2, 12);
+  }),
+  [B.ELECTRIC]: mkTex((g, r) => {
+    speck(g, r, ["#2a2e36", "#30353e", "#24282f"]);
+    frame(g, GREEN_OFF);
+    g.fillStyle = "#ffd21f";
+    g.beginPath();
+    g.moveTo(10, 1);
+    g.lineTo(4, 9);
+    g.lineTo(8, 9);
+    g.lineTo(6, 15);
+    g.lineTo(12, 6);
+    g.lineTo(8, 6);
+    g.closePath();
+    g.fill();
+  }),
+  [B.LEVER]: lever(false),
+  [B.LEVER_ON]: lever(true),
+  [B.BUTTON]: button(false),
+  [B.BUTTON_ON]: button(true),
+  [B.LAMP]: lamp(false),
+  [B.MUSIC]: mkTex((g, r) => {
+    planks(g, r);
+    frame(g, "#5b3a21");
+    g.fillStyle = "#2a1a10";
+    g.fillRect(9, 3, 1, 9);
+    g.fillRect(10, 3, 2, 1);
+    g.fillRect(11, 4, 2, 1);
+    g.beginPath();
+    g.ellipse(7.5, 12, 2.5, 1.8, -0.3, 0, Math.PI * 2);
+    g.fill();
+  }),
+});
+texOn[B.LAMP] = lamp(true);
+for (const [base, draw] of [[B.WIRE, wire], [B.PISTON, piston]]) {
+  const off = draw(false), on = draw(true);
+  for (let d = 0; d < 4; d++) {
+    tex[base + d] = turn(off, d);
+    texOn[base + d] = turn(on, d);
+  }
+}
 const wallTex = mkTex((g, r) => speck(g, r, ["#4a3040", "#553849", "#40283a"]));
 const iconCache = {};
 const iconURL = id => iconCache[id] || (iconCache[id] = tex[id].toDataURL());
@@ -2353,7 +2704,7 @@ function drawLight(x0, y0, x1, y1) {
       open[i] = lightPasses(id) ? 1 : 0;
       sky[i] = lit ? m : 0;
       lit = lit && open[i] === 1;
-      blk[i] = id === B.TORCH ? TORCH_LIGHT : 0;
+      blk[i] = id === B.TORCH ? TORCH_LIGHT : id === B.LAMP && powered.has((ry0 + y) * W + rx0 + x) ? LIGHT_MAX : 0;
     }
   }
   const px = Math.floor(P.x + P.w / 2) - rx0, py = Math.floor(P.y + P.h / 2) - ry0;
@@ -2645,13 +2996,14 @@ function render(t) {
         ctx.drawImage(tex[B.WATER], sx, sy, sw, sh);
       }
       if (id !== B.AIR) {
-        ctx.drawImage(tex[id], sx, sy, sw, sh);
+        const lit = powered.has(y * W + x);
+        ctx.drawImage((lit && texOn[id]) || tex[id], sx, sy, sw, sh);
         if (id === B.WATER && get(x, y - 1) === B.AIR) {
           ctx.fillStyle = "rgba(220, 240, 255, .7)";
           ctx.fillRect(sx, sy, sw, Math.max(2, Math.round(sh / 10)));
         }
-        if (id === B.TORCH) {
-          torches.push([sx + sw / 2, sy + sh * 0.25]);
+        if (id === B.TORCH || (id === B.LAMP && lit)) {
+          torches.push([sx + sw / 2, sy + sh * (id === B.TORCH ? 0.25 : 0.5)]);
         }
       }
     }
@@ -2824,12 +3176,14 @@ sheets.forEach(s => {
   s.querySelectorAll(".close").forEach(b => b.addEventListener("click", closeSheets));
 });
 
+// false without a workbench, true at a workbench, "green" at a green one: it also makes the mechanisms.
 let atBench = false;
 function openCraft(bench) {
   atBench = bench;
-  $("#craft h2").textContent = bench ? "Верстак" : "Крафт без верстака";
+  $("#craft h2").textContent = bench === "green" ? "Зелёный верстак" : bench ? "Верстак" : "Крафт без верстака";
   $("#craft .hint").textContent = "Подсвечено то, на что хватает материалов. «×10» делает сколько получится, " +
-    "но не больше десяти." + (bench ? "" : " Остальные рецепты — у верстака.");
+    "но не больше десяти." + (bench === "green" ? "" : bench ? " Механизмы — у зелёного верстака."
+      : " Остальные рецепты — у верстака.");
   renderCraft();
   show($("#craft"));
 }
@@ -2837,7 +3191,7 @@ function renderCraft() {
   const list = $("#craft .list");
   list.innerHTML = "";
   RECIPES.forEach((r, i) => {
-    if (!atBench && !r.hand) {
+    if ((!atBench && !r.hand) || (r.green && atBench !== "green")) {
       return;
     }
     const can = canCraft(r);
@@ -2888,11 +3242,27 @@ function renderBag() {
     el.classList.toggle("held", i === held);
     grid.appendChild(el);
   });
+  $("#splitBtn").disabled = held === null || !inv[held] || inv[held].n < 2;
   const p = bestPickSlot();
   $("#bag .pick").textContent = p
     ? `Работает лучшая кирка: ${nameOf(p.id)}, прочность ${p.dur}/${durOf(p.id)}. ` +
       "Каждый камень или руда стирает её на единицу."
     : "Кирки пока нет — камень и руды ломаются долго и ничего не дают. Крафт — у верстака.";
+}
+
+function splitHeld() {
+  const s = inv[held], free = inv.indexOf(null);
+  if (free < 0) {
+    toast("Нет свободной ячейки");
+    Sound.nope();
+    return;
+  }
+  inv[free] = { id: s.id, n: Math.floor(s.n / 2) };
+  s.n -= inv[free].n;
+  held = null;
+  uiDirty = true;
+  Sound.click();
+  renderBag();
 }
 
 // Chest slots while a chest is open, null while the trash is open; the trash keeps only the last thrown stack.
@@ -2976,6 +3346,7 @@ $("#ver").textContent = `v${VERSION} · что нового`;
 $("#ver").addEventListener("click", () => show($("#news")));
 
 $("#bagBtn").addEventListener("click", openBag);
+$("#splitBtn").addEventListener("click", splitHeld);
 $("#handBtn").addEventListener("click", () => openCraft(false));
 $("#zoomIn").addEventListener("click", () => setZoom(zoom + 1));
 $("#zoomOut").addEventListener("click", () => setZoom(zoom - 1));
@@ -3683,7 +4054,7 @@ $("#adminExit").addEventListener("click", () => netLeave("Вы вышли из �
 setInterval(() => !$("#admin").hidden && adminSend({ t: "state" }), 3000);
 
 const giftN = $("#giftN");
-const givable = id => isBlock(id) || stackMax(id) === 1 || id === I.HEART_EGG || id === I.FISH_EGG;
+const givable = id => (isBlock(id) && !BLOCKS[id].of) || stackMax(id) === 1 || id === I.HEART_EGG || id === I.FISH_EGG;
 function openGift(world, hero) {
   giftTo = { code: world.code, login: hero.login };
   $("#gift h2").textContent = `🎁 Подарок для ${hero.name} — мир «${world.name}»`;
@@ -4266,7 +4637,8 @@ window.HC = { B, I, W, H, RECIPES, P, cam, get world() { return world; }, get in
   leading, encodeMobs, SOLO, serialize, loadText, get testMode() { return testMode; }, terrain, openChest, openTrash, chestAt, breed, banner,
   get zoom() { return zoom; }, get TILE() { return TILE; }, get, setTile, finishBreak, addItem, count, craft,
   bestPick, bestPickSlot, hatch, newWorld, generate, usePlace, feed, openCraft, setZoom, toggleDay, daylight, keys,
-  touch, Sound, net, peers, netLogin, netLeave, LOOK_COLORS, WORLD_OPTS, get worldOpts() { return worldOpts; } };
+  touch, Sound, net, peers, netLogin, netLeave, LOOK_COLORS, WORLD_OPTS, get worldOpts() { return worldOpts; },
+  get powered() { return powered; }, netTile, openBag };
 </script>
 </body>
 </html>

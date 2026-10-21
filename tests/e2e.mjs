@@ -182,6 +182,62 @@ check("the first player grows seaweed once in ten minutes", !weed[0] && weed[1],
 check("seaweed stops at five blocks", weed[2], weed);
 check("the others see the seaweed grow", await until(b, `HC.get(${weed[3]}, ${weed[4]}) === HC.B.SEAWEED`));
 check("only the first player grows seaweed", await b(`HC.growSeaweed(600)`) === false);
+const circuit = await a(`(() => {
+  const B = HC.B, x = Math.floor(HC.P.x) - 3, y = 6;
+  const cells = [[0, 0, B.LEVER], [1, 0, B.WIRE], [2, 0, B.PISTON], [3, 0, B.COBBLE], [4, 0, B.AIR], [5, 0, B.AIR],
+    [1, -1, B.LAMP], [0, 1, B.WIRE + 2], [6, 0, B.BUTTON], [7, 0, B.LAMP]];
+  cells.forEach(([dx, dy, id]) => {
+    HC.setTile(x + dx, y + dy, id);
+    HC.netTile(x + dx, y + dy);
+  });
+  return [x, y];
+})()`);
+const [cx, cy] = circuit, at = (dx, dy) => (cy + dy) * 1024 + cx + dx;
+const useAt = (ev, dx, dy) => ev(`(() => {
+  const px = HC.P.x, py = HC.P.y;
+  HC.P.x = ${cx + dx};
+  HC.P.y = ${cy + dy + 1.1};
+  HC.usePlace(${cx + dx}, ${cy + dy});
+  HC.P.x = px;
+  HC.P.y = py;
+  return HC.get(${cx + dx}, ${cy + dy});
+})()`);
+await sleep(300);
+check("nothing is on while the lever is off", await a(`HC.powered.size === 0 && HC.get(${cx + 3}, ${cy}) === HC.B.COBBLE`));
+check("the lever switches on", await useAt(a, 0, 0) === await a(`HC.B.LEVER_ON`));
+check("the lever powers the wire, the lamp beside it and the piston",
+  await until(a, `[${at(1, 0)}, ${at(1, -1)}, ${at(2, 0)}].every(i => HC.powered.has(i))`));
+check("the piston pushes the block one step", await until(a, `HC.get(${cx + 4}, ${cy}) === HC.B.COBBLE && HC.get(${cx + 3}, ${cy}) === HC.B.AIR`));
+check("B sees the pushed block", await until(b, `HC.get(${cx + 4}, ${cy}) === HC.B.COBBLE && HC.get(${cx + 3}, ${cy}) === HC.B.AIR`));
+check("B lights the lamp too", await until(b, `HC.powered.has(${at(1, -1)})`));
+await sleep(500);
+check("the block moved only once", await a(`HC.get(${cx + 5}, ${cy}) === HC.B.AIR`) && await b(`HC.get(${cx + 5}, ${cy}) === HC.B.AIR`));
+check("a wire takes no power through its front", await a(`!HC.powered.has(${at(0, 1)})`));
+check("a pressed wire turns", await useAt(a, 1, 0) === await a(`HC.B.WIRE + 1`));
+check("a wire turned away from the lever is off", await until(a, `!HC.powered.has(${at(1, 0)}) && !HC.powered.has(${at(1, -1)})`));
+await until(b, `HC.get(${cx + 6}, ${cy}) === HC.B.BUTTON`);
+check("B presses the button", await useAt(b, 6, 0) === await b(`HC.B.BUTTON_ON`));
+check("the pressed button lights the lamp", await until(b, `HC.powered.has(${at(7, 0)})`));
+check("the first player lets the button go", await until(b, `HC.get(${cx + 6}, ${cy}) === HC.B.BUTTON && !HC.powered.has(${at(7, 0)})`, 4000));
+check("a lever that is on drops a lever", await a(`HC.finishBreak(${cx}, ${cy}) && HC.count(HC.B.LEVER) === 1 && HC.count(HC.B.LEVER_ON) === 0`));
+const benchHas = (ev, bench) => ev(`(() => {
+  HC.openCraft(${bench});
+  const has = [...document.querySelectorAll("#craft .rec")].some(r => r.textContent.includes("Поршень"));
+  document.querySelector("#craft .close").click();
+  return has;
+})()`);
+check("mechanisms are made only at the green workbench", !await benchHas(a, "true") && await benchHas(a, '"green"'));
+await a(`HC.addItem(HC.B.SEAWEED, 1); 1`);
+check("one seaweed makes two green gems", await craftOut(a, "HC.I.GREEN_GEM") === 1 && await a(`HC.count(HC.I.GREEN_GEM) === 2`));
+const split = await a(`(() => {
+  HC.openBag();
+  const i = HC.inv.findIndex(s => s && s.id === HC.I.GREEN_GEM);
+  document.querySelectorAll("#bag .grid .slot")[i].dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  document.querySelector("#splitBtn").click();
+  document.querySelector("#bag .close").click();
+  return HC.inv.filter(s => s && s.id === HC.I.GREEN_GEM).map(s => s.n);
+})()`);
+check("a stack splits in two halves", JSON.stringify(split) === "[1,1]", split);
 check("hearts do not age", await a(`HC.mobs.length > 0 && HC.mobs.every(m => !("age" in m) && !("life" in m))`));
 await hold(a, "HC.I.SWORD");
 const kill = await a(`(() => {
