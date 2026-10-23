@@ -18,12 +18,13 @@
 Удалённый мир не стирается, а уезжает в <data>/.deleted/. Ещё админ банит логины: забаненный
 не войдёт ни в один мир, пока его не разбанят, и видит причину бана; список - <data>/bans.json. И пишет замечания к игре
 (<data>/notes.json): у новых и изменённых «fixed»: null. Исправленным правкой файла ставится
-версия игры с исправлением, пока сервер остановлен: файл читается только при старте.
+версия игры с исправлением, пока сервер остановлен: файл читается только при старте. К замечанию
+прикрепляются фото: JPEG в <data>/photos/, его отдаёт /photos/<имя> - имя случайное, и знает его только админ.
 
 Сердечек, овец и рыбок считает сервер (Herd - те же правила, что у игры в одиночку): пока в мире
 кто-то есть, мобы ходят, а их снимок раз в MOBS_SEND_EVERY уходит всем игрокам и хранится в
 world.json. Первых мобов расселяет игрок, создавший мир, - присылает их снимок, пока у мира мобов
-нет. Что сделали с мобами игроки - убили, влюбили, вылупили из яйца, - приходит серверу.
+нет. Что сделали с мобами игроки - убили, влюбили, остригли, вылупили из яйца, - приходит серверу.
 
 Игроки передают друг другу вещи: стопка уходит адресату подарком «от игрока», а если адресат
 уже вышел - возвращается отправителю.
@@ -68,25 +69,28 @@ CODE = r"[A-Za-z0-9]{3,32}"
 MAX_WORLD_NAME = 40
 MAX_GIFT = 999
 MAX_NOTE = 2000
+MAX_PHOTO = 2 * 1024 * 1024
+PHOTO = r"\d+-[0-9a-f]{16}\.jpg"
 MAX_BAN_REASON = 200
-MOB_KINDS = {"hearts": 9, "sheep": 4, "fish": 5}
+MOB_KINDS = {"hearts": 9, "sheep": 5, "fish": 5}
 MAX_MOBS = 300
-MOB_ACTS = ("kill", "love", "hatch")
+MOB_ACTS = ("kill", "love", "hatch", "shear")
 # The mobs as the game moves them in the single player game: speeds, gravity, water, love and growing up.
 TICK, MOBS_SEND_EVERY = 0.05, 0.3
 MOB_MAX, FISH_MAX = 80, 100
 MOB_SPEED, MOB_JUMP, SHEEP_SPEED, FISH_SPEED = 2, 9, 1.2, 1.5
-LOVE_TIME, BREED_PAUSE, GROW_TIME = 15, 30, 60
+LOVE_TIME, BREED_PAUSE, GROW_TIME, WOOL_REGROW = 15, 30, 60, 1200
 WHITE_CHANCE, WHITE_PAIR_CHANCE = 0.01, 0.2
 GRAV, MAX_FALL, SWIM, SWIM_FALL, WATER_GRAV = 32, 22, 5, 3, 0.3
 HEART_TONES, FISH_TONES = 4, 5
-HEART_EGG, FISH_EGG = 108, 109
+HEART_EGG, FISH_EGG, SHEEP_EGG = 108, 109, 119
 BEDROCK = 14
-# Blocks a body passes through: air, torch, water, seaweed, ladder, bed; the wet ones are water and seaweed.
-OPEN = {0, 18, 23, 24, 25, 27}
+# Blocks a body passes through: air, torch, water, seaweed, ladder, bed, green torch on any side of its block;
+# the wet ones are water and seaweed.
+OPEN = {0, 18, 23, 24, 25, 27, 48, 49, 50, 51}
 WET = {23, 24}
 # Settings of a new world: how many choices each one has; the game knows what they mean.
-SETTINGS = {"seed": 2 ** 31, "hills": 5, "ocean": 2, "caves": 4, "ores": 3, "trees": 4, "hearts": 4}
+SETTINGS = {"seed": 2 ** 31, "hills": 6, "ocean": 2, "caves": 4, "ores": 3, "trees": 4, "hearts": 4}
 MAX_PLAYERS = 8
 MAX_FRAME = 4 * 1024 * 1024
 MAX_LOGIN = 16
@@ -220,7 +224,9 @@ class Herd:
         self.tiles = tiles
         self.hearts = [self.heart(r[1], r[2], r[4], r[5] == 1, int(r[0]), int(r[8]) % HEART_TONES,
                                   face=-1 if r[3] < 0 else 1, love=r[6], pause=r[7]) for r in rows["hearts"]]
-        self.sheep = [self.lamb(r[1], r[2], int(r[0]), face=-1 if r[3] < 0 else 1) for r in rows["sheep"]]
+        # Sheep of 2.7 and older had no wool to shear: their rows are one number shorter.
+        self.sheep = [self.lamb(r[1], r[2], int(r[0]), face=-1 if r[3] < 0 else 1, shorn=r[4] if len(r) > 4 else 0)
+                      for r in rows["sheep"]]
         self.fish = [self.fishy(r[1], r[2], int(r[0]), int(r[4]) % FISH_TONES, -1 if r[3] < 0 else 1)
                      for r in rows["fish"]]
         self.seq = max([o["id"] + 1 for o in self.hearts + self.sheep + self.fish], default=1)
@@ -235,9 +241,9 @@ class Herd:
                 "ground": False, "face": face, "dir": 0, "think": 0, "love": love, "pause": pause, "grow": grow,
                 "white": white, "tone": random.randrange(HEART_TONES) if tone is None else tone}
 
-    def lamb(self, x, y, mid, face=1):
-        return {"id": mid, "x": x, "y": y, "w": 0.8, "h": 0.6, "vx": 0, "vy": 0, "ground": False, "face": face,
-                "dir": 0, "think": 0}
+    def lamb(self, x, y, mid=None, face=1, shorn=0):
+        return {"id": self.next_id() if mid is None else mid, "x": x, "y": y, "w": 0.8, "h": 0.6, "vx": 0, "vy": 0,
+                "ground": False, "face": face, "dir": 0, "think": 0, "shorn": shorn}
 
     def fishy(self, x, y, mid=None, tone=None, face=None):
         return {"id": self.next_id() if mid is None else mid, "x": x, "y": y, "vy": 0, "think": 0,
@@ -249,7 +255,7 @@ class Herd:
             "hearts": [[m["id"], round(m["x"], 2), round(m["y"], 2), m["face"], round(max(0, m["grow"]), 2),
                         1 if m["white"] else 0, round(max(0, m["love"]), 2), round(m["pause"], 2), m["tone"]]
                        for m in self.hearts],
-            "sheep": [[o["id"], round(o["x"], 2), round(o["y"], 2), o["face"]] for o in self.sheep],
+            "sheep": [[o["id"], round(o["x"], 2), round(o["y"], 2), o["face"], round(o["shorn"], 2)] for o in self.sheep],
             "fish": [[f["id"], round(f["x"], 2), round(f["y"], 2), f["face"], f["tone"]] for f in self.fish],
         }
 
@@ -357,6 +363,7 @@ class Herd:
         self.hearts.append(baby)
 
     def step_sheep(self, o, dt):
+        o["shorn"] = max(0, o["shorn"] - dt)
         o["think"] -= dt
         if o["think"] <= 0:
             o["think"] = 2 + random.random() * 4
@@ -389,8 +396,12 @@ class Herd:
     def act(self, a):
         """Что игрок сделал с мобом; невозможное (моба уже нет, мир полон) молча не происходит."""
         if a["act"] == "kill":
-            for herd in (self.hearts, self.sheep):
+            for herd in (self.hearts, self.sheep, self.fish):
                 herd[:] = [o for o in herd if o["id"] != a.get("id")]
+        elif a["act"] == "shear":
+            o = next((o for o in self.sheep if o["id"] == a.get("id")), None)
+            if o and o["shorn"] <= 0:
+                o["shorn"] = WOOL_REGROW
         elif a["act"] == "love":
             m = next((o for o in self.hearts if o["id"] == a.get("id")), None)
             if m and m["grow"] <= 0 and m["love"] <= 0 and m["pause"] <= 0 and len(self.hearts) < MOB_MAX:
@@ -400,6 +411,8 @@ class Herd:
                 self.hearts.append(self.heart(a["x"] + 0.25, a["y"] + 0.5, 0, False))
             elif a.get("egg") == FISH_EGG and len(self.fish) < FISH_MAX:
                 self.fish.append(self.fishy(a["x"] + 0.5, a["y"] + 0.5))
+            elif a.get("egg") == SHEEP_EGG and len(self.sheep) < MOB_MAX:
+                self.sheep.append(self.lamb(a["x"] + 0.1, a["y"] + 0.39))
 
 
 class Player:
@@ -670,6 +683,7 @@ class Worlds:
         self.rooms = {}
         self.bans_path = data / "bans.json"
         self.notes_path = data / "notes.json"
+        self.photos = data / "photos"
         self.notes = json.loads(self.notes_path.read_text(encoding="utf-8")) if self.notes_path.exists() else []
         bans = json.loads(self.bans_path.read_text(encoding="utf-8")) if self.bans_path.exists() else []
         # Bans of 2.1-2.2 were bare logins, without a reason.
@@ -759,7 +773,28 @@ class Worlds:
             left = [n for n in self.notes if n["id"] != nid]
             if len(left) == len(self.notes):
                 return "Нет такого замечания"
+            for name in next(n for n in self.notes if n["id"] == nid).get("photos", []):
+                (self.photos / name).unlink(missing_ok=True)
             self.notes = left
+            self.write_notes()
+        return None
+
+    def photo(self, nid, b64):
+        """Фото к замечанию: JPEG в base64, игра сама ужимает его перед отправкой."""
+        try:
+            jpeg = base64.b64decode(b64, validate=True) if isinstance(b64, str) else b""
+        except ValueError:
+            jpeg = b""
+        if not jpeg.startswith(b"\xff\xd8\xff") or len(jpeg) > MAX_PHOTO:
+            return "Фото - JPEG до %d МБ" % (MAX_PHOTO // 1024 // 1024)
+        with self.lock:
+            note = next((n for n in self.notes if n["id"] == nid), None)
+            if note is None:
+                return "Нет такого замечания"
+            name = "%d-%s.jpg" % (note["id"], secrets.token_hex(8))
+            self.photos.mkdir(parents=True, exist_ok=True)
+            write(self.photos / name, jpeg)
+            note.setdefault("photos", []).append(name)
             self.write_notes()
         return None
 
@@ -807,9 +842,9 @@ class Worlds:
         write(self.config, "".join("%s %s\n" % (code, room.name) for code, room in self.rooms.items()))
 
 
-def write(path, text):
+def write(path, data):
     tmp = path.with_suffix(".tmp")
-    tmp.write_text(text, encoding="utf-8")
+    tmp.write_bytes(data.encode("utf-8") if isinstance(data, str) else data)
     os.chmod(tmp, 0o600)
     os.replace(tmp, path)
 
@@ -825,15 +860,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/ws":
             self.websocket()
         elif path in ("/", "/index.html"):
-            self.send_page()
+            self.send_body(self.page.read_bytes(), "text/html; charset=utf-8", "no-cache")
+        elif path.startswith("/photos/") and re.fullmatch(PHOTO, path[8:]) and (self.worlds.photos / path[8:]).is_file():
+            self.send_body((self.worlds.photos / path[8:]).read_bytes(), "image/jpeg", "max-age=31536000, immutable")
         else:
             self.send_error(404)
 
-    def send_page(self):
-        body = self.page.read_bytes()
+    def send_body(self, body, kind, cache):
         self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Content-Type", kind)
+        self.send_header("Cache-Control", cache)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -931,6 +967,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 why = self.worlds.note(msg.get("id"), msg.get("text"))
             elif t == "dropnote":
                 why = self.worlds.drop_note(msg.get("id"))
+            elif t == "photo":
+                why = self.worlds.photo(msg.get("id"), msg.get("data"))
             elif t != "state":
                 return
             reply = self.admin_state(why)

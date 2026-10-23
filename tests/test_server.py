@@ -45,7 +45,7 @@ INV = [[1, 5]] + [None] * 34 + [[110, 1, 30]]
 CHEST = [[8, 4]] + [None] * 26
 LOOK = {"c": 3, "h": 2}
 NEW_HERO = {"look": None, "inv": None, "sel": 0, "x": None, "y": None, "bed": None}
-MOBS = {"hearts": [[1, 10.5, 20, 1, 0, 0, 0, 0, 2]], "sheep": [[2, 30, 20.4, -1]], "fish": [[3, 50.5, 70.5, 1, 4]]}
+MOBS = {"hearts": [[1, 10.5, 20, 1, 0, 0, 0, 0, 2]], "sheep": [[2, 30, 20.4, -1, 0]], "fish": [[3, 50.5, 70.5, 1, 4]]}
 SETTINGS = {"seed": 7, "hills": 4, "ocean": 0, "caves": 3, "ores": 2, "trees": 3, "hearts": 1}
 
 
@@ -335,7 +335,7 @@ class ServerTest(unittest.TestCase):
     def test_admin_create_is_checked(self):
         c, _ = self.admin()
         for name, code, settings in [("", "", SETTINGS), ("Мир", "rose", SETTINGS), ("Мир", "ко", SETTINGS),
-                                     ("Мир", "", dict(SETTINGS, hills=5)), ("Мир", "", {"seed": 1})]:
+                                     ("Мир", "", dict(SETTINGS, hills=6)), ("Мир", "", {"seed": 1})]:
             c.send({"t": "create", "name": name, "code": code, "settings": settings})
             state = c.recv()
             self.assertIsNotNone(state["error"], (name, code, settings))
@@ -489,6 +489,34 @@ class ServerTest(unittest.TestCase):
         c.send({"t": "dropnote", "id": 1})
         self.assertIsNotNone(c.recv()["error"])
 
+    def test_admin_attaches_photos_to_notes_and_they_go_with_the_note(self):
+        c, _ = self.admin()
+        c.send({"t": "note", "text": "Вот так"})
+        c.recv()
+        jpeg = b"\xff\xd8\xff\xe0" + bytes(range(256)) * 10
+        c.send({"t": "photo", "id": 1, "data": base64.b64encode(jpeg).decode()})
+        reply = c.recv()
+        self.assertIsNone(reply["error"])
+        [name] = reply["notes"][0]["photos"]
+        self.assertRegex(name, r"^1-[0-9a-f]{16}\.jpg$")
+        url = "http://127.0.0.1:%d/photos/" % self.httpd.server_address[1]
+        with urllib.request.urlopen(url + name) as r:
+            self.assertEqual((r.read(), r.headers["Content-Type"]), (jpeg, "image/jpeg"))
+        too_big = b"\xff\xd8\xff" + bytes(server.MAX_PHOTO)
+        for bad in [{"id": 1, "data": base64.b64encode(b"\x89PNG").decode()}, {"id": 1, "data": "не base64"},
+                    {"id": 1, "data": base64.b64encode(too_big).decode()}, {"id": 1, "data": 5},
+                    {"id": 9, "data": base64.b64encode(jpeg).decode()}]:
+            c.send(dict({"t": "photo"}, **bad))
+            self.assertIsNotNone(c.recv()["error"], bad["id"])
+        for missing in ("1-0123456789abcdef.jpg", "../notes.json", "x.jpg"):
+            with self.assertRaises(urllib.error.HTTPError):
+                urllib.request.urlopen(url + missing)
+        c.send({"t": "note", "id": 1, "text": "Вот так и так"})
+        self.assertEqual(c.recv()["notes"][0]["photos"], [name])
+        c.send({"t": "dropnote", "id": 1})
+        c.recv()
+        self.assertFalse((self.data / "photos" / name).exists())
+
 
     def mobs(self, c):
         while True:
@@ -565,6 +593,27 @@ class ServerTest(unittest.TestCase):
         self.assertEqual([m[0] for m in mobs["hearts"][1:]], [4])
         self.assertEqual([[f[0], f[1], f[2]] for f in mobs["fish"][1:]], [[5, 45.5, 70.5]])
 
+    def test_sheep_are_shorn_and_hatched_and_fish_killed(self):
+        a, _ = self.join("Аня")
+        b, _ = self.join("Боря")
+        a.send(WORLD)
+        a.send({"t": "mobs", **MOBS})
+        self.synced(a, b)
+        b.send({"t": "mobact", "act": "shear", "id": 2})
+        b.send({"t": "mobact", "act": "kill", "id": 3})
+        self.synced(b, a)
+        self.run_mobs(10)
+        b.send({"t": "mobact", "act": "shear", "id": 2})
+        b.send({"t": "mobact", "act": "hatch", "egg": 119, "x": 30, "y": 95})
+        self.synced(b, a)
+        self.run_mobs(0)
+        mobs = self.mobs(a)
+        self.assertEqual([(o[0], o[4]) for o in mobs["sheep"]], [(2, server.WOOL_REGROW - 10), (4, 0)])
+        self.assertEqual(mobs["sheep"][1][1:3], [30.1, 95.39])
+        self.assertEqual(mobs["fish"], [])
+        herd = server.Herd(GROUND, {"hearts": [], "sheep": [[2, 30, 20.4, -1]], "fish": []})
+        self.assertEqual(herd.rows()["sheep"], [[2, 30, 20.4, -1, 0]])
+
     def test_a_broken_block_lets_a_mob_fall(self):
         a, _ = self.join("Аня")
         b, _ = self.join("Боря")
@@ -589,7 +638,8 @@ class ServerTest(unittest.TestCase):
 
     def test_bad_mobs_drop_the_sender(self):
         for bad in [{"t": "mobs", **MOBS, "fish": [[1, 2]]}, {"t": "mobs", "hearts": []},
-                    {"t": "mobs", **MOBS, "sheep": [[1, 2, 3, "x"]]}, {"t": "mobact", "act": "eat", "id": 1},
+                    {"t": "mobs", **MOBS, "sheep": [[1, 2, 3, 4, "x"]]}, {"t": "mobs", **MOBS, "sheep": [[1, 2, 3, 4]]},
+                    {"t": "mobact", "act": "eat", "id": 1},
                     {"t": "mobact", "act": "kill", "id": "1"}, dict(WORLD, tiles="AAE="),
                     dict(WORLD, tiles="не base64")]:
             c, _ = self.join("Аня")

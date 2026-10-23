@@ -116,6 +116,7 @@
   #meter { background: var(--plate); border: 3px solid var(--edge); border-radius: 12px; padding: 4px 14px;
     font-size: 17px; }
   .news ul { margin: 4px 0 10px; padding-left: 22px; }
+  .photos img { height: 72px; border: 2px solid var(--edge); border-radius: 8px; margin: 4px 6px 0 0; }
   .looks { display: flex; gap: 8px; flex-wrap: wrap; }
   .looks button { width: 48px; height: 48px; padding: 0; border: 3px solid #ffb0d4; border-radius: 10px;
     background: var(--soft); font-size: 24px; }
@@ -270,6 +271,23 @@
   <div class="box">
     <h2>Что нового</h2>
     <div class="news">
+      <h3>Версия 2.8</h3>
+      <ul>
+        <li>Новые механизмы у зелёного верстака:
+          <b>зелёный факел</b> (палка и зелёный кристалл) — вешается на блок и включён, пока этот блок выключен;
+          <b>наблюдатель</b> (стекло, 2 зелёных кристалла, 6 булыжника) — включён, пока его глаз касается блока,
+          и передаёт это с противоположной стороны;
+          <b>блок «И»</b> (3 зелёных кристалла, 6 булыжника) — включён, если включены все его входы, которые касаются
+          блоков; <b>блок «ИЛИ»</b> (2 зелёных кристалла, 7 булыжника) — если включён хотя бы один вход.
+          У блоков «И» и «ИЛИ» три входа и выход со стрелкой.</li>
+        <li><b>Ножницы</b> — 2 железных слитка у верстака: стригут овцу на 1–2 шерсти, овца остаётся жить,
+          а шерсть отрастает 20 минут.</li>
+        <li><b>Яйцо призыва овцы</b> — его пока можно только получить в подарок или в режиме тестирования.</li>
+        <li>Мечом можно убить <b>рыбку</b>.</li>
+        <li>Из листвы иногда выпадает <b>зелёный кристалл</b>.</li>
+        <li>Новый рельеф мира — <b>плоский мир</b>.</li>
+        <li>Админ прикрепляет к замечаниям <b>фото</b>.</li>
+      </ul>
       <h3>Версия 2.7</h3>
       <ul>
         <li><b>Липкий поршень</b> — 6 булыжника, 3 доски и 5 зелёных кристаллов у зелёного верстака. Толкает
@@ -449,10 +467,11 @@
     <div id="tab-notes" hidden>
       <h3>📝 Замечания к игре</h3>
       <div class="hint">Что поправить или добавить в игру. У исправленных — ✅ и версия игры с исправлением;
-        изменённое замечание снова становится новым.</div>
+        изменённое замечание снова становится новым. 📷 прикрепляет к замечанию фото.</div>
       <textarea class="field" id="noteText" rows="3" maxlength="2000" style="width:100%;box-sizing:border-box"></textarea>
       <div class="row"><button class="btn" id="noteAdd">➕ Добавить замечание</button></div>
       <ul class="news" id="notes"></ul>
+      <input type="file" id="notePhoto" accept="image/*" hidden>
     </div>
     <div class="row end"><button class="btn" id="adminExit">🚪 Выйти</button></div>
   </div>
@@ -501,7 +520,8 @@
         лучшая кирка из рюкзака работает сама и понемногу стирается. Чёрный камень на краях мира не пробить.</p>
       <p><b>День и ночь</b> сменяют друг друга: розовый день, фиолетовая ночь. Под землёй темно — ставь факелы.
         «Всегда день» и звук — в ⚙️ Настройках этого меню.</p>
-      <p><b>Овцы</b> бродят по траве: меч в руке и нажатие на овцу дают шерсть. <b>Кровать</b> из досок и шерсти —
+      <p><b>Овцы</b> бродят по траве: меч в руке и нажатие на овцу дают шерсть, ножницы — стригут овцу, и через
+        20 минут шерсть отрастает. <b>Кровать</b> из досок и шерсти —
         нажми на неё, и кнопка с кроватью вверху экрана будет переносить тебя к ней.</p>
       <p><b>Сердечки</b> бродят по миру. Выбери в поясе розовый блок и нажми на сердечко — оно влюбится.
         Два влюблённых сердечка найдут друг друга, и родится малыш. Изредка малыш рождается белым,
@@ -533,9 +553,9 @@ const WHITE_CHANCE = 0.01, WHITE_PAIR_CHANCE = 0.2;
 const SWIM = 5, SWIM_FALL = 3, WATER_GRAV = 0.3, CLIMB = 4, LADDER_SLIDE = 1.5;
 const FISH_COUNT = 30, FISH_MAX = 100, FISH_SPEED = 1.5;
 const SEAWEED_GROW = 600, SEAWEED_MAX = 5;
-const SHEEP_COUNT = 15, SHEEP_SPEED = 1.2;
+const SHEEP_COUNT = 15, SHEEP_SPEED = 1.2, WOOL_REGROW = 1200;
 const CHEST_SLOTS = 27;
-const VERSION = "2.7";
+const VERSION = "2.8";
 // A button stays pressed this long; the circuit is worked out at most this often; music is heard this far.
 const BUTTON_TIME = 1, CIRCUIT_STEP = 0.1, MUSIC_RANGE = 10;
 
@@ -543,10 +563,10 @@ const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, COBBLE: 4, SAND: 5, LOG: 6, LEA
   COAL_ORE: 9, IRON_ORE: 10, GOLD_ORE: 11, DIAMOND_ORE: 12, PINK_ORE: 13, BEDROCK: 14, WORKBENCH: 15,
   BRICK: 16, GLASS: 17, TORCH: 18, PINK: 19, GOLD_BLOCK: 20, CHEST: 21, TRASH: 22, WATER: 23, SEAWEED: 24, LADDER: 25,
   WOOL: 26, BED: 27, GREEN_BENCH: 28, ELECTRIC: 29, LEVER: 30, LEVER_ON: 31, BUTTON: 32, BUTTON_ON: 33, LAMP: 34,
-  MUSIC: 35, WIRE: 36, PISTON: 40, STICKY: 44 };
+  MUSIC: 35, WIRE: 36, PISTON: 40, STICKY: 44, GREEN_TORCH: 48, OBSERVER: 52, AND: 56, OR: 60 };
 const I = { STICK: 100, COAL: 101, RAW_IRON: 102, IRON: 103, GOLD: 104, DIAMOND: 105, PINK_GEM: 106,
   HEART_METER: 107, HEART_EGG: 108, FISH_EGG: 109, PICK_WOOD: 110, PICK_STONE: 111, PICK_IRON: 112, PICK_DIAMOND: 113,
-  SWORD: 114, BUCKET: 115, WATER_BUCKET: 116, GOLD_INGOT: 117, GREEN_GEM: 118 };
+  SWORD: 114, BUCKET: 115, WATER_BUCKET: 116, GOLD_INGOT: 117, GREEN_GEM: 118, SHEEP_EGG: 119, SHEARS: 120 };
 
 const BLOCKS = {
   [B.GRASS]: { name: "Трава", hard: 0.5, tier: 0, drop: B.DIRT },
@@ -587,10 +607,14 @@ const BLOCKS = {
   [B.WIRE]: { name: "Проводник", hard: 0.5, tier: 0 },
   [B.PISTON]: { name: "Поршень", hard: 1.5, tier: 0 },
   [B.STICKY]: { name: "Липкий поршень", hard: 1.5, tier: 0 },
+  [B.GREEN_TORCH]: { name: "Зелёный факел", hard: 0.05, tier: 0, solid: false },
+  [B.OBSERVER]: { name: "Наблюдатель", hard: 1.5, tier: 0 },
+  [B.AND]: { name: "Блок «И»", hard: 1.5, tier: 0 },
+  [B.OR]: { name: "Блок «ИЛИ»", hard: 1.5, tier: 0 },
 };
-// A lever or a button that is on, a wire or a piston turned away from the right: the state lives in the block id,
-// so the server keeps and shares it as any other block.
-for (const base of [B.WIRE, B.PISTON, B.STICKY]) {
+// A lever or a button that is on, a wire, a piston or a gate turned away from the right, a green torch on another side
+// of its block: the state lives in the block id, so the server keeps and shares it as any other block.
+for (const base of [B.WIRE, B.PISTON, B.STICKY, B.GREEN_TORCH, B.OBSERVER, B.AND, B.OR]) {
   for (let d = 1; d < 4; d++) {
     BLOCKS[base + d] = { ...BLOCKS[base], of: base };
   }
@@ -607,6 +631,7 @@ const ITEMS = {
   [I.HEART_METER]: { name: "Сердцеметр" },
   [I.HEART_EGG]: { name: "Яйцо призыва сердечка" },
   [I.FISH_EGG]: { name: "Яйцо призыва рыбки" },
+  [I.SHEEP_EGG]: { name: "Яйцо призыва овцы" },
   [I.PICK_WOOD]: { name: "Деревянная кирка", pick: { tier: 1, speed: 2 }, dur: 60 },
   [I.PICK_STONE]: { name: "Каменная кирка", pick: { tier: 2, speed: 3 }, dur: 130 },
   [I.PICK_IRON]: { name: "Железная кирка", pick: { tier: 3, speed: 4.5 }, dur: 250 },
@@ -614,6 +639,7 @@ const ITEMS = {
   [I.SWORD]: { name: "Меч", dur: 150 },
   [I.BUCKET]: { name: "Ведро", single: true },
   [I.WATER_BUCKET]: { name: "Ведро воды", single: true },
+  [I.SHEARS]: { name: "Ножницы", single: true },
   [I.GREEN_GEM]: { name: "Зелёный кристалл" },
 };
 const HAND = { tier: 0, speed: 1 };
@@ -642,6 +668,7 @@ const RECIPES = [
   { out: I.SWORD, n: 1, need: [[I.STICK, 1], [I.IRON, 2]] },
   { out: I.BUCKET, n: 1, need: [[I.IRON, 3]] },
   { out: B.BED, n: 1, need: [[B.PLANKS, 3], [B.WOOL, 3]] },
+  { out: I.SHEARS, n: 1, need: [[I.IRON, 2]] },
   { out: I.GREEN_GEM, n: 2, need: [[B.SEAWEED, 1]], any: true },
   { out: B.GREEN_BENCH, n: 1, need: [[I.GREEN_GEM, 4]], any: true },
   { out: B.ELECTRIC, n: 1, need: [[I.GREEN_GEM, 9]], green: true },
@@ -652,6 +679,10 @@ const RECIPES = [
   { out: B.MUSIC, n: 1, need: [[B.PLANKS, 8], [I.GREEN_GEM, 1]], green: true },
   { out: B.LAMP, n: 1, need: [[B.PLANKS, 3], [B.GLASS, 5], [I.GREEN_GEM, 1]], green: true },
   { out: B.STICKY, n: 1, need: [[B.COBBLE, 6], [B.PLANKS, 3], [I.GREEN_GEM, 5]], green: true },
+  { out: B.GREEN_TORCH, n: 1, need: [[I.STICK, 1], [I.GREEN_GEM, 1]], green: true },
+  { out: B.OBSERVER, n: 1, need: [[B.GLASS, 1], [I.GREEN_GEM, 2], [B.COBBLE, 6]], green: true },
+  { out: B.AND, n: 1, need: [[I.GREEN_GEM, 3], [B.COBBLE, 6]], green: true },
+  { out: B.OR, n: 1, need: [[I.GREEN_GEM, 2], [B.COBBLE, 7]], green: true },
 ];
 
 const isBlock = id => id in BLOCKS;
@@ -753,7 +784,7 @@ const Sound = (() => {
 
   const SOFT = new Set([B.GRASS, B.DIRT, B.SAND, B.LEAVES, B.SEAWEED, B.WOOL]);
   const WOOD = new Set([B.LOG, B.PLANKS, B.WORKBENCH, B.TORCH, B.CHEST, B.TRASH, B.LADDER, B.BED, B.GREEN_BENCH,
-    B.BUTTON, B.MUSIC, B.WIRE]);
+    B.BUTTON, B.MUSIC, B.WIRE, B.GREEN_TORCH]);
   const matOf = id => (SOFT.has(id) ? "soft" : WOOD.has(baseOf(id)) ? "wood" : id === B.GLASS ? "glass" : "stone");
 
   // Background loop: 8 chords, arpeggio patterns and a phrase on top; the surface and the depths
@@ -988,7 +1019,8 @@ function noise2(x, y, s) {
 const OCEAN_W = 120, OCEAN_GAP = 90;
 // World settings are indices into these lists; the middle choices are the generator as it always was.
 const WORLD_OPTS = {
-  hills: { name: "Рельеф", values: [0.15, 0.5, 1, 1.5, 2.2], labels: ["Равнина", "Пологие холмы", "Обычные холмы", "Крутые холмы", "Горы"] },
+  hills: { name: "Рельеф", values: [0.15, 0.5, 1, 1.5, 2.2, 0],
+    labels: ["Равнина", "Пологие холмы", "Обычные холмы", "Крутые холмы", "Горы", "Плоский мир"] },
   ocean: { name: "Океан", values: [false, true], labels: ["Без океана", "С океаном"] },
   caves: { name: "Пещеры", values: [2, 0.76, 0.7, 0.62], labels: ["Без пещер", "Мало пещер", "Обычные пещеры", "Много пещер"] },
   ores: { name: "Руды", values: [0.5, 1, 2], labels: ["Мало руды", "Обычно руды", "Много руды"] },
@@ -1003,7 +1035,7 @@ function terrain(seed, withOcean, hills = DEFAULT_OPTS.hills) {
   const s = new Int16Array(W);
   const k = WORLD_OPTS.hills.values[hills];
   for (let x = 0; x < W; x++) {
-    const h = 62 + noise1(x / 90, seed) * 40 * k + noise1(x / 24, seed + 1) * 12 * k + noise1(x / 7, seed + 2) * 3;
+    const h = k ? 62 + noise1(x / 90, seed) * 40 * k + noise1(x / 24, seed + 1) * 12 * k + noise1(x / 7, seed + 2) * 3 : 62;
     s[x] = Math.max(4, Math.min(170, Math.round(h)));
   }
   if (!withOcean) {
@@ -1223,8 +1255,9 @@ function spawnMobs() {
 const FISH_COLORS = ["#ffb300", "#4fc3f7", "#ff7043", "#ba68c8", "#ffee58"];
 const makeFish = (x, y, id = mobSeq++, tone = Math.floor(Math.random() * FISH_COLORS.length)) => ({ kind: "fish", id,
   x, y, face: Math.random() < 0.5 ? -1 : 1, vy: 0, think: 0, phase: Math.random() * 6, tone, color: FISH_COLORS[tone] });
-const makeSheep = (x, y, id = mobSeq++) => ({ kind: "sheep", id, x, y, w: 0.8, h: 0.6, vx: 0, vy: 0, onGround: false,
-  face: 1, dir: 0, think: 0, phase: Math.random() * 4 });
+// A shorn sheep counts down the seconds until its wool grows back.
+const makeSheep = (x, y, id = mobSeq++, shorn = 0) => ({ kind: "sheep", id, x, y, w: 0.8, h: 0.6, vx: 0, vy: 0,
+  onGround: false, face: 1, dir: 0, think: 0, phase: Math.random() * 4, shorn });
 function spawnSheep() {
   sheep = [];
   for (let tries = 0; sheep.length < SHEEP_COUNT && tries < SHEEP_COUNT * 20; tries++) {
@@ -1383,7 +1416,8 @@ function breakTime(id) {
 }
 function dropOf(id) {
   if (id === B.LEAVES) {
-    return Math.random() < 0.15 ? I.STICK : null;
+    const r = Math.random();
+    return r < 0.07 ? I.GREEN_GEM : r < 0.22 ? I.STICK : null;
   }
   const d = BLOCKS[id];
   return "drop" in d ? d.drop : baseOf(id);
@@ -1455,7 +1489,7 @@ const USE = {
   [B.BUTTON]: (x, y) => switchTo(x, y, B.BUTTON_ON),
 };
 for (let d = 0; d < 4; d++) {
-  USE[B.WIRE + d] = USE[B.PISTON + d] = USE[B.STICKY + d] = turnBlock;
+  USE[B.WIRE + d] = USE[B.PISTON + d] = USE[B.STICKY + d] = USE[B.OBSERVER + d] = USE[B.AND + d] = USE[B.OR + d] = turnBlock;
 }
 function setBed(x, y) {
   bed = { x, y };
@@ -1499,7 +1533,7 @@ function usePlace(x, y) {
   if (!isEmpty(here) || here === (slot && slot.id) || y < 0 || !slot) {
     return;
   }
-  if (slot.id === I.HEART_EGG || slot.id === I.FISH_EGG) {
+  if (slot.id === I.HEART_EGG || slot.id === I.FISH_EGG || slot.id === I.SHEEP_EGG) {
     if (hatch(slot.id, x, y, here)) {
       use1(slot);
     }
@@ -1518,7 +1552,13 @@ function usePlace(x, y) {
   if (solidId(slot.id) && [P, ...mobs, ...peers.values()].some(e => overlaps(e, x, y))) {
     return;
   }
-  setTile(x, y, slot.id + (turns(slot.id) ? facing(x, y) : 0));
+  const side = slot.id === B.GREEN_TORCH ? hangSide(x, y) : 0;
+  if (side < 0) {
+    toast("Зелёный факел вешается только на блок рядом");
+    Sound.nope();
+    return;
+  }
+  setTile(x, y, slot.id + (turns(slot.id) ? facing(x, y) : side));
   netTile(x, y);
   Sound.place(slot.id);
   if (slot.id === B.PINK && !masterSeen) {
@@ -1556,6 +1596,8 @@ function use1(slot) {
 function hatchAt(egg, x, y) {
   if (egg === I.FISH_EGG) {
     fish.push(makeFish(x + 0.5, y + 0.5));
+  } else if (egg === I.SHEEP_EGG) {
+    sheep.push(makeSheep(x + 0.1, y + 0.39));
   } else {
     mobs.push(makeMob(x + 0.25, y + 0.5, 0, false));
   }
@@ -1567,13 +1609,16 @@ function hatch(egg, x, y, here) {
     toast("Рыбок в воде уже очень много");
   } else if (egg === I.HEART_EGG && mobs.length >= MOB_MAX) {
     toast("Сердечек в мире уже очень много");
+  } else if (egg === I.SHEEP_EGG && sheep.length >= MOB_MAX) {
+    toast("Овец в мире уже очень много");
   } else {
     if (SOLO) {
       hatchAt(egg, x, y);
     } else {
       netSend({ t: "mobact", act: "hatch", egg, x, y });
     }
-    floats.push({ text: egg === I.FISH_EGG ? "Появилась рыбка! 🐟" : "Появилось сердечко! 💖", x: x + 0.5, y, t: 0 });
+    floats.push({ text: { [I.FISH_EGG]: "Появилась рыбка! 🐟", [I.SHEEP_EGG]: "Появилась овца! 🐑" }[egg] || "Появилось сердечко! 💖",
+      x: x + 0.5, y, t: 0 });
     Sound.craft();
     return true;
   }
@@ -1804,17 +1849,22 @@ function growSeaweed(dt) {
 
 // ---------- mechanisms ----------
 
-// Directions: 0 right, 1 down, 2 left, 3 up; a wire or a piston is placed facing away from the hero
-// and turns a quarter clockwise when pressed.
+// Directions: 0 right, 1 down, 2 left, 3 up; a wire, a piston or a gate is placed facing away from the hero
+// and turns a quarter clockwise when pressed; a green torch keeps the side of the block it hangs on.
 const DX = [1, 0, -1, 0], DY = [0, 1, 0, -1];
 const isWire = id => id >= B.WIRE && id < B.WIRE + 4;
 const isSticky = id => id >= B.STICKY && id < B.STICKY + 4;
 const isPiston = id => (id >= B.PISTON && id < B.PISTON + 4) || isSticky(id);
-const turns = id => isWire(id) || isPiston(id);
+const isGreenTorch = id => id >= B.GREEN_TORCH && id < B.GREEN_TORCH + 4;
+const isObserver = id => id >= B.OBSERVER && id < B.OBSERVER + 4;
+const isGate = id => id >= B.AND && id < B.OR + 4;
+const isLogic = id => isGreenTorch(id) || isObserver(id) || isGate(id);
+const turns = id => isWire(id) || isPiston(id) || isObserver(id) || isGate(id);
 const dirOf = id => id - baseOf(id);
 const SOURCES = new Set([B.ELECTRIC, B.LEVER_ON, B.BUTTON_ON]);
 const FIXED = new Set([B.BEDROCK, B.WATER, B.SEAWEED, B.CHEST, B.BED]);
-// Wires that are on and lamps, music blocks and pistons that touch something on.
+// Wires that are on, lamps, music blocks and pistons that touch something on, and green torches, observers and gates
+// that are on.
 let powered = new Set();
 let circuitWorld = null, circuitDirty = true, circuitT = 0, clock = 0;
 // When each pressed button was first seen pressed: whoever runs the circuit lets it go BUTTON_TIME later.
@@ -1823,6 +1873,11 @@ const pressedAt = new Map();
 function facing(x, y) {
   const dx = x + 0.5 - (P.x + P.w / 2), dy = y + 0.5 - (P.y + P.h / 2);
   return Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 0 : 2) : (dy > 0 ? 1 : 3);
+}
+// A green torch hangs on the block below it, else on the one behind it as the hero sees it, else on any block nearby.
+function hangSide(x, y) {
+  const f = facing(x, y);
+  return [1, f, (f + 2) % 4, 0, 2, 3].find(d => !isEmpty(get(x + DX[d], y + DY[d]))) ?? -1;
 }
 function turnBlock(x, y) {
   const id = get(x, y);
@@ -1835,15 +1890,51 @@ function switchTo(x, y, id) {
   netTile(x, y);
   Sound.click();
 }
-// A source is on toward every side, a wire that is on toward every side but its back.
+// A source is on toward every side; when on, a wire is on toward every side but its back, a green torch toward every
+// side but its block, an observer toward its back (it looks ahead), a gate toward its front (its inputs are the rest).
 function emits(i, d, on) {
   const id = world[i];
-  return SOURCES.has(id) || (isWire(id) && on.has(i) && d !== (dirOf(id) + 2) % 4);
+  if (SOURCES.has(id)) {
+    return true;
+  }
+  const k = dirOf(id);
+  return on.has(i) && ((isWire(id) && d !== (k + 2) % 4) || (isGreenTorch(id) && d !== k) ||
+    (isObserver(id) && d === (k + 2) % 4) || (isGate(id) && d === k));
+}
+// Whether the neighbor of cell i on side d is on toward i.
+function fedFrom(i, d, on) {
+  const x = i % W, y = (i - x) / W, nx = x + DX[d], ny = y + DY[d];
+  return inWorld(nx, ny) && emits(ny * W + nx, (d + 2) % 4, on);
+}
+// A green torch is on while its block is not: neither on itself nor fed by a neighbor. An observer is on while its eye
+// touches a block. AND is on when every input that touches a block is fed, OR when any input is fed.
+function logicOn(i, on) {
+  const id = world[i], k = dirOf(id), x = i % W, y = (i - x) / W;
+  const near = d => get(x + DX[d], y + DY[d]);
+  if (isGreenTorch(id)) {
+    const a = (y + DY[k]) * W + x + DX[k];
+    return !inWorld(x + DX[k], y + DY[k]) || !(SOURCES.has(world[a]) || on.has(a) || [0, 1, 2, 3].some(d => fedFrom(a, d, on)));
+  }
+  if (isObserver(id)) {
+    return !isEmpty(near(k));
+  }
+  const inputs = [0, 1, 2, 3].filter(d => d !== k);
+  if (baseOf(id) === B.OR) {
+    return inputs.some(d => fedFrom(i, d, on));
+  }
+  const touching = inputs.filter(d => !isEmpty(near(d)));
+  return touching.length > 0 && touching.every(d => fedFrom(i, d, on));
 }
 // A wire takes power only through its back, so the power spreads from the sources and never feeds itself in a loop.
-function powerUp() {
+// Green torches, observers and gates send on what they worked out the step before and then look again: a loop through
+// a green torch blinks instead of hanging. Returns the cells that are on and whether any of them changed its mind.
+function powerUp(was) {
   const on = new Set(), q = [];
   for (let i = 0; i < world.length; i++) {
+    if (isLogic(world[i]) && was.has(i)) {
+      on.add(i);
+      q.push(i);
+    }
     if (SOURCES.has(world[i])) {
       q.push(i);
       if (world[i] === B.BUTTON_ON && !pressedAt.has(i)) {
@@ -1866,6 +1957,21 @@ function powerUp() {
         on.add(n);
       }
     }
+  }
+  const flips = [];
+  for (let i = 0; i < world.length; i++) {
+    if (isLogic(world[i]) && logicOn(i, on) !== on.has(i)) {
+      flips.push(i);
+    }
+  }
+  flips.forEach(i => (on.has(i) ? on.delete(i) : on.add(i)));
+  return [on, flips.length > 0];
+}
+// A world just loaded starts as if its circuit had been running: green torches and gates settle without moving pistons.
+function settle() {
+  let on = new Set(), busy = true;
+  for (let k = 0; k < 64 && busy; k++) {
+    [on, busy] = powerUp(on);
   }
   return on;
 }
@@ -1896,7 +2002,7 @@ function circuitTick(dt) {
   if (world !== circuitWorld) {
     circuitWorld = world;
     pressedAt.clear();
-    powered = powerUp();
+    powered = settle();
     circuitDirty = false;
     return;
   }
@@ -1913,9 +2019,8 @@ function circuitTick(dt) {
   }
   if (circuitDirty && circuitT >= CIRCUIT_STEP) {
     circuitT = 0;
-    circuitDirty = false;
     const was = powered;
-    powered = powerUp();
+    [powered, circuitDirty] = powerUp(was);
     if (lead) {
       [...powered].filter(i => isPiston(world[i]) && !was.has(i)).forEach(i => push(i, false));
       [...was].filter(i => isSticky(world[i]) && !powered.has(i)).forEach(i => push(i, true));
@@ -1934,6 +2039,7 @@ function circuitTick(dt) {
 // ---------- sheep ----------
 
 function updateSheep(o, dt) {
+  o.shorn = Math.max(0, o.shorn - dt);
   o.think -= dt;
   if (o.think <= 0) {
     o.think = 2 + Math.random() * 4;
@@ -1957,7 +2063,7 @@ function encodeMobs() {
   return {
     hearts: mobs.map(m => [m.id, round2(m.x), round2(m.y), m.face, round2(Math.max(0, m.grow)), m.white ? 1 : 0,
       round2(Math.max(0, m.love)), round2(m.pause), m.tone]),
-    sheep: sheep.map(o => [o.id, round2(o.x), round2(o.y), o.face]),
+    sheep: sheep.map(o => [o.id, round2(o.x), round2(o.y), o.face, round2(o.shorn)]),
     fish: fish.map(f => [f.id, round2(f.x), round2(f.y), f.face, f.tone]),
   };
 }
@@ -1991,7 +2097,7 @@ function applyMobs(d, jump) {
     m.tone = HEART_TONES[row[8]] ? row[8] : 0;
     m.body = m.white ? "#ffffff" : HEART_TONES[m.tone];
   });
-  const flock = merge(sheep, d.sheep, 4, row => makeSheep(row[1], row[2], row[0]), () => {});
+  const flock = merge(sheep, d.sheep, 5, row => makeSheep(row[1], row[2], row[0]), (o, row) => (o.shorn = row[4]));
   const school = merge(fish, d.fish, 5, row => makeFish(row[1], row[2], row[0], 0), (f, row) => {
     f.tone = FISH_COLORS[row[4]] ? row[4] : 0;
     f.color = FISH_COLORS[f.tone];
@@ -2011,7 +2117,7 @@ function followMobs(dt) {
   }
 }
 function removeMob(m) {
-  const list = m.kind === "sheep" ? sheep : mobs;
+  const list = { heart: mobs, sheep, fish }[m.kind];
   if (list.includes(m)) {
     list.splice(list.indexOf(m), 1);
   }
@@ -2073,30 +2179,61 @@ function breed(a, b) {
   floats.push({ text: baby.white ? "Родилось белое сердечко! 🤍" : "Родился малыш! 💕", x: baby.x, y: baby.y, t: 0 });
   Sound.craft();
 }
+// A fish has no body of its own: its place is the middle of a small box.
+const boxOf = m => (m.kind === "fish" ? { x: m.x - 0.3, y: m.y - 0.2, w: 0.6, h: 0.4 } : m);
 function mobAt(wx, wy, list = mobs) {
-  return list.find(m => wx > m.x - 0.2 && wx < m.x + m.w + 0.2 && wy > m.y - 0.2 && wy < m.y + m.h + 0.2);
+  return list.find(o => {
+    const m = boxOf(o);
+    return wx > m.x - 0.2 && wx < m.x + m.w + 0.2 && wy > m.y - 0.2 && wy < m.y + m.h + 0.2;
+  });
 }
-function strike(m) {
+function strike(o) {
+  const m = boxOf(o);
   if (!inReach(Math.floor(m.x + m.w / 2), Math.floor(m.y + m.h / 2))) {
     toast("Слишком далеко");
     Sound.nope();
     return;
   }
-  removeMob(m);
+  removeMob(o);
   if (!SOLO) {
-    netSend({ t: "mobact", act: "kill", id: m.id });
+    netSend({ t: "mobact", act: "kill", id: o.id });
   }
-  if (m.kind === "sheep") {
+  if (o.kind === "sheep" && !o.shorn) {
     if (addItem(B.WOOL, 1)) {
       toast("Рюкзак полон — шерсть пропала");
     } else {
       floats.push({ text: "+1 Шерсть", x: m.x + m.w / 2, y: m.y, t: 0 });
     }
-  } else {
+  } else if (o.kind !== "sheep") {
     floats.push({ text: "💔", x: m.x + m.w / 2, y: m.y, t: 0 });
   }
   Sound.slash();
   wear(inv[sel]);
+}
+// Shears take 1-2 wool and leave the sheep alive; the wool grows back in WOOL_REGROW seconds.
+function shear(o) {
+  if (!inReach(Math.floor(o.x + o.w / 2), Math.floor(o.y + o.h / 2))) {
+    toast("Слишком далеко");
+    Sound.nope();
+    return;
+  }
+  if (o.shorn > 0) {
+    toast(`Шерсть ещё отрастает — подожди ${Math.ceil(o.shorn / 60)} мин`);
+    Sound.nope();
+    return;
+  }
+  o.shorn = WOOL_REGROW;
+  if (!SOLO) {
+    netSend({ t: "mobact", act: "shear", id: o.id });
+  }
+  const n = 1 + Math.floor(Math.random() * 2), lost = addItem(B.WOOL, n);
+  if (lost) {
+    toast("Рюкзак полон — шерсть пропала");
+  }
+  if (lost < n) {
+    floats.push({ text: `+${n - lost} Шерсть`, x: o.x + o.w / 2, y: o.y, t: 0 });
+  }
+  Sound.slash();
 }
 function feed(m) {
   if (!inReach(Math.floor(m.x + m.w / 2), Math.floor(m.y + m.h / 2))) {
@@ -2470,6 +2607,25 @@ const tex = {
   }),
   [I.HEART_EGG]: egg("#ffd6ea", "#ff4f9a"),
   [I.FISH_EGG]: egg("#bfe6ff", "#ff8a00"),
+  [I.SHEEP_EGG]: egg("#f7f3f5", "#5b4b52"),
+  [I.SHEARS]: mkTex(g => {
+    g.lineCap = "round";
+    g.strokeStyle = "#d8dce2";
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(3, 3);
+    g.lineTo(10, 10);
+    g.moveTo(13, 3);
+    g.lineTo(6, 10);
+    g.stroke();
+    g.strokeStyle = "#ff5f9e";
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.arc(4.5, 12, 2.2, 0, Math.PI * 2);
+    g.moveTo(13.7, 12);
+    g.arc(11.5, 12, 2.2, 0, Math.PI * 2);
+    g.stroke();
+  }),
   [I.PICK_WOOD]: pick("#c8955a", "#7a4e25"),
   [I.PICK_STONE]: pick("#a0a0a4", "#5c5c61"),
   [I.PICK_IRON]: pick("#e6e9ee", "#80858c"),
@@ -2641,8 +2797,62 @@ for (const [base, draw] of [[B.WIRE, wire], [B.PISTON, piston], [B.STICKY, on =>
     texOn[base + d] = turn(on, d);
   }
 }
+// A green torch is drawn hanging on the block below it, an observer looking right, a gate sending up; their letters
+// stay upright when the gate turns, and the backpack shows the torch standing and the gates as drawn in the notebook.
+function greenTorch(on) {
+  return mkTex(g => {
+    g.fillStyle = "#7a5230";
+    g.fillRect(7, 6, 2, 10);
+    g.fillStyle = on ? "#2f8a45" : "#1d4a28";
+    g.fillRect(6, 3, 4, 4);
+    g.fillStyle = on ? GREEN_ON : "#2a6a3a";
+    g.fillRect(7, 2, 2, 4);
+  });
+}
+function observer(on) {
+  return mkTex((g, r) => {
+    speck(g, r, STONE_PAL);
+    frame(g, "#5c5c61");
+    g.fillStyle = "#2a2e36";
+    g.fillRect(11, 1, 4, 14);
+    g.fillStyle = "#fff";
+    g.fillRect(12, 3, 2, 3);
+    g.fillRect(12, 10, 2, 3);
+    g.fillStyle = "#1a0a14";
+    g.fillRect(13, 4, 1, 1);
+    g.fillRect(13, 11, 1, 1);
+    g.fillRect(14, 7, 1, 2);
+    g.fillStyle = on ? GREEN_ON : GREEN_OFF;
+    g.fillRect(1, 6, 3, 4);
+  });
+}
+function gate(label, d, on) {
+  return mkTex((g, r) => {
+    speck(g, r, STONE_PAL);
+    g.fillStyle = "#2a2e36";
+    [[14, 1, 2, 14], [1, 14, 14, 2], [0, 1, 2, 14], [1, 0, 14, 2]].forEach((bar, side) => side !== d && g.fillRect(...bar));
+    g.fillStyle = on ? GREEN_ON : GREEN_OFF;
+    g.fillRect(...[[13, 6, 3, 4], [6, 13, 4, 3], [0, 6, 3, 4], [6, 0, 4, 3]][d]);
+    g.fillStyle = "#1d2026";
+    g.font = label.length > 1 ? "bold 6px sans-serif" : "bold 9px sans-serif";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(label, 8, 8.5);
+  });
+}
+for (let d = 0; d < 4; d++) {
+  tex[B.GREEN_TORCH + d] = turn(greenTorch(false), (d + 3) % 4);
+  texOn[B.GREEN_TORCH + d] = turn(greenTorch(true), (d + 3) % 4);
+  tex[B.OBSERVER + d] = turn(observer(false), d);
+  texOn[B.OBSERVER + d] = turn(observer(true), d);
+  for (const [base, label] of [[B.AND, "И"], [B.OR, "ИЛИ"]]) {
+    tex[base + d] = gate(label, d, false);
+    texOn[base + d] = gate(label, d, true);
+  }
+}
 const wallTex = mkTex((g, r) => speck(g, r, ["#4a3040", "#553849", "#40283a"]));
-const iconCache = {};
+const iconCache = { [B.GREEN_TORCH]: tex[B.GREEN_TORCH + 1].toDataURL(), [B.AND]: tex[B.AND + 3].toDataURL(),
+  [B.OR]: tex[B.OR + 3].toDataURL() };
 const iconURL = id => iconCache[id] || (iconCache[id] = tex[id].toDataURL());
 
 // ---------- rendering ----------
@@ -2948,10 +3158,10 @@ function drawSheep(o, t) {
   ctx.fillStyle = "#3a3036";
   ctx.fillRect(x + w * 0.2, y + h * 0.7 + step, w * 0.1, h * 0.3 - step);
   ctx.fillRect(x + w * 0.7, y + h * 0.7 - step, w * 0.1, h * 0.3 + step);
-  ctx.fillStyle = "#f7f3f5";
+  ctx.fillStyle = o.shorn > 0 ? "#efc9d3" : "#f7f3f5";
   for (const [cx, cy, r] of [[0.3, 0.42, 0.3], [0.55, 0.32, 0.32], [0.75, 0.46, 0.27], [0.45, 0.56, 0.28]]) {
     ctx.beginPath();
-    ctx.arc(x + w * cx, y + h * cy, h * r, 0, Math.PI * 2);
+    ctx.arc(x + w * cx, y + h * cy, h * r * (o.shorn > 0 ? 0.75 : 1), 0, Math.PI * 2);
     ctx.fill();
   }
   const hx = x + w * (o.face > 0 ? 0.92 : 0.08);
@@ -3970,9 +4180,15 @@ $("#adminTabs").addEventListener("click", e => {
     Sound.click();
   }
 });
+// The panel asks for the notes every 3 seconds: the list is drawn again only when they change, or the photos would blink.
+let notesShown = "", photoFor = null;
 function renderNotes() {
   const fresh = adminState.notes.filter(n => !n.fixed).length;
   $('#adminTabs [data-tab="notes"]').textContent = "📝 Замечания" + (fresh ? ` (${fresh} 🆕)` : "");
+  if (JSON.stringify(adminState.notes) === notesShown) {
+    return;
+  }
+  notesShown = JSON.stringify(adminState.notes);
   const list = $("#notes");
   list.innerHTML = "";
   adminState.notes.forEach(note => {
@@ -3996,13 +4212,53 @@ function renderNotes() {
         adminSend({ t: "dropnote", id: note.id });
       }
     });
-    li.append(edit, drop);
+    const shot = document.createElement("button");
+    shot.className = "btn";
+    shot.textContent = "📷";
+    shot.title = "Прикрепить фото";
+    shot.addEventListener("click", () => {
+      photoFor = note.id;
+      $("#notePhoto").click();
+    });
+    const photos = document.createElement("div");
+    photos.className = "photos";
+    (note.photos || []).forEach(name => {
+      const link = document.createElement("a");
+      link.href = "photos/" + name;
+      link.target = "_blank";
+      const img = document.createElement("img");
+      img.src = link.href;
+      link.appendChild(img);
+      photos.appendChild(link);
+    });
+    li.append(edit, drop, shot, photos);
     list.appendChild(li);
   });
   if (!adminState.notes.length) {
     list.innerHTML = "<li>пока нет</li>";
   }
 }
+// A phone photo is shrunk to 1600 pixels on the long side before it goes to the server.
+$("#notePhoto").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) {
+    return;
+  }
+  try {
+    const pic = await createImageBitmap(file);
+    const k = Math.min(1, 1600 / Math.max(pic.width, pic.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(pic.width * k);
+    c.height = Math.round(pic.height * k);
+    c.getContext("2d").drawImage(pic, 0, 0, c.width, c.height);
+    adminSend({ t: "photo", id: photoFor, data: c.toDataURL("image/jpeg", 0.85).split(",")[1] });
+    toast("Фото отправлено");
+  } catch (err) {
+    toast("Это не картинка");
+    Sound.nope();
+  }
+});
 $("#noteAdd").addEventListener("click", () => {
   adminSend({ t: "note", text: $("#noteText").value });
   $("#noteText").value = "";
@@ -4080,7 +4336,7 @@ $("#adminExit").addEventListener("click", () => netLeave("Вы вышли из �
 setInterval(() => !$("#admin").hidden && adminSend({ t: "state" }), 3000);
 
 const giftN = $("#giftN");
-const givable = id => (isBlock(id) && !BLOCKS[id].of) || stackMax(id) === 1 || id === I.HEART_EGG || id === I.FISH_EGG;
+const givable = id => (isBlock(id) && !BLOCKS[id].of) || stackMax(id) === 1 || [I.HEART_EGG, I.FISH_EGG, I.SHEEP_EGG].includes(id);
 function openGift(world, hero) {
   giftTo = { code: world.code, login: hero.login };
   $("#gift h2").textContent = `🎁 Подарок для ${hero.name} — мир «${world.name}»`;
@@ -4233,18 +4489,18 @@ function renderPlayers() {
 
 const SAVE_KEY = "heartcraft-save", LOOK_KEY = "heartcraft-look";
 function serialize() {
-  return JSON.stringify({ game: "heartcraft", v: 6, seed, opts: worldOpts, w: W, h: H, tiles: encodeTiles(world),
+  return JSON.stringify({ game: "heartcraft", v: 7, seed, opts: worldOpts, w: W, h: H, tiles: encodeTiles(world),
     player: { x: P.x, y: P.y }, inv: inv.map(encodeSlot), sel, time, bed: bed && [bed.x, bed.y],
     mobs: mobs.map(m => [m.x, m.y, Math.max(0, m.grow), m.white ? 1 : 0]), ocean: hasOcean,
-    fish: fish.map(f => [f.x, f.y]), sheep: sheep.map(o => [o.x, o.y]),
+    fish: fish.map(f => [f.x, f.y]), sheep: sheep.map(o => [o.x, o.y, o.shorn]),
     chests: [...chests].filter(([, c]) => c.some(Boolean)).map(([k, c]) => [k % W, Math.floor(k / W), c.map(encodeSlot)]) });
 }
 const optsOk = o => Boolean(o) && NEW_OPTS.every(k => Number.isInteger(o[k]) && o[k] >= 0 && o[k] < WORLD_OPTS[k].values.length);
 // Saves of 1.x still open: v1 picks had no wear, v4 hearts kept an age, before v5 every world had the usual settings,
-// and before v6 there were no sheep and no bed.
+// before v6 there were no sheep and no bed, and before v7 no sheep was shorn.
 function deserialize(text) {
   const d = JSON.parse(text);
-  if (!d || d.game !== "heartcraft" || ![1, 2, 3, 4, 5, 6].includes(d.v)) {
+  if (!d || d.game !== "heartcraft" || ![1, 2, 3, 4, 5, 6, 7].includes(d.v)) {
     throw new Error("это не мир Сердцекрафта");
   }
   if (d.w !== W || d.h !== H || !Number.isInteger(d.seed)) {
@@ -4276,7 +4532,7 @@ function deserialize(text) {
     throw new Error("испорчены настройки мира");
   }
   if (d.v >= 6 && !(Array.isArray(d.sheep) && d.sheep.length <= MOB_MAX &&
-      d.sheep.every(o => Array.isArray(o) && inWorld(o[0], o[1])))) {
+      d.sheep.every(o => Array.isArray(o) && inWorld(o[0], o[1]) && (d.v < 7 || (o[2] >= 0 && o[2] <= WOOL_REGROW))))) {
     throw new Error("испорчены овцы");
   }
   if (d.v >= 6 && d.bed !== null && !(Array.isArray(d.bed) && Number.isInteger(d.bed[0]) && Number.isInteger(d.bed[1]) &&
@@ -4316,7 +4572,7 @@ function deserialize(text) {
     spawnFish();
   }
   if (d.v >= 6) {
-    sheep = d.sheep.map(([sx, sy]) => makeSheep(sx, sy));
+    sheep = d.sheep.map(([sx, sy, shorn]) => makeSheep(sx, sy, undefined, shorn || 0));
   } else {
     spawnSheep();
   }
@@ -4472,10 +4728,10 @@ canvas.addEventListener("pointerdown", e => {
     return;
   }
   const hand = inv[sel] && inv[sel].id;
-  const m = (hand === B.PINK || hand === I.SWORD) &&
-    mobAt(cam.x + e.clientX / TILE, cam.y + e.clientY / TILE, hand === I.SWORD ? [...mobs, ...sheep] : mobs);
+  const target = { [B.PINK]: [mobs, feed], [I.SWORD]: [[...mobs, ...sheep, ...fish], strike], [I.SHEARS]: [sheep, shear] }[hand];
+  const m = target && mobAt(cam.x + e.clientX / TILE, cam.y + e.clientY / TILE, target[0]);
   if (m) {
-    (hand === I.SWORD ? strike : feed)(m);
+    target[1](m);
     return;
   }
   if (e.isTrusted) {
@@ -4664,7 +4920,7 @@ window.HC = { B, I, W, H, RECIPES, P, cam, get world() { return world; }, get in
   get zoom() { return zoom; }, get TILE() { return TILE; }, get, setTile, finishBreak, addItem, count, craft,
   bestPick, bestPickSlot, hatch, newWorld, generate, usePlace, feed, openCraft, setZoom, toggleDay, daylight, keys,
   touch, Sound, net, peers, netLogin, netLeave, LOOK_COLORS, WORLD_OPTS, get worldOpts() { return worldOpts; },
-  get powered() { return powered; }, netTile, openBag };
+  get powered() { return powered; }, netTile, openBag, dropOf };
 </script>
 </body>
 </html>

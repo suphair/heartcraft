@@ -233,6 +233,67 @@ await useAt(a, 0, -3);
 check("a sticky piston pulls the block back without power", await until(a, `HC.get(${cx + 2}, ${cy - 3}) === HC.B.COBBLE && HC.get(${cx + 3}, ${cy - 3}) === HC.B.AIR`));
 check("B sees the block pulled back", await until(b, `HC.get(${cx + 2}, ${cy - 3}) === HC.B.COBBLE && HC.get(${cx + 3}, ${cy - 3}) === HC.B.AIR`));
 check("a lever that is on drops a lever", await a(`HC.finishBreak(${cx}, ${cy}) && HC.count(HC.B.LEVER) === 1 && HC.count(HC.B.LEVER_ON) === 0`));
+const placeAt = (ev, id, dx, dy) => ev(`(() => {
+  HC.addItem(${id}, 1);
+  const s = HC.inv.findIndex(s => s && s.id === ${id}), px = HC.P.x, py = HC.P.y;
+  [HC.inv[HC.sel], HC.inv[s]] = [HC.inv[s], HC.inv[HC.sel]];
+  HC.P.x = ${cx + dx} - 2;
+  HC.P.y = ${cy + dy} + 0.1;
+  HC.usePlace(${cx + dx}, ${cy + dy});
+  HC.P.x = px;
+  HC.P.y = py;
+  return HC.get(${cx + dx}, ${cy + dy});
+})()`);
+await a(`(() => {
+  const B = HC.B;
+  [[10, 4, B.LEVER], [11, 4, B.COBBLE], [11, 3, B.GREEN_TORCH + 1], [12, 3, B.LAMP], [14, 4, B.COBBLE],
+    [10, 8, B.OBSERVER], [9, 8, B.LAMP], [11, 8, B.AIR],
+    [11, 12, B.LEVER], [12, 12, B.AND + 3], [13, 12, B.LEVER], [12, 11, B.LAMP], [12, 13, B.AIR]].forEach(([dx, dy, id]) => {
+    HC.setTile(${cx} + dx, ${cy} + dy, id);
+    HC.netTile(${cx} + dx, ${cy} + dy);
+  });
+  return 1;
+})()`);
+check("a green torch is on while its block is off", await until(a, `HC.powered.has(${at(11, 3)}) && HC.powered.has(${at(12, 3)})`));
+check("B sees the green torch on", await until(b, `HC.powered.has(${at(11, 3)}) && HC.powered.has(${at(12, 3)})`));
+await useAt(a, 10, 4);
+check("a green torch goes off when its block gets power", await until(a, `!HC.powered.has(${at(11, 3)}) && !HC.powered.has(${at(12, 3)})`));
+await useAt(a, 10, 4);
+check("a green torch comes back on", await until(a, `HC.powered.has(${at(11, 3)}) && HC.powered.has(${at(12, 3)})`));
+check("a green torch hangs on the block below", await placeAt(a, "HC.B.GREEN_TORCH", 14, 3) === await a(`HC.B.GREEN_TORCH + 1`));
+check("a green torch hangs on the block beside it", await placeAt(a, "HC.B.GREEN_TORCH", 13, 4) === await a(`HC.B.GREEN_TORCH`));
+check("a green torch needs a block nearby", await placeAt(a, "HC.B.GREEN_TORCH", 16, 2) === await a(`HC.B.AIR`));
+check("an observer sees nothing in the air", await a(`!HC.powered.has(${at(10, 8)}) && !HC.powered.has(${at(9, 8)})`));
+await a(`HC.setTile(${cx + 11}, ${cy + 8}, HC.B.COBBLE); HC.netTile(${cx + 11}, ${cy + 8}); 1`);
+check("an observer that sees a block lights the lamp behind it", await until(a, `HC.powered.has(${at(10, 8)}) && HC.powered.has(${at(9, 8)})`));
+check("B sees the observer on", await until(b, `HC.powered.has(${at(9, 8)})`));
+await useAt(a, 11, 12);
+await sleep(500);
+check("AND stays off with one of two inputs on", await a(`!HC.powered.has(${at(12, 12)}) && !HC.powered.has(${at(12, 11)})`));
+await useAt(a, 13, 12);
+check("AND is on with both inputs on", await until(a, `HC.powered.has(${at(12, 12)}) && HC.powered.has(${at(12, 11)})`));
+await useAt(a, 13, 12);
+await a(`HC.setTile(${cx + 12}, ${cy + 12}, HC.B.OR + 3); HC.netTile(${cx + 12}, ${cy + 12}); 1`);
+check("OR is on with one input on", await until(a, `HC.powered.has(${at(12, 12)}) && HC.powered.has(${at(12, 11)})`));
+await useAt(a, 11, 12);
+check("OR is off with no input on", await until(a, `!HC.powered.has(${at(12, 12)}) && !HC.powered.has(${at(12, 11)})`));
+check("a gate turns when pressed", await useAt(a, 12, 12) === await a(`HC.B.OR`));
+await a(`(() => {
+  [[20, 4, HC.B.GREEN_TORCH + 1], [21, 4, HC.B.WIRE], [21, 5, HC.B.WIRE + 1], [20, 5, HC.B.WIRE + 2]].forEach(([dx, dy, id]) => {
+    HC.setTile(${cx} + dx, ${cy} + dy, id);
+    HC.netTile(${cx} + dx, ${cy} + dy);
+  });
+  return 1;
+})()`);
+const blinks = await a(`new Promise(done => {
+  const seen = new Set(), t0 = performance.now();
+  const look = () => {
+    seen.add(HC.powered.has(${at(20, 4)}));
+    performance.now() - t0 < 1500 ? setTimeout(look, 20) : done(seen.size);
+  };
+  look();
+})`);
+check("a green torch that powers its own block blinks", blinks === 2, blinks);
 const benchHas = (ev, bench, what = "Поршень") => ev(`(() => {
   HC.openCraft(${bench});
   const has = [...document.querySelectorAll("#craft .rec .rn")].some(r => r.firstChild.textContent.startsWith(${JSON.stringify(what)}));
@@ -355,6 +416,40 @@ const lamb = await b(`(() => {
 })()`);
 check("a sheep killed with the sword gives wool", lamb[1] === 1, lamb);
 check("the sheep B killed is gone for A too", await until(a, `!HC.sheep.some(o => o.id === ${lamb[0]})`));
+await b(`HC.addItem(HC.I.IRON, 2); 1`);
+check("shears are made of two iron ingots", await craftOut(b, "HC.I.SHEARS") === 1 && await b(`HC.count(HC.I.IRON) === 0`));
+await hold(b, "HC.I.SHEARS");
+const clickMob = (ev, list, id) => ev(`(() => {
+  const o = HC.${list}.find(o => o.id === ${id});
+  o.x = o.tx = HC.P.x + 1;
+  o.y = o.ty = HC.P.y;
+  const r = document.querySelector("#view").getBoundingClientRect();
+  document.querySelector("#view").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, pointerType: "mouse",
+    clientX: r.left + (o.x + (o.w || 0) / 2 - HC.cam.x) * HC.TILE, clientY: r.top + (o.y + (o.h || 0) / 2 - HC.cam.y) * HC.TILE }));
+  return HC.count(HC.B.WOOL);
+})()`);
+const ewe = await b(`HC.sheep.find(o => !o.shorn).id`), wool0 = await b(`HC.count(HC.B.WOOL)`);
+const wool1 = await clickMob(b, "sheep", ewe);
+check("shears give one or two wool", wool1 - wool0 >= 1 && wool1 - wool0 <= 2, [wool0, wool1]);
+check("a shorn sheep stays alive and A sees it shorn", await until(a, `HC.sheep.some(o => o.id === ${ewe} && o.shorn > 1100)`));
+check("B keeps the sheep shorn", await until(b, `HC.sheep.some(o => o.id === ${ewe} && o.shorn > 1100)`));
+check("a shorn sheep cannot be shorn again", await clickMob(b, "sheep", ewe) === wool1 && /отрастает/.test(await b(`document.querySelector("#toast").textContent`)));
+const flockA = await a(`HC.sheep.length`);
+const egged = await place(b, "HC.I.SHEEP_EGG");
+check("a sheep egg is used up", egged === null && await b(`HC.count(HC.I.SHEEP_EGG) === 0`));
+check("a sheep comes out of the egg for everyone", await until(a, `HC.sheep.length === ${flockA + 1}`), await a(`HC.sheep.length`));
+await hold(b, "HC.I.SWORD");
+const pond = await b(`(() => {
+  const x = Math.floor(HC.P.x) + 1, y = Math.floor(HC.P.y);
+  HC.setTile(x, y - 1, HC.B.WATER);
+  HC.netTile(x, y - 1);
+  HC.hatch(HC.I.FISH_EGG, x, y - 1, HC.B.WATER);
+  return [x, y - 1];
+})()`);
+const nemo = await until(b, `(HC.fish.find(f => Math.floor(f.x) === ${pond[0]} && Math.floor(f.y) === ${pond[1]}) || {}).id`);
+await clickMob(b, "fish", nemo);
+check("the sword kills a fish", await b(`!HC.fish.some(f => f.id === ${nemo})`));
+check("the fish B killed is gone for A too", await until(a, `!HC.fish.some(f => f.id === ${nemo})`));
 await b(`HC.addItem(HC.B.PINK, 1); 1`);
 await hold(b, "HC.B.PINK");
 const loved = await b(`(() => {
@@ -499,6 +594,24 @@ await boss(`(() => {
   return 1;
 })()`);
 await until(boss, `/Ещё одно/.test(document.querySelector("#notes").textContent)`);
+await boss(`(async () => {
+  const c = document.createElement("canvas");
+  c.width = 40;
+  c.height = 30;
+  c.getContext("2d").fillRect(0, 0, 20, 30);
+  const blob = await new Promise(r => c.toBlob(r, "image/png"));
+  const files = new DataTransfer();
+  files.items.add(new File([blob], "note.png", { type: "image/png" }));
+  document.querySelector('#notes button[title="Прикрепить фото"]').click();
+  const input = document.querySelector("#notePhoto");
+  input.files = files.files;
+  input.dispatchEvent(new Event("change"));
+  return 1;
+})()`);
+const photo = await until(boss, `(document.querySelector("#notes .photos img") || {}).src`);
+check("the admin attaches a photo to a note", /\/photos\/1-[0-9a-f]{16}\.jpg$/.test(photo || ""), photo);
+const served = await boss(`fetch(${JSON.stringify(photo)}).then(r => [r.status, r.headers.get("Content-Type")])`);
+check("the server shows the photo", JSON.stringify(served) === '[200,"image/jpeg"]', served);
 check("the notes tab counts the new notes", await boss(`document.querySelector('#adminTabs [data-tab="notes"]').textContent`) === "📝 Замечания (1 🆕)",
   await boss(`document.querySelector('#adminTabs [data-tab="notes"]').textContent`));
 await boss(`document.querySelector("#adminExit").click(); 1`);
@@ -519,15 +632,22 @@ check("test mode gives things", await solo(`HC.testMode && HC.count(HC.I.SWORD) 
 check("the single player gives with a box, not a gift", await solo(`document.querySelector("#giveBtn").textContent`) === "📦");
 await solo(`document.querySelector("#give .close").click(); 1`);
 check("seaweed grows in the single player game", await solo(`HC.growSeaweed(600)`) === true);
+const leaves = await solo(`(() => {
+  const got = Array.from({ length: 4000 }, () => HC.dropOf(HC.B.LEAVES));
+  return [got.filter(id => id === HC.I.GREEN_GEM).length, got.filter(id => id === HC.I.STICK).length];
+})()`);
+check("leaves drop a green gem now and then", leaves[0] > 180 && leaves[0] < 380 && leaves[1] > 450 && leaves[1] < 750, leaves);
+check("a flat world is flat", await solo(`HC.terrain(77, false, 5).surf.every(h => h === 62) && HC.WORLD_OPTS.hills.labels[5] === "Плоский мир"`));
 const flock = await solo(`HC.sheep.length`);
 check("the single player game has sheep", flock > 0);
-await solo(`HC.addItem(HC.B.BRICK, 7); document.querySelector("#menuBtn").click(); document.querySelector('[data-act="save"]').click(); 1`);
+await solo(`HC.sheep[0].shorn = 500; HC.addItem(HC.B.BRICK, 7); document.querySelector("#menuBtn").click(); document.querySelector('[data-act="save"]').click(); 1`);
 const soloSeed = await solo(`HC.seed`);
 await solo(`location.reload(); 1`);
 await sleep(500);
 await solo.loaded();
 check("a saved single player world comes back after a reload", await until(solo, `HC.seed === ${soloSeed} && HC.count(HC.B.BRICK) === 7 && HC.count(HC.I.SWORD) === 1 && HC.sheep.length === ${flock}`),
   await solo(`[HC.seed, HC.count(HC.B.BRICK)]`));
+check("a shorn sheep stays shorn after a reload", await solo(`HC.sheep.some(o => o.shorn > 400 && o.shorn <= 500)`));
 await solo(`(() => {
   document.querySelector("#menuBtn").click();
   document.querySelector('[data-act="reset"]').click();
