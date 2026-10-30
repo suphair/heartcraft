@@ -5,6 +5,8 @@
 // The world codes are "rose" and "mint" and the admin is "boss" with code 999 (tests/e2e.sh).
 const [, , port, base, shotDir] = process.argv;
 const ROSE = "rose", MINT = "mint";
+// HC.generate(99) with the usual settings in version 2.8: later settings left off must not change a world.
+const OLD_WORLD_HASH = 620454617;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ver = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json();
 const browser = new WebSocket(ver.webSocketDebuggerUrl);
@@ -126,7 +128,7 @@ check("B sees A with A's look", await until(b, `${peer("Аня")} && ${peer("А�
 const cell = await a(`(() => {
   const x = Math.floor(HC.P.x) - 4;
   let y = 0;
-  while ([HC.B.AIR, HC.B.LEAVES, HC.B.LOG].includes(HC.get(x, y))) y++;
+  while ([HC.B.AIR, HC.B.LEAVES, HC.B.SNOW_LEAVES, HC.B.LOG].includes(HC.get(x, y))) y++;
   HC.finishBreak(x, y);
   return [x, y, HC.get(x, y)];
 })()`);
@@ -450,6 +452,39 @@ const nemo = await until(b, `(HC.fish.find(f => Math.floor(f.x) === ${pond[0]} &
 await clickMob(b, "fish", nemo);
 check("the sword kills a fish", await b(`!HC.fish.some(f => f.id === ${nemo})`));
 check("the fish B killed is gone for A too", await until(a, `!HC.fish.some(f => f.id === ${nemo})`));
+const lootOf = `JSON.stringify([...HC.chests].filter(([, c]) => c.some(Boolean)).map(([k, c]) => [k, c.filter(Boolean).map(s => [s.id, s.n])]).sort())`;
+const lootA = await a(lootOf);
+check("the first player shares the chests of the houses", JSON.parse(lootA).length > 1 && await until(b, `${lootOf} === ${JSON.stringify(lootA)}`), lootA);
+const door = await place(a, "HC.B.DOOR");
+check("a door is placed closed", door !== null);
+await a(`HC.usePlace(${door[0]}, ${door[1]}); 1`);
+check("B sees the door A opened", await until(b, `HC.get(${door[0]}, ${door[1]}) === HC.B.DOOR_OPEN`));
+await a(`HC.addItem(HC.B.SNOW, 1); 1`);
+check("a snow block makes four snowballs", await craftOut(a, "HC.I.SNOWBALL") === 1 && await a(`HC.count(HC.I.SNOWBALL) === 4`));
+check("four snowballs make a snow block", await b(`HC.addItem(HC.I.SNOWBALL, 4); 1`) && await craftOut(b, "HC.B.SNOW") === 1);
+const spot = await a(`(() => {
+  const x = Math.floor(HC.P.x), y = Math.floor(HC.P.y + HC.P.h + 0.01);
+  for (let dx = 1; dx <= 4; dx++) {
+    [[y, HC.B.COBBLE], [y - 1, HC.B.AIR], [y - 2, HC.B.AIR]].forEach(([cy, id]) => {
+      HC.setTile(x + dx, cy, id);
+      HC.netTile(x + dx, cy);
+    });
+  }
+  return [x, y];
+})()`);
+await b(`HC.P.x = ${spot[0] + 3.1}; HC.P.y = ${spot[1] - 0.81}; HC.P.vx = HC.P.vy = 0; 1`);
+await sleep(1000);
+await until(a, `Math.abs(${peer("Боря")}.x - ${peer("Боря")}.tx) < 0.05 && Math.abs(${peer("Боря")}.y - ${peer("Боря")}.ty) < 0.05`);
+await hold(a, "HC.I.SNOWBALL");
+await a(`(() => {
+  const o = ${peer("Боря")}, r = document.querySelector("#view").getBoundingClientRect();
+  document.querySelector("#view").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, pointerType: "mouse",
+    clientX: r.left + (o.x + o.w / 2 - HC.cam.x) * HC.TILE, clientY: r.top + (o.y + o.h / 2 - HC.cam.y) * HC.TILE }));
+  return 1;
+})()`);
+check("a thrown snowball is used up", await a(`HC.count(HC.I.SNOWBALL) === 3`));
+check("a snowball hits the other player and pushes him away", await until(b, `/Аня попал в тебя снежком/.test(document.querySelector("#toast").textContent)`),
+  await b(`document.querySelector("#toast").textContent`));
 await b(`HC.addItem(HC.B.PINK, 1); 1`);
 await hold(b, "HC.B.PINK");
 const loved = await b(`(() => {
@@ -529,13 +564,13 @@ for (let i = 0; i < 4; i++) {
   seeds.add(await boss(`JSON.stringify([document.querySelector("#newSeed").value, ...[...document.querySelectorAll("#newOpts select")].map(s => s.value)])`));
 }
 check("the dice shuffle the settings", seeds.size === 4, [...seeds]);
-const settings = { seed: 4242, hills: 4, ocean: 0, caves: 3, ores: 2, trees: 3, hearts: 0 };
+const settings = { seed: 4242, hills: 4, ocean: 0, caves: 3, ores: 2, trees: 3, hearts: 0, winter: 3, houses: 0 };
 await boss(`(() => {
   document.querySelector("#newName").value = "Горы";
   document.querySelector("#newCode").value = "peaks";
   document.querySelector("#newSeed").value = 4242;
   const s = ${JSON.stringify(settings)};
-  for (const key of ["hills", "ocean", "caves", "ores", "trees", "hearts"]) document.querySelector("#new-" + key).value = s[key];
+  for (const key in s) if (key !== "seed") document.querySelector("#new-" + key).value = s[key];
   document.querySelector("#newCreate").click();
   return 1;
 })()`);
@@ -545,9 +580,10 @@ const f = await player();
 await f.login("Гоша", "peaks");
 await until(f, visible("hero"));
 await chooseHero(f, 2, 3);
-check("the new world follows its settings", await until(f, `HC.net.ready && HC.seed === 4242 && JSON.stringify(HC.worldOpts) === ${JSON.stringify(JSON.stringify({ hills: 4, ocean: 0, caves: 3, ores: 2, trees: 3, hearts: 0 }))}`),
+check("the new world follows its settings", await until(f, `HC.net.ready && HC.seed === 4242 && JSON.stringify(HC.worldOpts) === ${JSON.stringify(JSON.stringify({ hills: 4, ocean: 0, caves: 3, ores: 2, trees: 3, hearts: 0, winter: 3, houses: 0 }))}`),
   await f(`[HC.seed, JSON.stringify(HC.worldOpts)]`));
 check("a world without ocean has no water and no hearts", await f(`!HC.world.includes(HC.B.WATER) && HC.mobs.length === 0`));
+check("a world with much winter and no houses has snow and no doors", await f(`HC.world.includes(HC.B.SNOW) && HC.world.includes(HC.B.SNOW_LEAVES) && !HC.world.includes(HC.B.DOOR)`));
 await f.shot("peaks");
 check("the admin panel shows a hero who has just come", await until(boss, `[...document.querySelectorAll("#adminWorlds .heroCard")].some(c => /Гоша/.test(c.textContent))`));
 await boss(`(() => {
@@ -652,13 +688,38 @@ await solo(`(() => {
   document.querySelector("#menuBtn").click();
   document.querySelector('[data-act="reset"]').click();
   document.querySelector("#soloSeed").value = 4242;
-  const s = { hills: 4, ocean: 0, caves: 3, ores: 2, trees: 3, hearts: 0 };
+  const s = { hills: 4, ocean: 0, caves: 3, ores: 2, trees: 3, hearts: 0, winter: 0, houses: 3 };
   for (const key in s) document.querySelector("#solo-" + key).value = s[key];
   document.querySelector("#soloCreate").click();
   return 1;
 })()`);
-check("a new single player world follows its settings", await solo(`HC.seed === 4242 && JSON.stringify(HC.worldOpts) === ${JSON.stringify(JSON.stringify({ hills: 4, ocean: 0, caves: 3, ores: 2, trees: 3, hearts: 0 }))} && HC.mobs.length === 0`),
+check("a new single player world follows its settings", await solo(`HC.seed === 4242 && JSON.stringify(HC.worldOpts) === ${JSON.stringify(JSON.stringify({ hills: 4, ocean: 0, caves: 3, ores: 2, trees: 3, hearts: 0, winter: 0, houses: 3 }))} && HC.mobs.length === 0`),
   await solo(`[HC.seed, JSON.stringify(HC.worldOpts)]`));
+const town = await solo(`(() => {
+  const doors = HC.world.filter(id => id === HC.B.DOOR).length, loot = [...HC.chests];
+  const tables = [[HC.B.LOG, HC.I.STICK, HC.I.COAL, HC.B.TORCH, HC.I.DIAMOND],
+    [HC.I.GREEN_GEM, HC.I.IRON, HC.I.GOLD_INGOT, HC.I.DIAMOND, HC.B.PINK, HC.B.DIRT]];
+  return [doors, !HC.world.includes(HC.B.SNOW), loot.length > 0 && loot.every(([k, c]) => HC.world[k] === HC.B.CHEST &&
+    tables.some(t => c.filter(Boolean).every(s => t.includes(s.id))))];
+})()`);
+check("many houses stand in the world, their chests hold loot from their list", town[0] >= 20 && town[1] && town[2], town);
+check("a house door opens and closes", await solo(`(() => {
+  const i = HC.world.indexOf(HC.B.DOOR), x = i % 1024, y = Math.floor(i / 1024), px = HC.P.x, py = HC.P.y;
+  HC.P.x = x + 2; HC.P.y = y - 0.3;
+  HC.usePlace(x, y);
+  const open = HC.get(x, y) === HC.B.DOOR_OPEN;
+  HC.usePlace(x, y);
+  const shut = HC.get(x, y) === HC.B.DOOR;
+  HC.P.x = px; HC.P.y = py;
+  return open && shut;
+})()`));
+check("worlds without winter and houses stay as they were", await solo(`(() => {
+  const o = { hills: 2, ocean: 1, caves: 2, ores: 1, trees: 2, hearts: 2 };
+  const a = HC.generate(99, o).tiles, b = HC.generate(99, { ...o, winter: 0, houses: 0 }).tiles;
+  let h = 0;
+  for (let i = 0; i < a.length; i++) h = (Math.imul(h, 31) + a[i]) | 0;
+  return a.every((id, i) => id === b[i]) && h;
+})()`) === OLD_WORLD_HASH);
 const old = await solo(`(() => {
   const d = JSON.parse(HC.serialize());
   d.v = 4;
@@ -668,7 +729,7 @@ const old = await solo(`(() => {
   HC.loadText(JSON.stringify(d), "ok");
   return [document.querySelector("#toast").textContent, JSON.stringify(HC.worldOpts), HC.mobs.length, HC.mobs[0].white];
 })()`);
-check("a save of version 1.3 still opens", old[0] === "ok" && old[1] === JSON.stringify({ hills: 2, ocean: 1, caves: 2, ores: 1, trees: 2, hearts: 2 }) && old[2] === 1 && old[3] === true, old);
+check("a save of version 1.3 still opens", old[0] === "ok" && old[1] === JSON.stringify({ hills: 2, ocean: 1, caves: 2, ores: 1, trees: 2, hearts: 2, winter: 0, houses: 0 }) && old[2] === 1 && old[3] === true, old);
 await solo(`(() => {
   document.querySelector("#menuBtn").click();
   document.querySelector('[data-act="look"]').click();

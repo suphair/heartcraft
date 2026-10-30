@@ -85,12 +85,13 @@ GRAV, MAX_FALL, SWIM, SWIM_FALL, WATER_GRAV = 32, 22, 5, 3, 0.3
 HEART_TONES, FISH_TONES = 4, 5
 HEART_EGG, FISH_EGG, SHEEP_EGG = 108, 109, 119
 BEDROCK = 14
-# Blocks a body passes through: air, torch, water, seaweed, ladder, bed, green torch on any side of its block;
-# the wet ones are water and seaweed.
-OPEN = {0, 18, 23, 24, 25, 27, 48, 49, 50, 51}
+# Blocks a body passes through: air, torch, water, seaweed, ladder, bed, green torch on any side of its block,
+# open door; the wet ones are water and seaweed.
+OPEN = {0, 18, 23, 24, 25, 27, 48, 49, 50, 51, 65}
 WET = {23, 24}
 # Settings of a new world: how many choices each one has; the game knows what they mean.
-SETTINGS = {"seed": 2 ** 31, "hills": 6, "ocean": 2, "caves": 4, "ores": 3, "trees": 4, "hearts": 4}
+SETTINGS = {"seed": 2 ** 31, "hills": 6, "ocean": 2, "caves": 4, "ores": 3, "trees": 4, "hearts": 4, "winter": 4,
+            "houses": 4}
 MAX_PLAYERS = 8
 MAX_FRAME = 4 * 1024 * 1024
 MAX_LOGIN = 16
@@ -561,6 +562,18 @@ class Room:
                     return False
                 if self.herd:
                     self.herd.act(msg)
+            elif t == "snow":
+                if not (num(msg.get("x")) and num(msg.get("y")) and
+                        all(real(msg.get(k)) and abs(msg[k]) < 100 for k in ("vx", "vy"))):
+                    return False
+                self.broadcast(p, {"t": "snow", "x": msg["x"], "y": msg["y"], "vx": msg["vx"], "vy": msg["vy"]})
+            elif t == "hit":
+                to = msg.get("to")
+                if not (whole(to, self.next_id) and msg.get("vx") in (-1, 1)):
+                    return False
+                target = self.players.get(to)
+                if target and target is not p:
+                    target.send({"t": "hit", "from": p.name, "vx": msg["vx"]})
             elif t == "look":
                 look = msg.get("look")
                 if not look_ok(look):

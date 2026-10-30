@@ -271,6 +271,18 @@
   <div class="box">
     <h2>Что нового</h2>
     <div class="news">
+      <h3>Версия 2.9</h3>
+      <ul>
+        <li><b>Зима</b>: в новых мирах есть зимние края — на земле лежит снег, листва на деревьях белая.
+          Сколько зимы, выбирается в настройках мира.</li>
+        <li><b>Снежки</b>: блок снега у верстака даёт 4 снежка, 4 снежка — блок снега. Выбери снежок и нажми
+          на экран — он полетит туда. Попал в другого игрока — его отбросит.</li>
+        <li><b>Дверь</b> — 6 досок дают 2 двери. Нажми на дверь, чтобы открыть или закрыть: сквозь открытую
+          можно пройти, сквозь закрытую нельзя.</li>
+        <li><b>Домики</b> в новых мирах: с верстаком и кроватью, с сундуком, маленький с сундуком. В сундуках
+          бывают брёвна, палки, уголь, факелы, зелёные кристаллы, слитки и даже алмаз. Сколько домиков —
+          в настройках мира.</li>
+      </ul>
       <h3>Версия 2.8</h3>
       <ul>
         <li>Новые механизмы у зелёного верстака:
@@ -518,6 +530,8 @@
         Доски и сам верстак можно сделать и без него — кнопкой в рюкзаке.
         Ломать и ставить можно в пределах пяти блоков. Камень и руды дают добычу только нужной киркой;
         лучшая кирка из рюкзака работает сама и понемногу стирается. Чёрный камень на краях мира не пробить.</p>
+      <p>В <b>зимних краях</b> лежит снег: из блока снега получаются снежки, их бросают, выбрав в поясе и нажав
+        на экран. В мире стоят <b>домики</b> — загляни в их сундуки. <b>Дверь</b> открывается и закрывается нажатием.</p>
       <p><b>День и ночь</b> сменяют друг друга: розовый день, фиолетовая ночь. Под землёй темно — ставь факелы.
         «Всегда день» и звук — в ⚙️ Настройках этого меню.</p>
       <p><b>Овцы</b> бродят по траве: меч в руке и нажатие на овцу дают шерсть, ножницы — стригут овцу, и через
@@ -555,7 +569,7 @@ const FISH_COUNT = 30, FISH_MAX = 100, FISH_SPEED = 1.5;
 const SEAWEED_GROW = 600, SEAWEED_MAX = 5;
 const SHEEP_COUNT = 15, SHEEP_SPEED = 1.2, WOOL_REGROW = 1200;
 const CHEST_SLOTS = 27;
-const VERSION = "2.8";
+const VERSION = "2.9";
 // A button stays pressed this long; the circuit is worked out at most this often; music is heard this far.
 const BUTTON_TIME = 1, CIRCUIT_STEP = 0.1, MUSIC_RANGE = 10;
 
@@ -563,10 +577,12 @@ const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, COBBLE: 4, SAND: 5, LOG: 6, LEA
   COAL_ORE: 9, IRON_ORE: 10, GOLD_ORE: 11, DIAMOND_ORE: 12, PINK_ORE: 13, BEDROCK: 14, WORKBENCH: 15,
   BRICK: 16, GLASS: 17, TORCH: 18, PINK: 19, GOLD_BLOCK: 20, CHEST: 21, TRASH: 22, WATER: 23, SEAWEED: 24, LADDER: 25,
   WOOL: 26, BED: 27, GREEN_BENCH: 28, ELECTRIC: 29, LEVER: 30, LEVER_ON: 31, BUTTON: 32, BUTTON_ON: 33, LAMP: 34,
-  MUSIC: 35, WIRE: 36, PISTON: 40, STICKY: 44, GREEN_TORCH: 48, OBSERVER: 52, AND: 56, OR: 60 };
+  MUSIC: 35, WIRE: 36, PISTON: 40, STICKY: 44, GREEN_TORCH: 48, OBSERVER: 52, AND: 56, OR: 60, DOOR: 64, DOOR_OPEN: 65,
+  SNOW: 66, SNOW_LEAVES: 67 };
 const I = { STICK: 100, COAL: 101, RAW_IRON: 102, IRON: 103, GOLD: 104, DIAMOND: 105, PINK_GEM: 106,
   HEART_METER: 107, HEART_EGG: 108, FISH_EGG: 109, PICK_WOOD: 110, PICK_STONE: 111, PICK_IRON: 112, PICK_DIAMOND: 113,
-  SWORD: 114, BUCKET: 115, WATER_BUCKET: 116, GOLD_INGOT: 117, GREEN_GEM: 118, SHEEP_EGG: 119, SHEARS: 120 };
+  SWORD: 114, BUCKET: 115, WATER_BUCKET: 116, GOLD_INGOT: 117, GREEN_GEM: 118, SHEEP_EGG: 119, SHEARS: 120,
+  SNOWBALL: 121 };
 
 const BLOCKS = {
   [B.GRASS]: { name: "Трава", hard: 0.5, tier: 0, drop: B.DIRT },
@@ -611,6 +627,10 @@ const BLOCKS = {
   [B.OBSERVER]: { name: "Наблюдатель", hard: 1.5, tier: 0 },
   [B.AND]: { name: "Блок «И»", hard: 1.5, tier: 0 },
   [B.OR]: { name: "Блок «ИЛИ»", hard: 1.5, tier: 0 },
+  [B.DOOR]: { name: "Дверь", hard: 1.2, tier: 0 },
+  [B.DOOR_OPEN]: { name: "Дверь", hard: 1.2, tier: 0, solid: false, of: B.DOOR },
+  [B.SNOW]: { name: "Снег", hard: 0.4, tier: 0 },
+  [B.SNOW_LEAVES]: { name: "Снежная листва", hard: 0.2, tier: 0, drop: null },
 };
 // A lever or a button that is on, a wire, a piston or a gate turned away from the right, a green torch on another side
 // of its block: the state lives in the block id, so the server keeps and shares it as any other block.
@@ -640,6 +660,7 @@ const ITEMS = {
   [I.BUCKET]: { name: "Ведро", single: true },
   [I.WATER_BUCKET]: { name: "Ведро воды", single: true },
   [I.SHEARS]: { name: "Ножницы", single: true },
+  [I.SNOWBALL]: { name: "Снежок" },
   [I.GREEN_GEM]: { name: "Зелёный кристалл" },
 };
 const HAND = { tier: 0, speed: 1 };
@@ -669,6 +690,9 @@ const RECIPES = [
   { out: I.BUCKET, n: 1, need: [[I.IRON, 3]] },
   { out: B.BED, n: 1, need: [[B.PLANKS, 3], [B.WOOL, 3]] },
   { out: I.SHEARS, n: 1, need: [[I.IRON, 2]] },
+  { out: B.DOOR, n: 2, need: [[B.PLANKS, 6]] },
+  { out: I.SNOWBALL, n: 4, need: [[B.SNOW, 1]] },
+  { out: B.SNOW, n: 1, need: [[I.SNOWBALL, 4]] },
   { out: I.GREEN_GEM, n: 2, need: [[B.SEAWEED, 1]], any: true },
   { out: B.GREEN_BENCH, n: 1, need: [[I.GREEN_GEM, 4]], any: true },
   { out: B.ELECTRIC, n: 1, need: [[I.GREEN_GEM, 9]], green: true },
@@ -694,7 +718,8 @@ const pickOf = id => ITEMS[id] && ITEMS[id].pick;
 const durOf = id => ITEMS[id] && ITEMS[id].dur;
 const stackMax = id => (durOf(id) || (ITEMS[id] && ITEMS[id].single) ? 1 : 99);
 const solidId = id => id !== B.AIR && BLOCKS[id].solid !== false;
-const lightPasses = id => !solidId(id) || id === B.GLASS || id === B.LEAVES;
+const isLeaves = id => id === B.LEAVES || id === B.SNOW_LEAVES;
+const lightPasses = id => !solidId(id) || id === B.GLASS || isLeaves(id);
 const isEmpty = id => id === B.AIR || id === B.WATER;
 const isWet = id => id === B.WATER || id === B.SEAWEED;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -782,9 +807,9 @@ const Sound = (() => {
     src.start(at || 0);
   }
 
-  const SOFT = new Set([B.GRASS, B.DIRT, B.SAND, B.LEAVES, B.SEAWEED, B.WOOL]);
+  const SOFT = new Set([B.GRASS, B.DIRT, B.SAND, B.LEAVES, B.SEAWEED, B.WOOL, B.SNOW, B.SNOW_LEAVES]);
   const WOOD = new Set([B.LOG, B.PLANKS, B.WORKBENCH, B.TORCH, B.CHEST, B.TRASH, B.LADDER, B.BED, B.GREEN_BENCH,
-    B.BUTTON, B.MUSIC, B.WIRE, B.GREEN_TORCH]);
+    B.BUTTON, B.MUSIC, B.WIRE, B.GREEN_TORCH, B.DOOR]);
   const matOf = id => (SOFT.has(id) ? "soft" : WOOD.has(baseOf(id)) ? "wood" : id === B.GLASS ? "glass" : "stone");
 
   // Background loop: 8 chords, arpeggio patterns and a phrase on top; the surface and the depths
@@ -1026,8 +1051,13 @@ const WORLD_OPTS = {
   ores: { name: "Руды", values: [0.5, 1, 2], labels: ["Мало руды", "Обычно руды", "Много руды"] },
   trees: { name: "Деревья", values: [0, 0.05, 0.12, 0.3], labels: ["Без деревьев", "Мало деревьев", "Обычно деревьев", "Лес"] },
   hearts: { name: "Сердечки", values: [0, 15, 40, 70], labels: ["Без сердечек", "Мало сердечек", "Обычно сердечек", "Много сердечек"] },
+  winter: { name: "Зима", values: [2, 0.75, 0.62, 0.45], labels: ["Без зимы", "Мало зимы", "Обычно зимы", "Много зимы"] },
+  houses: { name: "Домики", values: [0, 3, 8, 16], labels: ["Без домиков", "Мало домиков", "Обычно домиков", "Много домиков"] },
 };
-const DEFAULT_OPTS = { hills: 2, ocean: 1, caves: 2, ores: 1, trees: 2, hearts: 2 };
+const DEFAULT_OPTS = { hills: 2, ocean: 1, caves: 2, ores: 1, trees: 2, hearts: 2, winter: 2, houses: 2 };
+// Settings that came later: a world made before them has none of it.
+const LATER_OPTS = { winter: 0, houses: 0 };
+const fullOpts = opts => ({ ...DEFAULT_OPTS, ...LATER_OPTS, ...opts });
 const opt = (opts, key) => WORLD_OPTS[key].values[opts[key]];
 
 // The ocean is a basin dug into the hills next to the spawn; water stands up to the lower of its two shores.
@@ -1088,17 +1118,20 @@ function deposit(w, rng, ore, count, ymin) {
   }
 }
 
-function generate(seed, opts = DEFAULT_OPTS) {
+function generate(seed, given = DEFAULT_OPTS) {
+  const opts = fullOpts(given);
   const rng = mulberry32(seed);
   const { surf, ocean } = terrain(seed, opt(opts, "ocean"), opts.hills);
   const caves = opt(opts, "caves"), ores = opt(opts, "ores"), trees = opt(opts, "trees");
+  // Winter lies in long stretches: snow on the ground, white leaves on the trees.
+  const cold = x => noise1(x / 150, seed + 9) > opt(opts, "winter");
   const w = new Uint8Array(W * H);
   for (let x = 0; x < W; x++) {
     const s = surf[x];
     const dirt = 3 + Math.floor(hash2(x, 1, seed) * 3);
     const low = s >= 105 || (ocean && x >= ocean.x0 && x < ocean.x1);
     for (let y = s; y < H; y++) {
-      let id = y === s ? (low ? B.SAND : B.GRASS) : y < s + dirt ? (low ? B.SAND : B.DIRT) : B.STONE;
+      let id = y === s ? (low ? B.SAND : cold(x) ? B.SNOW : B.GRASS) : y < s + dirt ? (low ? B.SAND : B.DIRT) : B.STONE;
       if (y > s + 5) {
         const n = noise2(x / 26, y / 15, seed + 3) * 0.6 + noise2(x / 9, y / 8, seed + 4) * 0.4;
         if (n > caves - Math.min(0.06, (y - s) / 2000)) {
@@ -1130,7 +1163,7 @@ function generate(seed, opts = DEFAULT_OPTS) {
   let last = -10;
   for (let x = 4; x < W - 4; x++) {
     const s = surf[x];
-    if (w[s * W + x] !== B.GRASS || x - last < 5 || rng() > trees) {
+    if ((w[s * W + x] !== B.GRASS && w[s * W + x] !== B.SNOW) || x - last < 5 || rng() > trees) {
       continue;
     }
     last = x;
@@ -1143,11 +1176,13 @@ function generate(seed, opts = DEFAULT_OPTS) {
       for (let dx = -2; dx <= 2; dx++) {
         const corner = Math.abs(dx) === 2 && (y === top - 2 || y === top + 1);
         if (!corner && w[y * W + x + dx] === B.AIR) {
-          w[y * W + x + dx] = B.LEAVES;
+          w[y * W + x + dx] = cold(x) ? B.SNOW_LEAVES : B.LEAVES;
         }
       }
     }
   }
+
+  const loot = houses(w, surf, ocean, rng, opt(opts, "houses"));
 
   for (let x = 0; x < W; x++) {
     w[(H - 1) * W + x] = B.BEDROCK;
@@ -1161,7 +1196,53 @@ function generate(seed, opts = DEFAULT_OPTS) {
     w[y * W] = B.BEDROCK;
     w[y * W + W - 1] = B.BEDROCK;
   }
-  return { tiles: w, surf };
+  return { tiles: w, surf, chests: loot };
+}
+
+// Houses from the notebook, row by row down to the floor: L log, P planks, D door, W workbench, B bed, C chest.
+// A chest finds each thing of its list with its own chance.
+const HOUSES = [
+  { rows: ["LPPPPPL", "L.....L", "L.....L", "DW..B.D", "PPPPPPP"], loot: [] },
+  { rows: ["LPPPPPPL", "L......L", "L......L", "D.B..C.D", "PPPPPPPP"],
+    loot: [[B.LOG, 10, 0.5], [I.STICK, 5, 0.8], [I.COAL, 3, 0.5], [B.TORCH, 5, 0.05], [I.DIAMOND, 1, 0.01]] },
+  { rows: ["LPPPL", "L...L", "D.C.L", "PPPPP"],
+    loot: [[I.GREEN_GEM, 5, 0.2], [I.IRON, 2, 0.2], [I.GOLD_INGOT, 3, 0.3], [I.DIAMOND, 1, 0.05], [B.PINK, 1, 0.001],
+      [B.DIRT, 1, 0.0001]] },
+];
+const HOUSE_CELLS = { L: B.LOG, P: B.PLANKS, D: B.DOOR, W: B.WORKBENCH, B: B.BED, C: B.CHEST, ".": B.AIR };
+// A house stands on ground that is nearly flat, off the ocean and away from trees and other houses; the floor lies on
+// the highest ground under it and dirt fills the gaps below.
+function houses(w, surf, ocean, rng, count) {
+  const chests = new Map();
+  for (let built = 0, tries = 0; built < count && tries < count * 40; tries++) {
+    const { rows, loot } = HOUSES[Math.floor(rng() * HOUSES.length)];
+    const hw = rows[0].length, hh = rows.length, x0 = 8 + Math.floor(rng() * (W - 16 - hw));
+    const ground = Array.from(surf.subarray(x0 - 1, x0 + hw + 1)), fy = Math.min(...ground);
+    let free = Math.max(...ground) - fy <= 2 && fy - hh > 1 && !(ocean && x0 + hw + 1 > ocean.x0 && x0 - 1 < ocean.x1);
+    for (let y = fy - hh - 1; y <= fy && free; y++) {
+      for (let x = x0 - 3; x < x0 + hw + 3 && free; x++) {
+        free = ![B.LOG, B.LEAVES, B.SNOW_LEAVES, B.PLANKS].includes(w[y * W + x]);
+      }
+    }
+    if (!free) {
+      continue;
+    }
+    rows.forEach((row, k) => [...row].forEach((c, dx) => {
+      const x = x0 + dx, y = fy - hh + 1 + k;
+      w[y * W + x] = HOUSE_CELLS[c];
+      if (c === "C") {
+        const got = loot.filter(([, , chance]) => rng() < chance).map(([id, n]) => ({ id, n }));
+        chests.set(y * W + x, [...got, ...new Array(CHEST_SLOTS - got.length).fill(null)]);
+      }
+    }));
+    for (let dx = 0; dx < hw; dx++) {
+      for (let y = fy + 1; y < surf[x0 + dx]; y++) {
+        w[y * W + x0 + dx] = B.DIRT;
+      }
+    }
+    built++;
+  }
+  return chests;
 }
 
 // ---------- state ----------
@@ -1284,12 +1365,12 @@ function freshBag() {
 }
 function newWorld(s, opts = DEFAULT_OPTS) {
   seed = s;
-  worldOpts = opts;
+  worldOpts = fullOpts(opts);
   const g = generate(seed, opts);
   world = g.tiles;
   surf = g.surf;
   hasOcean = opt(opts, "ocean");
-  chests = new Map();
+  chests = g.chests;
   inv = freshBag();
   sel = 0;
   time = 0;
@@ -1415,7 +1496,7 @@ function breakTime(id) {
   return p.tier >= d.tier ? d.hard / p.speed : d.hard * 5;
 }
 function dropOf(id) {
-  if (id === B.LEAVES) {
+  if (isLeaves(id)) {
     const r = Math.random();
     return r < 0.07 ? I.GREEN_GEM : r < 0.22 ? I.STICK : null;
   }
@@ -1487,6 +1568,15 @@ const USE = {
   [B.LEVER]: (x, y) => switchTo(x, y, B.LEVER_ON),
   [B.LEVER_ON]: (x, y) => switchTo(x, y, B.LEVER),
   [B.BUTTON]: (x, y) => switchTo(x, y, B.BUTTON_ON),
+  [B.DOOR]: (x, y) => switchTo(x, y, B.DOOR_OPEN),
+  [B.DOOR_OPEN]: (x, y) => {
+    if ([P, ...mobs, ...sheep, ...peers.values()].some(e => overlaps(e, x, y))) {
+      toast("В двери кто-то стоит");
+      Sound.nope();
+    } else {
+      switchTo(x, y, B.DOOR);
+    }
+  },
 };
 for (let d = 0; d < 4; d++) {
   USE[B.WIRE + d] = USE[B.PISTON + d] = USE[B.STICKY + d] = USE[B.OBSERVER + d] = USE[B.AND + d] = USE[B.OR + d] = turnBlock;
@@ -1787,7 +1877,48 @@ function update(dt) {
   }
   growSeaweed(dt);
   circuitTick(dt);
+  updateSnow(dt);
   netTick(dt);
+}
+
+// ---------- snowballs ----------
+
+// Everyone sees every snowball fly, but only the thrower decides whom it hit: the hit player is pushed away by itself.
+const SNOW_SPEED = 16, SNOW_LIFE = 3, SNOW_PUSH = 12;
+let snowballs = [];
+function throwSnow(wx, wy) {
+  const x = P.x + P.w / 2, y = P.y + P.h / 3, d = Math.hypot(wx - x, wy - y) || 1;
+  const ball = { x, y, vx: (wx - x) / d * SNOW_SPEED, vy: (wy - y) / d * SNOW_SPEED - 2, t: 0, mine: true };
+  snowballs.push(ball);
+  use1(inv[sel]);
+  Sound.jump();
+  if (!SOLO) {
+    netSend({ t: "snow", x: round2(ball.x), y: round2(ball.y), vx: round2(ball.vx), vy: round2(ball.vy) });
+  }
+}
+const inBody = (b, o) => b.x > o.x && b.x < o.x + o.w && b.y > o.y && b.y < o.y + o.h;
+function updateSnow(dt) {
+  snowballs = snowballs.filter(b => {
+    b.t += dt;
+    b.vy += GRAV / 2 * dt;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    const hit = [...peers.values()].find(o => o.seen && inBody(b, o));
+    if (hit && b.mine) {
+      netSend({ t: "hit", to: hit.id, vx: b.vx < 0 ? -1 : 1 });
+    }
+    if (hit || (!b.mine && inBody(b, P)) || b.t > SNOW_LIFE || solidAt(Math.floor(b.x), Math.floor(b.y))) {
+      floats.push({ text: "❄", x: b.x, y: b.y, t: 0.6 });
+      return false;
+    }
+    return true;
+  });
+}
+function snowHit(m) {
+  P.vx = (m.vx < 0 ? -1 : 1) * SNOW_PUSH;
+  P.vy = Math.min(P.vy, -6);
+  toast(`${m.from} попал в тебя снежком ❄`);
+  Sound.slash();
 }
 
 // ---------- fish ----------
@@ -2557,6 +2688,51 @@ const tex = {
     }
   }),
   [B.WOOL]: mkTex((g, r) => speck(g, r, ["#ffffff", "#f3eef1", "#e9e2e6", "#fbf8fa"])),
+  [B.SNOW]: mkTex((g, r) => {
+    speck(g, r, ["#8b5a3c", "#7a4e33", "#9c6848", "#6e442c"]);
+    for (let x = 0; x < 16; x++) {
+      const d = 4 + Math.floor(r() * 3);
+      for (let y = 0; y < d; y++) {
+        px(g, x, y, ["#ffffff", "#eef4fb", "#dde8f5"][Math.floor(r() * 3)]);
+      }
+    }
+  }),
+  [B.SNOW_LEAVES]: mkTex((g, r) => {
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 16; x++) {
+        const v = r();
+        if (v > 0.1) {
+          px(g, x, y, v > 0.7 ? "#ffffff" : v > 0.35 ? "#e6eef7" : "#c9d7e6");
+        }
+      }
+    }
+  }),
+  [B.DOOR]: mkTex((g, r) => {
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 16; x++) {
+        px(g, x, y, ["#c8955a", "#b98549", "#d4a36a"][Math.floor(r() * 3)]);
+      }
+    }
+    g.fillStyle = "#8a5d2e";
+    [5, 10].forEach(x => g.fillRect(x, 0, 1, 16));
+    frame(g, "#5b3a21");
+    g.fillStyle = "#bfe6ff";
+    g.fillRect(3, 2, 4, 4);
+    g.fillRect(9, 2, 4, 4);
+    g.fillStyle = "#5b3a21";
+    g.fillRect(2, 9, 2, 2);
+  }),
+  [B.DOOR_OPEN]: mkTex((g, r) => {
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 3; x++) {
+        px(g, x, y, ["#c8955a", "#b98549", "#d4a36a"][Math.floor(r() * 3)]);
+      }
+    }
+    g.fillStyle = "#5b3a21";
+    g.fillRect(2, 0, 1, 16);
+    g.fillStyle = "#ffd21f";
+    g.fillRect(1, 8, 1, 2);
+  }),
   [B.BED]: mkTex(g => {
     g.fillStyle = "#7a5230";
     g.fillRect(0, 10, 16, 3);
@@ -2608,6 +2784,17 @@ const tex = {
   [I.HEART_EGG]: egg("#ffd6ea", "#ff4f9a"),
   [I.FISH_EGG]: egg("#bfe6ff", "#ff8a00"),
   [I.SHEEP_EGG]: egg("#f7f3f5", "#5b4b52"),
+  [I.SNOWBALL]: mkTex(g => {
+    g.fillStyle = "#ffffff";
+    g.beginPath();
+    g.arc(8, 8, 5, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = "#9fb8d8";
+    g.lineWidth = 1;
+    g.stroke();
+    g.fillStyle = "#dde8f5";
+    g.fillRect(9, 9, 2, 2);
+  }),
   [I.SHEARS]: mkTex(g => {
     g.lineCap = "round";
     g.strokeStyle = "#d8dce2";
@@ -3216,7 +3403,7 @@ function render(t) {
     for (let x = x0; x <= x1; x++) {
       const id = world[y * W + x];
       const sx = Math.round((x - cam.x) * ts), sw = Math.round((x + 1 - cam.x) * ts) - sx;
-      if (y > surf[x] + 1 && (id === B.AIR || !solidId(id) || [B.GLASS, B.LEAVES, B.LEVER, B.LEVER_ON].includes(id))) {
+      if (y > surf[x] + 1 && (id === B.AIR || !solidId(id) || [B.GLASS, B.LEAVES, B.SNOW_LEAVES, B.LEVER, B.LEVER_ON].includes(id))) {
         ctx.drawImage(wallTex, sx, sy, sw, sh);
       }
       if (id === B.SEAWEED) {
@@ -3249,6 +3436,15 @@ function render(t) {
     if (f.x >= x0 - 1 && f.x <= x1 + 1 && f.y >= y0 - 1 && f.y <= y1 + 1) {
       drawFish(f, t);
     }
+  }
+  ctx.fillStyle = "#fff";
+  ctx.strokeStyle = "#9fb8d8";
+  ctx.lineWidth = 2;
+  for (const b of snowballs) {
+    ctx.beginPath();
+    ctx.arc((b.x - cam.x) * ts, (b.y - cam.y) * ts, ts * 0.13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
   }
   drawLight(x0, y0, x1, y1);
   if (torches.length) {
@@ -3841,7 +4037,7 @@ function shareWorld(w, settings) {
   seed = w.seed;
   world = tiles;
   hasOcean = w.ocean;
-  worldOpts = settings || { ...DEFAULT_OPTS, ocean: w.ocean ? 1 : 0 };
+  worldOpts = settings ? fullOpts(settings) : { ...DEFAULT_OPTS, ...LATER_OPTS, ocean: w.ocean ? 1 : 0 };
   chests = boxes;
   openedChest = null;
   net.shared = true;
@@ -3943,6 +4139,7 @@ function netMessage(m) {
     if (!m.world) {
       net.shared = true;
       netSend({ t: "world", seed, ocean: hasOcean, tiles: encodeTiles(world) });
+      chests.forEach((slots, k) => netSend({ t: "chest", x: k % W, y: Math.floor(k / W), slots: slots.map(encodeSlot) }));
       net.seedMobs = true;
     }
     Sound.chime();
@@ -3985,6 +4182,10 @@ function netMessage(m) {
     remoteChest(m.x, m.y, m.slots);
   } else if (m.t === "gift") {
     receiveGifts(m);
+  } else if (m.t === "snow" && [m.x, m.y, m.vx, m.vy].every(Number.isFinite)) {
+    snowballs.push({ x: m.x, y: m.y, vx: m.vx, vy: m.vy, t: 0, mine: false });
+  } else if (m.t === "hit") {
+    snowHit(m);
   } else if (m.t === "mobs") {
     try {
       applyMobs(m, false);
@@ -4123,7 +4324,7 @@ function newOpts(prefix) {
   NEW_OPTS.forEach(key => (opts[key] = Number($(`#${prefix}-${key}`).value)));
   return opts;
 }
-const optsText = opts => (opts ? `сид ${opts.seed}, ` + NEW_OPTS.map(key => WORLD_OPTS[key].labels[opts[key]].toLowerCase()).join(", ")
+const optsText = opts => (opts ? `сид ${opts.seed}, ` + NEW_OPTS.map(key => WORLD_OPTS[key].labels[fullOpts(opts)[key]].toLowerCase()).join(", ")
   : "обычные настройки");
 function heroCard(world, hero) {
   const card = document.createElement("div");
@@ -4528,7 +4729,7 @@ function deserialize(text) {
   if (d.v >= 3 && typeof d.ocean !== "boolean") {
     throw new Error("испорчен океан");
   }
-  if (d.v >= 5 && !optsOk(d.opts)) {
+  if (d.v >= 5 && !optsOk(fullOpts(d.opts))) {
     throw new Error("испорчены настройки мира");
   }
   if (d.v >= 6 && !(Array.isArray(d.sheep) && d.sheep.length <= MOB_MAX &&
@@ -4555,7 +4756,7 @@ function deserialize(text) {
   seed = d.seed;
   world = tiles;
   hasOcean = d.v >= 3 && d.ocean;
-  worldOpts = d.v >= 5 ? Object.fromEntries(NEW_OPTS.map(k => [k, d.opts[k]])) : { ...DEFAULT_OPTS, ocean: hasOcean ? 1 : 0 };
+  worldOpts = d.v >= 5 ? Object.fromEntries(NEW_OPTS.map(k => [k, fullOpts(d.opts)[k]])) : { ...DEFAULT_OPTS, ...LATER_OPTS, ocean: hasOcean ? 1 : 0 };
   surf = terrain(seed, hasOcean, worldOpts.hills).surf;
   chests = boxes;
   inv = bag;
@@ -4732,6 +4933,10 @@ canvas.addEventListener("pointerdown", e => {
   const m = target && mobAt(cam.x + e.clientX / TILE, cam.y + e.clientY / TILE, target[0]);
   if (m) {
     target[1](m);
+    return;
+  }
+  if (hand === I.SNOWBALL) {
+    throwSnow(cam.x + e.clientX / TILE, cam.y + e.clientY / TILE);
     return;
   }
   if (e.isTrusted) {
@@ -4920,7 +5125,7 @@ window.HC = { B, I, W, H, RECIPES, P, cam, get world() { return world; }, get in
   get zoom() { return zoom; }, get TILE() { return TILE; }, get, setTile, finishBreak, addItem, count, craft,
   bestPick, bestPickSlot, hatch, newWorld, generate, usePlace, feed, openCraft, setZoom, toggleDay, daylight, keys,
   touch, Sound, net, peers, netLogin, netLeave, LOOK_COLORS, WORLD_OPTS, get worldOpts() { return worldOpts; },
-  get powered() { return powered; }, netTile, openBag, dropOf };
+  get powered() { return powered; }, netTile, openBag, dropOf, get snowballs() { return snowballs; } };
 </script>
 </body>
 </html>

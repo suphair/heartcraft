@@ -46,7 +46,7 @@ CHEST = [[8, 4]] + [None] * 26
 LOOK = {"c": 3, "h": 2}
 NEW_HERO = {"look": None, "inv": None, "sel": 0, "x": None, "y": None, "bed": None}
 MOBS = {"hearts": [[1, 10.5, 20, 1, 0, 0, 0, 0, 2]], "sheep": [[2, 30, 20.4, -1, 0]], "fish": [[3, 50.5, 70.5, 1, 4]]}
-SETTINGS = {"seed": 7, "hills": 4, "ocean": 0, "caves": 3, "ores": 2, "trees": 3, "hearts": 1}
+SETTINGS = {"seed": 7, "hills": 4, "ocean": 0, "caves": 3, "ores": 2, "trees": 3, "hearts": 1, "winter": 3, "houses": 2}
 
 
 class ServerTest(unittest.TestCase):
@@ -408,6 +408,32 @@ class ServerTest(unittest.TestCase):
         a.send({"t": "pass", "to": 2, "slot": [4, 5]})
         self.assertEqual(a.recv(), {"t": "gift", "items": [[4, 5]], "returned": True})
 
+    def test_snowballs_fly_to_everyone_and_a_hit_reaches_only_the_target(self):
+        a, _ = self.join("Аня")
+        b, _ = self.join("Боря")
+        c, _ = self.join("Вера")
+        a.send(WORLD)
+        a.send({"t": "snow", "x": 10.5, "y": 20, "vx": -15.2, "vy": 3})
+        for o in (b, c):
+            msg = o.recv()
+            while msg["t"] != "snow":
+                msg = o.recv()
+            self.assertEqual(msg, {"t": "snow", "x": 10.5, "y": 20, "vx": -15.2, "vy": 3})
+        a.send({"t": "hit", "to": 2, "vx": -1})
+        self.synced(a, c)
+        msg = b.recv()
+        while msg["t"] != "hit":
+            msg = b.recv()
+        self.assertEqual(msg, {"t": "hit", "from": "Аня", "vx": -1})
+
+    def test_a_bad_snowball_drops_the_sender(self):
+        for bad in [{"t": "snow", "x": 1, "y": 1, "vx": 500, "vy": 0}, {"t": "snow", "x": -1, "y": 1, "vx": 0, "vy": 0},
+                    {"t": "snow", "x": 1, "y": 1, "vx": "1", "vy": 0}, {"t": "hit", "to": 1, "vx": 2},
+                    {"t": "hit", "to": "1", "vx": 1}]:
+            c, _ = self.join("Аня")
+            c.send(bad)
+            self.assertIsNone(c.recv(), bad)
+
     def test_a_bad_pass_drops_the_sender(self):
         for bad in [{"to": [1]}, {"to": 9}, {"slot": None}, {"slot": [4]}, {"slot": "x"}]:
             c, _ = self.join("Аня")
@@ -509,8 +535,9 @@ class ServerTest(unittest.TestCase):
             c.send(dict({"t": "photo"}, **bad))
             self.assertIsNotNone(c.recv()["error"], bad["id"])
         for missing in ("1-0123456789abcdef.jpg", "../notes.json", "x.jpg"):
-            with self.assertRaises(urllib.error.HTTPError):
+            with self.assertRaises(urllib.error.HTTPError) as refused:
                 urllib.request.urlopen(url + missing)
+            refused.exception.close()
         c.send({"t": "note", "id": 1, "text": "Вот так и так"})
         self.assertEqual(c.recv()["notes"][0]["photos"], [name])
         c.send({"t": "dropnote", "id": 1})
