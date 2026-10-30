@@ -45,7 +45,14 @@ INV = [[1, 5]] + [None] * 34 + [[110, 1, 30]]
 CHEST = [[8, 4]] + [None] * 26
 LOOK = {"c": 3, "h": 2}
 NEW_HERO = {"look": None, "inv": None, "sel": 0, "x": None, "y": None, "bed": None}
-MOBS = {"hearts": [[1, 10.5, 20, 1, 0, 0, 0, 0, 2]], "sheep": [[2, 30, 20.4, -1, 0]], "fish": [[3, 50.5, 70.5, 1, 4]]}
+MOBS = {"hearts": [[1, 10.5, 20, 1, 0, 0, 0, 0, 2]], "sheep": [[2, 30, 20.4, -1, 0]], "fish": [[3, 50.5, 70.5, 1, 4]],
+        "critters": []}
+PIC = "data:image/png;base64,iVBORw0KGgo="
+MOB = {"game": "heartcraft-mob", "v": 1, "id": "0123456789abcdef", "name": "Фиолетик", "w": 1.2, "h": 0.9, "breed": 118,
+       "drop": 105, "dropN": 2, "biome": "summer", "count": 5, "egg": [[118, 3]], "pic": PIC, "eggPic": PIC}
+# Grass at row 100 over stone: the ground of the mobs of the summer mods.
+MEADOW = bytearray(GROUND)
+MEADOW[100 * server.W:101 * server.W] = bytes([1]) * server.W
 SETTINGS = {"seed": 7, "hills": 4, "ocean": 0, "caves": 3, "ores": 2, "trees": 3, "hearts": 1, "winter": 3, "houses": 2}
 
 
@@ -158,7 +165,8 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(a.recv()["t"], "join")
         b.send(dict(WORLD, seed=7))
         self.assertEqual(b.recv(), {"t": "load", "world": {"seed": 42, "ocean": True, "tiles": WORLD["tiles"],
-                                                           "changes": [], "chests": [], "mobs": None}, "settings": None})
+                                                           "changes": [], "chests": [], "mobs": None}, "settings": None,
+                                 "mods": []})
 
     def test_moves_blocks_chests_and_looks_reach_others_but_not_sender(self):
         a, _ = self.join("Аня")
@@ -323,7 +331,8 @@ class ServerTest(unittest.TestCase):
         c.send({"t": "create", "name": "  Горы   и  пещеры ", "code": "peaks", "settings": SETTINGS})
         state = c.recv()
         self.assertIsNone(state["error"])
-        self.assertEqual(state["worlds"][-1], {"code": "peaks", "name": "Горы и пещеры", "settings": SETTINGS, "heroes": []})
+        self.assertEqual(state["worlds"][-1], {"code": "peaks", "name": "Горы и пещеры", "settings": SETTINGS, "heroes": [],
+                                                    "mods": []})
         c.send({"t": "create", "name": "Без кода", "code": "", "settings": SETTINGS})
         code = c.recv()["worlds"][-1]["code"]
         self.assertRegex(code, r"^\d{6}$")
@@ -433,6 +442,74 @@ class ServerTest(unittest.TestCase):
             c, _ = self.join("Аня")
             c.send(bad)
             self.assertIsNone(c.recv(), bad)
+
+    def test_a_mob_is_published_with_the_admin_code_and_listed_for_everyone(self):
+        port = self.httpd.server_address[1]
+        for code, mob, reply in [("123", MOB, {"t": "error", "msg": "Неверный код админа"}),
+                                 ("999", dict(MOB, w=5), {"t": "error", "msg": "Это не моб Сердцекрафта"}),
+                                 ("999", dict(MOB, extra=1), {"t": "error", "msg": "Это не моб Сердцекрафта"}),
+                                 ("999", MOB, {"t": "published"}), ("999", dict(MOB, name="Фиолетик 2"), {"t": "published"})]:
+            c = Client(self.url)
+            self.clients.append(c)
+            c.send({"t": "publish", "code": code, "mob": mob})
+            self.assertEqual(c.recv(), reply, mob["name"])
+        with urllib.request.urlopen("http://127.0.0.1:%d/mods" % port) as r:
+            self.assertEqual(r.headers["Access-Control-Allow-Origin"], "*")
+            self.assertEqual(json.loads(r.read()), [dict(MOB, name="Фиолетик 2")])
+
+    def test_the_admin_switches_a_mob_on_and_its_mobs_live_on_the_server(self):
+        a, _ = self.join("Аня")
+        b, _ = self.join("Боря")
+        a.send(dict(WORLD, tiles=rle(MEADOW)))
+        a.send({"t": "mobs", **MOBS})
+        boss, _ = self.admin()
+        boss.send({"t": "mod", "code": "rose", "mob": MOB})
+        self.assertEqual(boss.recv()["worlds"][0]["mods"], ["Фиолетик"])
+        msg = a.recv()
+        while msg["t"] != "mods":
+            msg = a.recv()
+        self.assertEqual(msg["mods"], [MOB])
+        for bad, why in [(MOB, "Фиолетик уже есть в этом мире"), (dict(MOB, egg=[]), "Это не моб Сердцекрафта")]:
+            boss.send({"t": "mod", "code": "rose", "mob": bad})
+            self.assertEqual(boss.recv()["error"], why)
+        boss.send({"t": "mod", "code": "nope", "mob": MOB})
+        self.assertEqual(boss.recv()["error"], "Нет такого мира")
+        self.run_mobs(0)
+        critters = self.mobs(a)["critters"]
+        self.assertEqual(len(critters), 5)
+        self.assertTrue(all(c[4] == 0 and abs(c[2] + 0.9 + 0.01 - 100) < 0.01 for c in critters), critters)
+        a.send({"t": "mobact", "act": "hatch", "egg": server.MOD_EGG, "x": 30, "y": 99})
+        a.send({"t": "mobact", "act": "hatch", "egg": server.MOD_EGG + 1, "x": 30, "y": 99})
+        a.send({"t": "mobact", "act": "kill", "id": critters[0][0]})
+        self.synced(a, b)
+        self.run_mobs(0)
+        mobs = self.mobs(a)["critters"]
+        self.assertEqual(len(mobs), 5)
+        self.assertNotIn(critters[0][0], [c[0] for c in mobs])
+        self.save()
+        self.stop()
+        self.start()
+        _, welcome = self.join("Аня")
+        self.assertEqual((welcome["mods"], len(welcome["world"]["mobs"]["critters"])), ([MOB], 5))
+
+    def test_mobs_of_a_mod_appear_in_their_biome_and_breed(self):
+        snowy = bytearray(MEADOW)
+        snowy[100 * server.W:100 * server.W + server.W // 2] = bytes([66]) * (server.W // 2)
+        mods = [dict(MOB, biome="winter", count=40), dict(MOB, id="fedcba9876543210", biome="summer", count=40)]
+        herd = server.Herd(snowy, {"hearts": [], "sheep": [], "fish": []}, mods)
+        herd.spawn(0)
+        herd.spawn(1)
+        self.assertEqual(len(herd.critters), 80)
+        self.assertTrue(all((c["x"] < server.W // 2) == (c["k"] == 0) for c in herd.critters))
+        a, b = herd.critters[0], herd.critters[1]
+        b["x"], b["y"] = a["x"] + 0.3, a["y"]
+        herd.critters[:] = [a, b]
+        for c in (a, b):
+            herd.act({"act": "love", "id": c["id"]})
+        herd.step(server.TICK)
+        self.assertEqual(len(herd.critters), 3)
+        self.assertEqual([c["k"] for c in herd.critters], [0, 0, 0])
+        self.assertEqual([c["pause"] > 0 for c in herd.critters[:2]], [True, True])
 
     def test_a_bad_pass_drops_the_sender(self):
         for bad in [{"to": [1]}, {"to": 9}, {"slot": None}, {"slot": [4]}, {"slot": "x"}]:
@@ -638,7 +715,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual([(o[0], o[4]) for o in mobs["sheep"]], [(2, server.WOOL_REGROW - 10), (4, 0)])
         self.assertEqual(mobs["sheep"][1][1:3], [30.1, 95.39])
         self.assertEqual(mobs["fish"], [])
-        herd = server.Herd(GROUND, {"hearts": [], "sheep": [[2, 30, 20.4, -1]], "fish": []})
+        herd = server.Herd(GROUND, {"hearts": [], "sheep": [[2, 30, 20.4, -1]], "fish": []}, [])
         self.assertEqual(herd.rows()["sheep"], [[2, 30, 20.4, -1, 0]])
 
     def test_a_broken_block_lets_a_mob_fall(self):
@@ -654,7 +731,7 @@ class ServerTest(unittest.TestCase):
 
     def test_hearts_in_love_get_a_baby(self):
         hearts = [[1, 10, 99.5, 1, 0, 0, 15, 0, 0], [2, 10.3, 99.5, 1, 0, 1, 15, 0, 1]]
-        herd = server.Herd(GROUND, {"hearts": hearts, "sheep": [], "fish": []})
+        herd = server.Herd(GROUND, {"hearts": hearts, "sheep": [], "fish": []}, [])
         herd.step(server.TICK)
         baby = herd.rows()["hearts"][2]
         self.assertEqual((baby[0], baby[4]), (3, server.GROW_TIME))

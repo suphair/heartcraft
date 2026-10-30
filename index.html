@@ -116,6 +116,7 @@
   #meter { background: var(--plate); border: 3px solid var(--edge); border-radius: 12px; padding: 4px 14px;
     font-size: 17px; }
   .news ul { margin: 4px 0 10px; padding-left: 22px; }
+  .pic { height: 64px; image-rendering: pixelated; border: 2px solid var(--edge); border-radius: 8px; vertical-align: middle; }
   .photos img { height: 72px; border: 2px solid var(--edge); border-radius: 8px; margin: 4px 6px 0 0; }
   .looks { display: flex; gap: 8px; flex-wrap: wrap; }
   .looks button { width: 48px; height: 48px; padding: 0; border: 3px solid #ffb0d4; border-radius: 10px;
@@ -237,6 +238,51 @@
   </div>
 </div>
 
+<div class="sheet" id="mods" hidden>
+  <div class="box">
+    <h2>🧩 Моды</h2>
+    <div class="hint" id="modsNote"></div>
+    <div class="row"><button class="btn main" id="modsOfficial">⭐ Официальные моды</button>
+      <button class="btn" id="modsCustom">📎 Пользовательские</button>
+      <button class="btn" id="modsMake">🐾 Создать моба</button></div>
+    <h3>В этом мире</h3>
+    <ul class="news" id="modsOn"></ul>
+    <ul class="news" id="modsList"></ul>
+    <input type="file" id="modFile" accept=".json,application/json" hidden>
+    <div class="row end"><button class="btn" id="modsBack">Закрыть</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="mob" hidden>
+  <div class="box">
+    <h2>🐾 Создать моба</h2>
+    <div class="hint">Придумай моба: заполни поля, прикрепи картинки — каким будет моб и его яйцо призыва. Потом
+      скачай файл (его включают в мире: ☰ → 🧩 Моды → 📎 Пользовательские) или опубликуй в официальные моды
+      с кодом админа.</div>
+    <div class="row opts">
+      <label>Название <input class="field" id="mobName" maxlength="30"></label>
+      <label>Ширина, блоков <input type="number" id="mobW" min="0.3" max="3" step="0.1" value="1"></label>
+      <label>Высота, блоков <input type="number" id="mobH" min="0.3" max="3" step="0.1" value="1"></label>
+      <label>Чем размножать <select id="mobBreed"></select></label>
+      <label>Что выпадет от меча <select id="mobDrop"></select></label>
+      <label>Сколько выпадет <input type="number" id="mobDropN" min="1" max="64" value="1"></label>
+      <label>В каком биоме <select id="mobBiome"></select></label>
+      <label>Сколько в мире <input type="number" id="mobCount" min="0" max="40" value="10"></label>
+    </div>
+    <h3>Крафт яйца призыва (у обычного верстака)</h3>
+    <div class="row opts" id="mobEgg"></div>
+    <h3>Как выглядит</h3>
+    <div class="row"><label>📷 Моб <input type="file" id="mobPic" accept="image/*"></label>
+      <img class="pic" id="mobPicShow" alt="" hidden></div>
+    <div class="row"><label>📷 Яйцо призыва <input type="file" id="mobEggPic" accept="image/*"></label>
+      <img class="pic" id="mobEggShow" alt="" hidden></div>
+    <div class="row"><button class="btn main" id="mobDownload">⬇️ Скачать</button></div>
+    <div class="row opts"><label>Код админа <input type="password" id="mobCode"></label>
+      <button class="btn" id="mobPublish">📢 Опубликовать</button></div>
+    <div class="row end"><button class="btn" id="mobBack">← В игру</button></div>
+  </div>
+</div>
+
 <div class="sheet" id="settings" hidden>
   <div class="box">
     <h2>⚙️ Настройки</h2>
@@ -271,6 +317,15 @@
   <div class="box">
     <h2>Что нового</h2>
     <div class="news">
+      <h3>Версия 3.0</h3>
+      <ul>
+        <li><b>🐾 Создать моба</b> — на странице выбора, где играть, или в ☰ → 🧩 Моды. Придумай название, размер,
+          чем его размножать, что выпадет от меча, в каком биоме он живёт, сколько его в мире и из чего крафтится
+          его яйцо призыва, прикрепи картинки моба и яйца. Потом «⬇️ Скачать» — файл моба, или «📢 Опубликовать»
+          с кодом админа — моб попадёт в официальные моды.</li>
+        <li><b>☰ → 🧩 Моды</b>: «📎 Пользовательские» включают моба из файла, «⭐ Официальные моды» — из общего списка.
+          В одиночной игре мобов включает игрок, в сетевой — только админ (у мира в админке есть кнопка 🧩 Моды).</li>
+      </ul>
       <h3>Версия 2.9</h3>
       <ul>
         <li><b>Зима</b>: в новых мирах есть зимние края — на земле лежит снег, листва на деревьях белая.
@@ -513,6 +568,7 @@
       <button class="btn soloOnly" data-act="download">⬇️ Скачать мир в файл</button>
       <button class="btn soloOnly" data-act="upload">⬆️ Открыть мир из файла</button>
       <button class="btn soloOnly" data-act="reset">🔄 Новый мир</button>
+      <button class="btn" data-act="mods">🧩 Моды</button>
       <button class="btn" data-act="look">🎨 Сменить вид</button>
       <button class="btn" data-act="settings">⚙️ Настройки</button>
       <button class="btn main netOnly" data-act="logout">🚪 Выйти</button>
@@ -532,6 +588,8 @@
         лучшая кирка из рюкзака работает сама и понемногу стирается. Чёрный камень на краях мира не пробить.</p>
       <p>В <b>зимних краях</b> лежит снег: из блока снега получаются снежки, их бросают, выбрав в поясе и нажав
         на экран. В мире стоят <b>домики</b> — загляни в их сундуки. <b>Дверь</b> открывается и закрывается нажатием.</p>
+      <p><b>🧩 Моды</b> — мобы, которых придумали игроки: включи моба из файла или из официальных модов (в сетевой
+        игре это делает админ). Своего моба можно создать кнопкой 🐾.</p>
       <p><b>День и ночь</b> сменяют друг друга: розовый день, фиолетовая ночь. Под землёй темно — ставь факелы.
         «Всегда день» и звук — в ⚙️ Настройках этого меню.</p>
       <p><b>Овцы</b> бродят по траве: меч в руке и нажатие на овцу дают шерсть, ножницы — стригут овцу, и через
@@ -569,7 +627,7 @@ const FISH_COUNT = 30, FISH_MAX = 100, FISH_SPEED = 1.5;
 const SEAWEED_GROW = 600, SEAWEED_MAX = 5;
 const SHEEP_COUNT = 15, SHEEP_SPEED = 1.2, WOOL_REGROW = 1200;
 const CHEST_SLOTS = 27;
-const VERSION = "2.9";
+const VERSION = "3.0";
 // A button stays pressed this long; the circuit is worked out at most this often; music is heard this far.
 const BUTTON_TIME = 1, CIRCUIT_STEP = 0.1, MUSIC_RANGE = 10;
 
@@ -1260,6 +1318,9 @@ let uiDirty = true;
 let mobs = [];
 let fish = [];
 let sheep = [];
+// Mobs of the mods switched on in this world, and the mods themselves in the order they came.
+let critters = [];
+let mods = [];
 // Every heart, sheep and fish has a number: in the network game the server tells the players about them by it.
 let mobSeq = 1;
 // The bed the hero sleeps in: 🛏 brings the hero back to it.
@@ -1377,6 +1438,8 @@ function newWorld(s, opts = DEFAULT_OPTS) {
   spawnMobs();
   spawnFish();
   spawnSheep();
+  applyMods([]);
+  critters = [];
   bed = null;
   spawn();
   snapCamera();
@@ -1623,7 +1686,7 @@ function usePlace(x, y) {
   if (!isEmpty(here) || here === (slot && slot.id) || y < 0 || !slot) {
     return;
   }
-  if (slot.id === I.HEART_EGG || slot.id === I.FISH_EGG || slot.id === I.SHEEP_EGG) {
+  if (slot.id === I.HEART_EGG || slot.id === I.FISH_EGG || slot.id === I.SHEEP_EGG || isModEgg(slot.id)) {
     if (hatch(slot.id, x, y, here)) {
       use1(slot);
     }
@@ -1688,6 +1751,9 @@ function hatchAt(egg, x, y) {
     fish.push(makeFish(x + 0.5, y + 0.5));
   } else if (egg === I.SHEEP_EGG) {
     sheep.push(makeSheep(x + 0.1, y + 0.39));
+  } else if (isModEgg(egg)) {
+    const k = egg - MOD_EGG;
+    critters.push(makeCritter(k, x + Math.max(0, (1 - mods[k].w) / 2), y + 1 - mods[k].h - 0.01));
   } else {
     mobs.push(makeMob(x + 0.25, y + 0.5, 0, false));
   }
@@ -1701,13 +1767,16 @@ function hatch(egg, x, y, here) {
     toast("Сердечек в мире уже очень много");
   } else if (egg === I.SHEEP_EGG && sheep.length >= MOB_MAX) {
     toast("Овец в мире уже очень много");
+  } else if (isModEgg(egg) && critters.filter(c => c.k === egg - MOD_EGG).length >= CRITTER_MAX) {
+    toast("Таких мобов в мире уже очень много");
   } else {
     if (SOLO) {
       hatchAt(egg, x, y);
     } else {
       netSend({ t: "mobact", act: "hatch", egg, x, y });
     }
-    floats.push({ text: { [I.FISH_EGG]: "Появилась рыбка! 🐟", [I.SHEEP_EGG]: "Появилась овца! 🐑" }[egg] || "Появилось сердечко! 💖",
+    floats.push({ text: isModEgg(egg) ? `Появился ${mods[egg - MOD_EGG].name}!` :
+      { [I.FISH_EGG]: "Появилась рыбка! 🐟", [I.SHEEP_EGG]: "Появилась овца! 🐑" }[egg] || "Появилось сердечко! 💖",
       x: x + 0.5, y, t: 0 });
     Sound.craft();
     return true;
@@ -1872,6 +1941,7 @@ function update(dt) {
     mobs.slice().forEach(m => updateMob(m, dt));
     sheep.forEach(o => updateSheep(o, dt));
     fish.forEach(f => updateFish(f, dt));
+    critters.slice().forEach(o => updateCritter(o, dt));
   } else {
     followMobs(dt);
   }
@@ -2167,6 +2237,123 @@ function circuitTick(dt) {
   Sound.box(near <= MUSIC_RANGE ? Math.round((1 - near / (MUSIC_RANGE + 1)) * 20) / 20 : 0);
 }
 
+// ---------- mods: mobs the players made ----------
+
+// A mod is a mob made on the 🐾 page: its egg is MOD_EGG + its place among the mods of the world, which only grow,
+// and the egg is crafted at the usual workbench. The pictures are what the author drew or photographed.
+const MOD_EGG = 1000, MOD_MAX = 20, CRITTER_MAX = 80;
+const BIOMES = { any: "Везде", summer: "Обычный (трава)", winter: "Зимний (снег)" };
+const BIOME_TOPS = { any: [B.GRASS, B.SNOW], summer: [B.GRASS], winter: [B.SNOW] };
+const MOB_KEYS = ["game", "v", "id", "name", "w", "h", "breed", "drop", "dropN", "biome", "count", "egg", "pic", "eggPic"];
+const BASE_RECIPES = RECIPES.length;
+const modPics = new Map();
+const thing = id => Number.isInteger(id) && id < MOD_EGG && isKnown(id);
+const modOk = m => Boolean(m) && typeof m === "object" && Object.keys(m).length === MOB_KEYS.length &&
+  MOB_KEYS.every(k => k in m) && m.game === "heartcraft-mob" && m.v === 1 && /^[0-9a-f]{16}$/.test(m.id) &&
+  typeof m.name === "string" && m.name.trim().length > 0 && m.name.length <= 30 &&
+  [m.w, m.h].every(v => typeof v === "number" && v >= 0.3 && v <= 3) && [m.breed, m.drop].every(v => v === null || thing(v)) &&
+  Number.isInteger(m.dropN) && m.dropN >= 1 && m.dropN <= 64 && m.biome in BIOMES &&
+  Number.isInteger(m.count) && m.count >= 0 && m.count <= 40 && Array.isArray(m.egg) && m.egg.length >= 1 &&
+  m.egg.length <= 3 && m.egg.every(e => Array.isArray(e) && e.length === 2 && thing(e[0]) && Number.isInteger(e[1]) &&
+  e[1] >= 1 && e[1] <= 99) && [m.pic, m.eggPic].every(v => typeof v === "string" && v.startsWith("data:image/"));
+const isModEgg = id => id >= MOD_EGG && id < MOD_EGG + mods.length;
+function applyMods(list) {
+  mods = list;
+  RECIPES.length = BASE_RECIPES;
+  Object.keys(ITEMS).map(Number).filter(id => id >= MOD_EGG).forEach(id => {
+    delete ITEMS[id];
+    delete iconCache[id];
+  });
+  list.forEach((m, k) => {
+    ITEMS[MOD_EGG + k] = { name: "Яйцо призыва: " + m.name };
+    iconCache[MOD_EGG + k] = m.eggPic;
+    RECIPES.push({ out: MOD_EGG + k, n: 1, need: m.egg });
+    if (!modPics.has(m.id)) {
+      const img = new Image();
+      img.src = m.pic;
+      modPics.set(m.id, img);
+    }
+  });
+  uiDirty = true;
+}
+const makeCritter = (k, x, y, id = mobSeq++) => ({ kind: "critter", k, id, x, y, w: mods[k].w, h: mods[k].h, vx: 0, vy: 0,
+  onGround: false, face: 1, dir: 0, think: 0, love: 0, pause: 0, phase: Math.random() * 4 });
+// They stand on the top of their biome: grass, snow or either.
+function spawnCritters(k) {
+  const m = mods[k];
+  for (let tries = 0, placed = 0; placed < m.count && tries < m.count * 20; tries++) {
+    const x = 8 + Math.floor(Math.random() * (W - 16));
+    let y = 0;
+    while (y < H - 1 && !solidAt(x, y) && !isWet(get(x, y))) {
+      y++;
+    }
+    const o = makeCritter(k, x + Math.max(0, (1 - m.w) / 2), y - m.h - 0.01);
+    if (BIOME_TOPS[m.biome].includes(get(x, y)) && o.y > 0 && !collides(o, o.x, o.y)) {
+      critters.push(o);
+      placed++;
+    }
+  }
+}
+function updateCritter(o, dt) {
+  o.think -= dt;
+  if (o.think <= 0) {
+    o.think = 2 + Math.random() * 4;
+    o.dir = [-1, 0, 0, 0, 1][Math.floor(Math.random() * 5)];
+  }
+  let dir = o.dir;
+  o.pause = Math.max(0, o.pause - dt);
+  if (o.love > 0) {
+    o.love -= dt;
+    const mate = critters.find(c => c !== o && c.k === o.k && c.love > 0 && Math.hypot(c.x - o.x, c.y - o.y) < 8);
+    if (mate) {
+      dir = Math.abs(mate.x - o.x) < 0.2 ? 0 : Math.sign(mate.x - o.x);
+      if (Math.hypot(mate.x - o.x, mate.y - o.y) < Math.max(0.8, o.w)) {
+        breedCritters(o, mate);
+      }
+    }
+  }
+  if (dir) {
+    o.face = dir;
+  }
+  if (wetAt(o)) {
+    o.vy = Math.min(o.vy, -SWIM / 2);
+  }
+  if (walk(o, dir, SHEEP_SPEED, dt, false)) {
+    o.vy = -MOB_JUMP;
+  }
+}
+function breedCritters(a, b) {
+  a.love = b.love = 0;
+  a.pause = b.pause = BREED_PAUSE;
+  if (critters.filter(c => c.k === a.k).length < CRITTER_MAX) {
+    const baby = makeCritter(a.k, (a.x + b.x) / 2, a.y);
+    if (collides(baby, baby.x, baby.y)) {
+      baby.x = a.x;
+    }
+    critters.push(baby);
+    floats.push({ text: "Родился малыш! 💕", x: baby.x, y: baby.y, t: 0 });
+    Sound.craft();
+  }
+}
+function loveCritter(o) {
+  if (!inReach(Math.floor(o.x + o.w / 2), Math.floor(o.y + o.h / 2))) {
+    toast("Слишком далеко");
+    Sound.nope();
+  } else if (o.love > 0 || o.pause > 0) {
+    toast(o.love > 0 ? "Уже влюблён — найди ему пару" : "Отдыхает");
+    Sound.nope();
+  } else {
+    removeItem(mods[o.k].breed, 1);
+    if (SOLO) {
+      o.love = LOVE_TIME;
+    } else {
+      netSend({ t: "mobact", act: "love", id: o.id });
+    }
+    floats.push({ text: "💕", x: o.x + o.w / 2, y: o.y, t: 0 });
+    Sound.pickup();
+  }
+}
+
 // ---------- sheep ----------
 
 function updateSheep(o, dt) {
@@ -2196,6 +2383,7 @@ function encodeMobs() {
       round2(Math.max(0, m.love)), round2(m.pause), m.tone]),
     sheep: sheep.map(o => [o.id, round2(o.x), round2(o.y), o.face, round2(o.shorn)]),
     fish: fish.map(f => [f.id, round2(f.x), round2(f.y), f.face, f.tone]),
+    critters: critters.map(o => [o.id, round2(o.x), round2(o.y), o.face, o.k, round2(Math.max(0, o.love)), round2(o.pause)]),
   };
 }
 const mobRow = (row, n) => Array.isArray(row) && row.length === n && row.every(Number.isFinite) && Number.isInteger(row[0]);
@@ -2233,14 +2421,23 @@ function applyMobs(d, jump) {
     f.tone = FISH_COLORS[row[4]] ? row[4] : 0;
     f.color = FISH_COLORS[f.tone];
   });
+  if (!Array.isArray(d.critters) || !d.critters.every(row => mobRow(row, 7) && Number.isInteger(row[4]) && row[4] >= 0 &&
+      row[4] < mods.length)) {
+    throw new Error("испорчены мобы модов");
+  }
+  const herd = merge(critters, d.critters, 7, row => makeCritter(row[4], row[1], row[2], row[0]), (o, row) => {
+    o.love = row[5];
+    o.pause = row[6];
+  });
   mobs = hearts;
   sheep = flock;
   fish = school;
-  mobSeq = Math.max(mobSeq, ...[...mobs, ...sheep, ...fish].map(o => o.id + 1));
+  critters = herd;
+  mobSeq = Math.max(mobSeq, ...[...mobs, ...sheep, ...fish, ...critters].map(o => o.id + 1));
 }
 function followMobs(dt) {
   const k = Math.min(1, dt * 10);
-  for (const o of [...mobs, ...sheep, ...fish]) {
+  for (const o of [...mobs, ...sheep, ...fish, ...critters]) {
     if (o.tx !== undefined) {
       o.x += (o.tx - o.x) * k;
       o.y += (o.ty - o.y) * k;
@@ -2248,7 +2445,7 @@ function followMobs(dt) {
   }
 }
 function removeMob(m) {
-  const list = { heart: mobs, sheep, fish }[m.kind];
+  const list = { heart: mobs, sheep, fish, critter: critters }[m.kind];
   if (list.includes(m)) {
     list.splice(list.indexOf(m), 1);
   }
@@ -2335,6 +2532,12 @@ function strike(o) {
     } else {
       floats.push({ text: "+1 Шерсть", x: m.x + m.w / 2, y: m.y, t: 0 });
     }
+  } else if (o.kind === "critter" && mods[o.k].drop !== null) {
+    const { drop, dropN } = mods[o.k], lost = addItem(drop, dropN);
+    if (lost) {
+      toast(`Рюкзак полон — ${nameOf(drop)} пропал`);
+    }
+    floats.push({ text: lost < dropN ? `+${dropN - lost} ${nameOf(drop)}` : "💔", x: m.x + m.w / 2, y: m.y, t: 0 });
   } else if (o.kind !== "sheep") {
     floats.push({ text: "💔", x: m.x + m.w / 2, y: m.y, t: 0 });
   }
@@ -3362,6 +3565,22 @@ function drawSheep(o, t) {
   ctx.fill();
 }
 
+// The author's picture looks right; a mob walking left sees it mirrored.
+function drawCritter(o, t) {
+  const ts = TILE, x = (o.x - cam.x) * ts, y = (o.y - cam.y) * ts, w = o.w * ts, h = o.h * ts;
+  const hop = Math.abs(o.vx) > 0.1 ? Math.abs(Math.sin(t * 10 + o.phase)) * h * 0.06 : 0;
+  ctx.save();
+  ctx.translate(x + w / 2, y - hop);
+  ctx.scale(o.face < 0 ? -1 : 1, 1);
+  ctx.drawImage(modPics.get(mods[o.k].id), -w / 2, 0, w, h);
+  ctx.restore();
+  if (o.love > 0) {
+    ctx.font = `${Math.round(ts * 0.4)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText("💕", x + w / 2, y - ts * 0.1);
+  }
+}
+
 function drawFish(f, t) {
   const ts = TILE;
   ctx.save();
@@ -3435,6 +3654,11 @@ function render(t) {
   for (const f of fish) {
     if (f.x >= x0 - 1 && f.x <= x1 + 1 && f.y >= y0 - 1 && f.y <= y1 + 1) {
       drawFish(f, t);
+    }
+  }
+  for (const o of critters) {
+    if (o.x + o.w >= x0 && o.x <= x1 + 1 && o.y + o.h >= y0 && o.y <= y1 + 1) {
+      drawCritter(o, t);
     }
   }
   ctx.fillStyle = "#fff";
@@ -3573,10 +3797,10 @@ function renderHotbar() {
 }
 
 const sheets = ["craft", "bag", "menu", "store", "news", "login", "hero", "admin", "gift", "pass", "share", "give",
-  "newWorld", "settings"]
+  "newWorld", "settings", "mods", "mob"]
   .map(id => $("#" + id));
 // There is no game behind these sheets (no login, no hero yet, or the admin), so they do not close on their own.
-const blocking = el => ["login", "hero", "admin", "gift"].includes(el.id);
+const blocking = el => ["login", "hero", "admin", "gift", "mob"].includes(el.id) || (el.id === "mods" && modsFor !== null);
 const openSheet = () => sheets.find(s => !s.hidden);
 function show(el) {
   trash = null;
@@ -3908,6 +4132,8 @@ $("#menu").addEventListener("click", e => {
     openHero(net.look);
   } else if (act === "settings") {
     show($("#settings"));
+  } else if (act === "mods") {
+    openMods(null);
   } else if (act === "save") {
     closeSheets();
     saveLocal();
@@ -4024,6 +4250,12 @@ function peerMoved(o, { x, y, f }) {
   }
 }
 // The server only checks the shape of a world; a broken one is refused here before it replaces the current one.
+function modList(list) {
+  if (!Array.isArray(list) || list.length > MOD_MAX || !list.every(modOk)) {
+    throw new Error("испорчены моды");
+  }
+  return list;
+}
 function shareWorld(w, settings) {
   const tiles = decodeTiles(w.tiles);
   for (const [i, id] of w.changes) {
@@ -4117,11 +4349,16 @@ function netMessage(m) {
     showAdmin(m);
   } else if (m.t === "welcome") {
     try {
+      const list = modList(m.mods);
       if (m.world) {
+        applyMods(list);
         shareWorld(m.world, m.settings);
-      } else if (m.settings) {
-        const { seed: s, ...opts } = m.settings;
-        newWorld(s, opts);
+      } else {
+        if (m.settings) {
+          const { seed: s, ...opts } = m.settings;
+          newWorld(s, opts);
+        }
+        applyMods(list);
       }
       applyMe(m.me);
     } catch (e) {
@@ -4151,6 +4388,7 @@ function netMessage(m) {
     }
   } else if (m.t === "load") {
     try {
+      applyMods(modList(m.mods));
       shareWorld(m.world, m.settings);
     } catch (e) {
       netLeave("Мир не открылся: " + e.message);
@@ -4191,6 +4429,13 @@ function netMessage(m) {
       applyMobs(m, false);
     } catch (e) {
       // a broken snapshot is skipped, the next one comes in a moment
+    }
+  } else if (m.t === "mods") {
+    try {
+      applyMods(modList(m.mods));
+      toast(`Админ включил моба: ${mods[mods.length - 1].name}`);
+    } catch (e) {
+      toast("Мобы из модов не загрузились: " + e.message);
     }
   }
 }
@@ -4491,10 +4736,15 @@ function renderAdmin() {
         adminSend({ t: "delete", code: world.code });
       }
     });
-    head.append(title, del);
+    const modsBtn = document.createElement("button");
+    modsBtn.className = "btn";
+    modsBtn.textContent = "🧩 Моды";
+    modsBtn.addEventListener("click", () => openMods(world));
+    head.append(title, del, modsBtn);
     const about = document.createElement("div");
     about.className = "hint";
-    about.textContent = `${optsText(world.settings)}. Героев: ${world.heroes.length}`;
+    about.textContent = `${optsText(world.settings)}. Героев: ${world.heroes.length}` +
+      (world.mods.length ? `. Мобы из модов: ${world.mods.join(", ")}` : "");
     const heroes = document.createElement("div");
     heroes.className = "heroes";
     world.heroes.forEach(hero => heroes.appendChild(heroCard(world, hero)));
@@ -4690,20 +4940,32 @@ function renderPlayers() {
 
 const SAVE_KEY = "heartcraft-save", LOOK_KEY = "heartcraft-look";
 function serialize() {
-  return JSON.stringify({ game: "heartcraft", v: 7, seed, opts: worldOpts, w: W, h: H, tiles: encodeTiles(world),
+  return JSON.stringify({ game: "heartcraft", v: 8, seed, opts: worldOpts, w: W, h: H, tiles: encodeTiles(world),
     player: { x: P.x, y: P.y }, inv: inv.map(encodeSlot), sel, time, bed: bed && [bed.x, bed.y],
     mobs: mobs.map(m => [m.x, m.y, Math.max(0, m.grow), m.white ? 1 : 0]), ocean: hasOcean,
-    fish: fish.map(f => [f.x, f.y]), sheep: sheep.map(o => [o.x, o.y, o.shorn]),
+    fish: fish.map(f => [f.x, f.y]), sheep: sheep.map(o => [o.x, o.y, o.shorn]), mods,
+    critters: critters.map(o => [o.k, o.x, o.y]),
     chests: [...chests].filter(([, c]) => c.some(Boolean)).map(([k, c]) => [k % W, Math.floor(k / W), c.map(encodeSlot)]) });
 }
 const optsOk = o => Boolean(o) && NEW_OPTS.every(k => Number.isInteger(o[k]) && o[k] >= 0 && o[k] < WORLD_OPTS[k].values.length);
 // Saves of 1.x still open: v1 picks had no wear, v4 hearts kept an age, before v5 every world had the usual settings,
-// before v6 there were no sheep and no bed, and before v7 no sheep was shorn.
+// before v6 there were no sheep and no bed, before v7 no sheep was shorn and before v8 there were no mods.
+// The mods come first: the eggs of their mobs lie in the backpack and the chests.
 function deserialize(text) {
   const d = JSON.parse(text);
-  if (!d || d.game !== "heartcraft" || ![1, 2, 3, 4, 5, 6, 7].includes(d.v)) {
+  if (!d || d.game !== "heartcraft" || ![1, 2, 3, 4, 5, 6, 7, 8].includes(d.v)) {
     throw new Error("это не мир Сердцекрафта");
   }
+  const was = mods;
+  applyMods(d.v >= 8 ? modList(d.mods) : []);
+  try {
+    readSave(d);
+  } catch (e) {
+    applyMods(was);
+    throw e;
+  }
+}
+function readSave(d) {
   if (d.w !== W || d.h !== H || !Number.isInteger(d.seed)) {
     throw new Error("неверный размер мира");
   }
@@ -4735,6 +4997,10 @@ function deserialize(text) {
   if (d.v >= 6 && !(Array.isArray(d.sheep) && d.sheep.length <= MOB_MAX &&
       d.sheep.every(o => Array.isArray(o) && inWorld(o[0], o[1]) && (d.v < 7 || (o[2] >= 0 && o[2] <= WOOL_REGROW))))) {
     throw new Error("испорчены овцы");
+  }
+  if (d.v >= 8 && !(Array.isArray(d.critters) && d.critters.every(c => Array.isArray(c) && Number.isInteger(c[0]) &&
+      c[0] >= 0 && c[0] < mods.length && inWorld(c[1], c[2])))) {
+    throw new Error("испорчены мобы модов");
   }
   if (d.v >= 6 && d.bed !== null && !(Array.isArray(d.bed) && Number.isInteger(d.bed[0]) && Number.isInteger(d.bed[1]) &&
       inWorld(d.bed[0], d.bed[1]))) {
@@ -4777,6 +5043,7 @@ function deserialize(text) {
   } else {
     spawnSheep();
   }
+  critters = d.v >= 8 ? d.critters.map(([k, cx, cy]) => makeCritter(k, cx, cy)) : [];
   bed = d.v >= 6 && d.bed ? { x: d.bed[0], y: d.bed[1] } : null;
   P.x = x;
   P.y = y;
@@ -4909,6 +5176,219 @@ function startSolo() {
   }
 }
 
+// ---------- mods window ----------
+
+// Official mods live on the game server; the single player game away from it asks the server by its KeenDNS name.
+const ON_SERVER = !location.hostname.endsWith("github.io") && location.protocol !== "file:";
+const MODS_URL = ON_SERVER ? "mods" : "https://hcplay.suphair.keenetic.link/mods";
+// The world the admin switches mods on in, or null for the player's own world.
+let modsFor = null;
+function openMods(world) {
+  modsFor = world;
+  const mine = world !== null || SOLO;
+  $("#modsNote").textContent = world ? `Мир «${world.name}»: включённый моб появится у всех, кто в нём играет.`
+    : SOLO ? "Включённый моб появится в этом мире. Выключить его потом нельзя."
+    : "В сетевой игре включить моба может только админ.";
+  $("#modsOfficial").hidden = $("#modsCustom").hidden = !mine;
+  $("#modsBack").textContent = world ? "← К мирам" : "Закрыть";
+  const on = world ? world.mods : mods.map(m => m.name);
+  $("#modsOn").innerHTML = "";
+  on.forEach(name => {
+    const li = document.createElement("li");
+    li.textContent = name;
+    $("#modsOn").appendChild(li);
+  });
+  if (!on.length) {
+    $("#modsOn").innerHTML = "<li>пока никого</li>";
+  }
+  $("#modsList").innerHTML = "";
+  show($("#mods"));
+}
+function enableMod(mob) {
+  if (!modOk(mob)) {
+    toast("Это не моб Сердцекрафта");
+    Sound.nope();
+  } else if (modsFor) {
+    adminSend({ t: "mod", code: modsFor.code, mob });
+    toast(`«${mob.name}» включается в мир «${modsFor.name}»`);
+    Sound.craft();
+  } else if (mods.some(m => m.id === mob.id)) {
+    toast(`${mob.name} уже есть в этом мире`);
+    Sound.nope();
+  } else if (mods.length >= MOD_MAX) {
+    toast(`В мире уже ${MOD_MAX} мобов из модов`);
+    Sound.nope();
+  } else {
+    applyMods([...mods, mob]);
+    spawnCritters(mods.length - 1);
+    openMods(null);
+    toast(`${mob.name} теперь в этом мире!`);
+    Sound.craft();
+  }
+}
+$("#modsOfficial").addEventListener("click", async () => {
+  const list = $("#modsList");
+  list.innerHTML = "<li>загружаю…</li>";
+  try {
+    const got = await (await fetch(MODS_URL, { cache: "no-store" })).json();
+    list.innerHTML = got.length ? "" : "<li>официальных модов пока нет</li>";
+    got.filter(modOk).forEach(mob => {
+      const li = document.createElement("li");
+      const pic = document.createElement("img");
+      pic.className = "pic";
+      pic.src = mob.pic;
+      const on = document.createElement("button");
+      on.className = "btn";
+      on.textContent = "Включить";
+      on.addEventListener("click", () => enableMod(mob));
+      li.append(pic, ` ${mob.name} `, on);
+      list.appendChild(li);
+    });
+  } catch (e) {
+    list.innerHTML = "<li>официальные моды сейчас недоступны — сервер игры выключен</li>";
+  }
+});
+$("#modsCustom").addEventListener("click", () => $("#modFile").click());
+$("#modFile").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (file) {
+    try {
+      enableMod(JSON.parse(await file.text()));
+    } catch (err) {
+      toast("Это не моб Сердцекрафта");
+      Sound.nope();
+    }
+  }
+});
+$("#modsMake").addEventListener("click", () => {
+  const u = new URL(location.href);
+  u.searchParams.set("mob", "");
+  window.open(u.href, "_blank");
+});
+$("#modsBack").addEventListener("click", () => (modsFor ? show($("#admin")) : closeSheets()));
+
+// ---------- mob maker ----------
+
+const mobItems = () => [...Object.keys(BLOCKS), ...Object.keys(ITEMS)].map(Number)
+  .filter(id => id < MOD_EGG && !(isBlock(id) && BLOCKS[id].of));
+const mobPic = { pic: null, eggPic: null };
+const mobId = [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, "0")).join("");
+function itemSelect(select, none) {
+  select.innerHTML = "";
+  select.add(new Option(none, ""));
+  mobItems().forEach(id => select.add(new Option(nameOf(id), id)));
+}
+function openMobMaker() {
+  itemSelect($("#mobBreed"), "ничем");
+  itemSelect($("#mobDrop"), "ничего");
+  $("#mobBiome").innerHTML = "";
+  Object.entries(BIOMES).forEach(([key, name]) => $("#mobBiome").add(new Option(name, key)));
+  $("#mobEgg").innerHTML = "";
+  for (let k = 0; k < 3; k++) {
+    const label = document.createElement("label");
+    label.textContent = `Предмет ${k + 1}`;
+    const select = document.createElement("select");
+    itemSelect(select, "—");
+    const n = document.createElement("input");
+    n.type = "number";
+    n.min = 1;
+    n.max = 99;
+    n.value = 1;
+    label.append(select, n);
+    $("#mobEgg").appendChild(label);
+  }
+  show($("#mob"));
+}
+// A picture is shrunk to `size` pixels on the long side: the mob file stays small enough to share.
+async function shrinkPic(file, size) {
+  const pic = await createImageBitmap(file);
+  const k = Math.min(1, size / Math.max(pic.width, pic.height));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(pic.width * k));
+  c.height = Math.max(1, Math.round(pic.height * k));
+  c.getContext("2d").drawImage(pic, 0, 0, c.width, c.height);
+  return c.toDataURL("image/png");
+}
+for (const [input, key, size, preview] of [["#mobPic", "pic", 128, "#mobPicShow"], ["#mobEggPic", "eggPic", 48, "#mobEggShow"]]) {
+  $(input).addEventListener("change", async e => {
+    const file = e.target.files[0];
+    if (!file) {
+      return;
+    }
+    try {
+      mobPic[key] = await shrinkPic(file, size);
+      $(preview).src = mobPic[key];
+      $(preview).hidden = false;
+    } catch (err) {
+      toast("Это не картинка");
+      Sound.nope();
+    }
+  });
+}
+function mobFromForm() {
+  const num = id => Number($(id).value);
+  const item = id => ($(id).value === "" ? null : Number($(id).value));
+  const egg = [...$("#mobEgg").querySelectorAll("label")].filter(l => l.querySelector("select").value !== "")
+    .map(l => [Number(l.querySelector("select").value), Math.floor(Number(l.querySelector("input").value))]);
+  const mob = { game: "heartcraft-mob", v: 1, id: mobId, name: $("#mobName").value.trim(), w: num("#mobW"), h: num("#mobH"),
+    breed: item("#mobBreed"), drop: item("#mobDrop"), dropN: Math.floor(num("#mobDropN")), biome: $("#mobBiome").value,
+    count: Math.floor(num("#mobCount")), egg, pic: mobPic.pic, eggPic: mobPic.eggPic };
+  const why = !mob.name ? "Придумай мобу название"
+    : !(mob.w >= 0.3 && mob.w <= 3 && mob.h >= 0.3 && mob.h <= 3) ? "Ширина и высота — от 0,3 до 3 блоков"
+    : !(mob.dropN >= 1 && mob.dropN <= 64) ? "Выпадает от 1 до 64"
+    : !(mob.count >= 0 && mob.count <= 40) ? "В мире — от 0 до 40 мобов"
+    : !egg.length ? "Выбери хотя бы один предмет для крафта яйца"
+    : !egg.every(([, n]) => n >= 1 && n <= 99) ? "Предметов для яйца — от 1 до 99"
+    : !mob.pic ? "Прикрепи картинку моба"
+    : !mob.eggPic ? "Прикрепи картинку яйца призыва" : null;
+  if (why) {
+    toast(why);
+    Sound.nope();
+    return null;
+  }
+  return mob;
+}
+$("#mobDownload").addEventListener("click", () => {
+  const mob = mobFromForm();
+  if (!mob) {
+    return;
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(mob)], { type: "application/json" }));
+  a.download = mob.name + ".json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast("Файл моба скачан");
+});
+$("#mobPublish").addEventListener("click", () => {
+  const mob = mobFromForm();
+  if (!mob) {
+    return;
+  }
+  if (!ON_SERVER) {
+    toast("Опубликовать можно только со страницы сетевой игры");
+    Sound.nope();
+    return;
+  }
+  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  ws.onopen = () => ws.send(JSON.stringify({ t: "publish", code: $("#mobCode").value, mob }));
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    toast(m.t === "published" ? `${mob.name} опубликован — он в «Официальных модах»` : m.msg);
+    (m.t === "published" ? Sound.chime : Sound.nope)();
+    ws.close();
+  };
+  ws.onerror = () => toast("Сервер игры не отвечает");
+});
+$("#mobBack").addEventListener("click", () => {
+  const u = new URL(location.href);
+  u.searchParams.delete("mob");
+  location.href = u.href;
+});
+
 // ---------- input ----------
 
 let aim = null;
@@ -4929,7 +5409,13 @@ canvas.addEventListener("pointerdown", e => {
     return;
   }
   const hand = inv[sel] && inv[sel].id;
-  const target = { [B.PINK]: [mobs, feed], [I.SWORD]: [[...mobs, ...sheep, ...fish], strike], [I.SHEARS]: [sheep, shear] }[hand];
+  const lover = hand && mobAt(cam.x + e.clientX / TILE, cam.y + e.clientY / TILE, critters.filter(o => mods[o.k].breed === hand));
+  if (lover) {
+    loveCritter(lover);
+    return;
+  }
+  const target = { [B.PINK]: [mobs, feed], [I.SWORD]: [[...mobs, ...sheep, ...fish, ...critters], strike],
+    [I.SHEARS]: [sheep, shear] }[hand];
   const m = target && mobAt(cam.x + e.clientX / TILE, cam.y + e.clientY / TILE, target[0]);
   if (m) {
     target[1](m);
@@ -5072,7 +5558,9 @@ resize();
 window.addEventListener("resize", resize);
 setZoom(zoom);
 newWorld(randSeed());
-if (SOLO) {
+if (new URLSearchParams(location.search).has("mob")) {
+  openMobMaker();
+} else if (SOLO) {
   startSolo();
 } else if (net.want && net.login && net.code) {
   netConnect();
@@ -5125,7 +5613,8 @@ window.HC = { B, I, W, H, RECIPES, P, cam, get world() { return world; }, get in
   get zoom() { return zoom; }, get TILE() { return TILE; }, get, setTile, finishBreak, addItem, count, craft,
   bestPick, bestPickSlot, hatch, newWorld, generate, usePlace, feed, openCraft, setZoom, toggleDay, daylight, keys,
   touch, Sound, net, peers, netLogin, netLeave, LOOK_COLORS, WORLD_OPTS, get worldOpts() { return worldOpts; },
-  get powered() { return powered; }, netTile, openBag, dropOf, get snowballs() { return snowballs; } };
+  get powered() { return powered; }, netTile, openBag, dropOf, get snowballs() { return snowballs; },
+  get critters() { return critters; }, get mods() { return mods; }, enableMod, openMods, MOD_EGG };
 </script>
 </body>
 </html>

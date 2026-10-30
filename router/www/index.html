@@ -30,11 +30,14 @@
     <small>вместе с другими, по логину и коду мира</small></a>
   <a href="https://suphair.github.io/heartcraft/">🎮 Одиночная игра
     <small>одному, мир хранится в этом браузере</small></a>
+  <a id="mob" href="http://192.168.1.1:8094/?mob">🐾 Создать моба
+    <small>свой моб для мира: скачать файлом или опубликовать</small></a>
 </div>
 <script>
 // From outside the home network the network game is reached through its KeenDNS name.
 if (location.hostname.endsWith(".keenetic.link")) {
   document.querySelector("#net").href = "https://hcplay.suphair.keenetic.link/";
+  document.querySelector("#mob").href = "https://hcplay.suphair.keenetic.link/?mob";
 }
 </script>
 </body>

@@ -26,6 +26,11 @@
 world.json. Первых мобов расселяет игрок, создавший мир, - присылает их снимок, пока у мира мобов
 нет. Что сделали с мобами игроки - убили, влюбили, остригли, вылупили из яйца, - приходит серверу.
 
+Моды - мобы, которых придумали игроки (файл «heartcraft-mob»: имя, размер, картинки, чем размножать, что
+выпадает, биом, сколько их, крафт яйца). Опубликовать моба в «официальные моды» можно с кодом админа: он
+ложится в <data>/mods/<id>.json, список отдаёт /mods (его читает и одиночная игра на GitHub Pages). Включает
+мода в мир только админ: моды мира - <data>/<код>/mods.json, их мобов (critters) считает сервер, как остальных.
+
 Игроки передают друг другу вещи: стопка уходит адресату подарком «от игрока», а если адресат
 уже вышел - возвращается отправителю.
 
@@ -72,7 +77,7 @@ MAX_NOTE = 2000
 MAX_PHOTO = 2 * 1024 * 1024
 PHOTO = r"\d+-[0-9a-f]{16}\.jpg"
 MAX_BAN_REASON = 200
-MOB_KINDS = {"hearts": 9, "sheep": 5, "fish": 5}
+MOB_KINDS = {"hearts": 9, "sheep": 5, "fish": 5, "critters": 7}
 MAX_MOBS = 300
 MOB_ACTS = ("kill", "love", "hatch", "shear")
 # The mobs as the game moves them in the single player game: speeds, gravity, water, love and growing up.
@@ -84,6 +89,12 @@ WHITE_CHANCE, WHITE_PAIR_CHANCE = 0.01, 0.2
 GRAV, MAX_FALL, SWIM, SWIM_FALL, WATER_GRAV = 32, 22, 5, 3, 0.3
 HEART_TONES, FISH_TONES = 4, 5
 HEART_EGG, FISH_EGG, SHEEP_EGG = 108, 109, 119
+# A mob of a mod: its egg is MOD_EGG + its place among the mods of the world, which only grow.
+MOD_EGG, MOD_MAX, CRITTER_MAX = 1000, 20, 80
+MOB_KEYS = {"game", "v", "id", "name", "w", "h", "breed", "drop", "dropN", "biome", "count", "egg", "pic", "eggPic"}
+MAX_PIC = 300 * 1024
+# The ground a mob of a mod appears on: grass, snow or either.
+BIOME_TOPS = {"any": {1, 66}, "summer": {1}, "winter": {66}}
 BEDROCK = 14
 # Blocks a body passes through: air, torch, water, seaweed, ladder, bed, green torch on any side of its block,
 # open door; the wet ones are water and seaweed.
@@ -185,6 +196,21 @@ def mobs_ok(msg):
         for kind, n in MOB_KINDS.items())
 
 
+def mob_ok(m):
+    """Моб мода: смысл чисел и картинки знает игра, сервер проверяет только форму."""
+    return (isinstance(m, dict) and set(m) == MOB_KEYS and m["game"] == "heartcraft-mob" and m["v"] == 1 and
+            isinstance(m["id"], str) and re.fullmatch(r"[0-9a-f]{16}", m["id"]) is not None and
+            isinstance(m["name"], str) and 0 < len(m["name"].strip()) <= 30 and
+            all(real(m[k]) and 0.3 <= m[k] <= 3 for k in ("w", "h")) and
+            all(m[k] is None or whole(m[k], MOD_EGG) for k in ("breed", "drop")) and
+            whole(m["dropN"], 65) and m["dropN"] >= 1 and m["biome"] in BIOME_TOPS and whole(m["count"], 41) and
+            isinstance(m["egg"], list) and 1 <= len(m["egg"]) <= 3 and
+            all(isinstance(e, list) and len(e) == 2 and whole(e[0], MOD_EGG) and whole(e[1], 100) and e[1] >= 1
+                for e in m["egg"]) and
+            all(isinstance(m[k], str) and m[k].startswith("data:image/") and len(m[k]) <= MAX_PIC
+                for k in ("pic", "eggPic")))
+
+
 def slots_ok(v, n):
     """Ячейки рюкзака или сундука: null или [id, сколько] / [id, сколько, прочность]."""
     return isinstance(v, list) and len(v) == n and all(
@@ -221,8 +247,9 @@ def decode_tiles(b64):
 class Herd:
     """Мобы мира по правилам игры (index.html, updateMob/updateSheep/updateFish): блоки - общие с комнатой."""
 
-    def __init__(self, tiles, rows):
+    def __init__(self, tiles, rows, mods):
         self.tiles = tiles
+        self.mods = mods
         self.hearts = [self.heart(r[1], r[2], r[4], r[5] == 1, int(r[0]), int(r[8]) % HEART_TONES,
                                   face=-1 if r[3] < 0 else 1, love=r[6], pause=r[7]) for r in rows["hearts"]]
         # Sheep of 2.7 and older had no wool to shear: their rows are one number shorter.
@@ -230,7 +257,10 @@ class Herd:
                       for r in rows["sheep"]]
         self.fish = [self.fishy(r[1], r[2], int(r[0]), int(r[4]) % FISH_TONES, -1 if r[3] < 0 else 1)
                      for r in rows["fish"]]
-        self.seq = max([o["id"] + 1 for o in self.hearts + self.sheep + self.fish], default=1)
+        # Worlds of 2.9 and older had no mods.
+        self.critters = [self.critter(int(r[4]), r[1], r[2], int(r[0]), face=-1 if r[3] < 0 else 1, love=r[5], pause=r[6])
+                         for r in rows.get("critters", []) if 0 <= r[4] < len(mods)]
+        self.seq = max([o["id"] + 1 for o in self.hearts + self.sheep + self.fish + self.critters], default=1)
 
     def next_id(self):
         self.seq += 1
@@ -246,6 +276,25 @@ class Herd:
         return {"id": self.next_id() if mid is None else mid, "x": x, "y": y, "w": 0.8, "h": 0.6, "vx": 0, "vy": 0,
                 "ground": False, "face": face, "dir": 0, "think": 0, "shorn": shorn}
 
+    def critter(self, k, x, y, mid=None, face=1, love=0, pause=0):
+        return {"id": self.next_id() if mid is None else mid, "k": k, "x": x, "y": y, "w": self.mods[k]["w"],
+                "h": self.mods[k]["h"], "vx": 0, "vy": 0, "ground": False, "face": face, "dir": 0, "think": 0,
+                "love": love, "pause": pause}
+
+    def spawn(self, k):
+        """Мобы мода на поверхности своего биома - сколько их задал автор."""
+        mob, placed = self.mods[k], 0
+        for _ in range(mob["count"] * 20):
+            if placed >= mob["count"]:
+                break
+            x, y = random.randrange(8, W - 8), 0
+            while y < H - 1 and self.get(x, y) in OPEN:
+                y += 1
+            c = self.critter(k, x + max(0, (1 - mob["w"]) / 2), y - mob["h"] - 0.01)
+            if self.get(x, y) in BIOME_TOPS[mob["biome"]] and c["y"] > 0 and not self.collides(c, c["x"], c["y"]):
+                self.critters.append(c)
+                placed += 1
+
     def fishy(self, x, y, mid=None, tone=None, face=None):
         return {"id": self.next_id() if mid is None else mid, "x": x, "y": y, "vy": 0, "think": 0,
                 "face": random.choice((-1, 1)) if face is None else face,
@@ -258,6 +307,8 @@ class Herd:
                        for m in self.hearts],
             "sheep": [[o["id"], round(o["x"], 2), round(o["y"], 2), o["face"], round(o["shorn"], 2)] for o in self.sheep],
             "fish": [[f["id"], round(f["x"], 2), round(f["y"], 2), f["face"], f["tone"]] for f in self.fish],
+            "critters": [[c["id"], round(c["x"], 2), round(c["y"], 2), c["face"], c["k"], round(max(0, c["love"]), 2),
+                          round(c["pause"], 2)] for c in self.critters],
         }
 
     def get(self, x, y):
@@ -319,6 +370,8 @@ class Herd:
             self.step_sheep(o, dt)
         for f in self.fish:
             self.step_fish(f, dt)
+        for c in list(self.critters):
+            self.step_critter(c, dt)
 
     def step_heart(self, m, dt):
         m["think"] -= dt
@@ -376,6 +429,37 @@ class Herd:
         if self.walk(o, o["dir"], SHEEP_SPEED, dt):
             o["vy"] = -MOB_JUMP
 
+    def step_critter(self, c, dt):
+        c["think"] -= dt
+        if c["think"] <= 0:
+            c["think"] = 2 + random.random() * 4
+            c["dir"] = random.choice((-1, 0, 0, 0, 1))
+        d = c["dir"]
+        c["pause"] = max(0, c["pause"] - dt)
+        if c["love"] > 0:
+            c["love"] -= dt
+            mate = next((o for o in self.critters if o is not c and o["k"] == c["k"] and o["love"] > 0 and
+                         math.hypot(o["x"] - c["x"], o["y"] - c["y"]) < 8), None)
+            if mate:
+                d = 0 if abs(mate["x"] - c["x"]) < 0.2 else (1 if mate["x"] > c["x"] else -1)
+                if math.hypot(mate["x"] - c["x"], mate["y"] - c["y"]) < max(0.8, c["w"]):
+                    self.breed_critters(c, mate)
+        if d:
+            c["face"] = d
+        if self.wet_at(c):
+            c["vy"] = min(c["vy"], -SWIM / 2)
+        if self.walk(c, d, SHEEP_SPEED, dt):
+            c["vy"] = -MOB_JUMP
+
+    def breed_critters(self, a, b):
+        a["love"] = b["love"] = 0
+        a["pause"] = b["pause"] = BREED_PAUSE
+        if sum(1 for o in self.critters if o["k"] == a["k"]) < CRITTER_MAX:
+            baby = self.critter(a["k"], (a["x"] + b["x"]) / 2, a["y"])
+            if self.collides(baby, baby["x"], baby["y"]):
+                baby["x"] = a["x"]
+            self.critters.append(baby)
+
     def step_fish(self, f, dt):
         f["think"] -= dt
         if f["think"] <= 0:
@@ -397,7 +481,7 @@ class Herd:
     def act(self, a):
         """Что игрок сделал с мобом; невозможное (моба уже нет, мир полон) молча не происходит."""
         if a["act"] == "kill":
-            for herd in (self.hearts, self.sheep, self.fish):
+            for herd in (self.hearts, self.sheep, self.fish, self.critters):
                 herd[:] = [o for o in herd if o["id"] != a.get("id")]
         elif a["act"] == "shear":
             o = next((o for o in self.sheep if o["id"] == a.get("id")), None)
@@ -407,6 +491,9 @@ class Herd:
             m = next((o for o in self.hearts if o["id"] == a.get("id")), None)
             if m and m["grow"] <= 0 and m["love"] <= 0 and m["pause"] <= 0 and len(self.hearts) < MOB_MAX:
                 m["love"] = LOVE_TIME
+            c = next((o for o in self.critters if o["id"] == a.get("id")), None)
+            if c and c["love"] <= 0 and c["pause"] <= 0:
+                c["love"] = LOVE_TIME
         elif a["act"] == "hatch" and 1 <= a.get("x", -1) < W - 1 and 0 <= a.get("y", -1) < H - 1:
             if a.get("egg") == HEART_EGG and len(self.hearts) < MOB_MAX:
                 self.hearts.append(self.heart(a["x"] + 0.25, a["y"] + 0.5, 0, False))
@@ -414,6 +501,11 @@ class Herd:
                 self.fish.append(self.fishy(a["x"] + 0.5, a["y"] + 0.5))
             elif a.get("egg") == SHEEP_EGG and len(self.sheep) < MOB_MAX:
                 self.sheep.append(self.lamb(a["x"] + 0.1, a["y"] + 0.39))
+            elif MOD_EGG <= a.get("egg", 0) < MOD_EGG + len(self.mods):
+                k = int(a["egg"]) - MOD_EGG
+                mob = self.mods[k]
+                if sum(1 for o in self.critters if o["k"] == k) < CRITTER_MAX:
+                    self.critters.append(self.critter(k, a["x"] + max(0, (1 - mob["w"]) / 2), a["y"] + 1 - mob["h"] - 0.01))
 
 
 class Player:
@@ -454,6 +546,8 @@ class Room:
         self.io = threading.Lock()
         self.world_path = folder / "world.json"
         self.accounts_path = folder / "accounts.json"
+        self.mods_path = folder / "mods.json"
+        self.mods = json.loads(self.mods_path.read_text(encoding="utf-8")) if self.mods_path.exists() else []
         settings_path = folder / "settings.json"
         self.settings = json.loads(settings_path.read_text(encoding="utf-8")) if settings_path.exists() else None
         self.lock = threading.Lock()
@@ -475,7 +569,7 @@ class Room:
             for i, t in self.changes.items():
                 self.tiles[i] = t
             if d.get("mobs"):
-                self.herd = Herd(self.tiles, d["mobs"])
+                self.herd = Herd(self.tiles, d["mobs"], self.mods)
         if self.accounts_path.exists():
             self.accounts = json.loads(self.accounts_path.read_text(encoding="utf-8"))
 
@@ -514,7 +608,7 @@ class Room:
             self.players[p.id] = p
             me = dict({k: acc[k] for k in ("look", "inv", "sel", "x", "y")}, bed=acc.get("bed"))
             p.send({"t": "welcome", "id": p.id, "name": p.name, "worldName": self.name, "players": others, "me": me,
-                    "world": self.snapshot() if self.world else None, "settings": self.settings})
+                    "world": self.snapshot() if self.world else None, "settings": self.settings, "mods": self.mods})
             self.broadcast(p, {"t": "join", "id": p.id, "name": p.name, "look": acc["look"]})
             if acc.get("gifts"):
                 p.send({"t": "gift", "items": acc.pop("gifts")})
@@ -554,7 +648,9 @@ class Room:
                 if not mobs_ok(msg):
                     return False
                 if self.world and not self.herd:
-                    self.herd = Herd(self.tiles, msg)
+                    self.herd = Herd(self.tiles, msg, self.mods)
+                    for k in range(len(self.mods)):
+                        self.herd.spawn(k)
                     self.dirty = True
                     self.broadcast(p, dict(self.herd.rows(), t="mobs"))
             elif t == "mobact":
@@ -614,7 +710,7 @@ class Room:
                     p.send({"t": "gift", "items": [slot], "returned": True})
             elif t == "world":
                 if self.world:
-                    p.send({"t": "load", "world": self.snapshot(), "settings": self.settings})
+                    p.send({"t": "load", "world": self.snapshot(), "settings": self.settings, "mods": self.mods})
                     return True
                 seed, ocean, tiles = msg.get("seed"), msg.get("ocean"), msg.get("tiles")
                 if not (isinstance(seed, int) and isinstance(ocean, bool) and isinstance(tiles, str)):
@@ -650,7 +746,27 @@ class Room:
             online = {p.key for p in self.players.values()}
             heroes = [{"login": k, "name": a["name"], "look": a["look"], "online": k in online}
                       for k, a in self.accounts.items()]
-        return {"code": self.code, "name": self.name, "settings": self.settings, "heroes": heroes}
+        return {"code": self.code, "name": self.name, "settings": self.settings, "heroes": heroes,
+                "mods": [m["name"] for m in self.mods]}
+
+    def add_mod(self, mob):
+        """Админ включает моба в мир: он появляется сразу у всех, кто в игре, и остаётся в мире навсегда."""
+        if not mob_ok(mob):
+            return "Это не моб Сердцекрафта"
+        with self.io:
+            with self.lock:
+                if any(m["id"] == mob["id"] for m in self.mods):
+                    return "%s уже есть в этом мире" % mob["name"]
+                if len(self.mods) >= MOD_MAX:
+                    return "В мире уже %d мобов из модов" % MOD_MAX
+                self.mods.append(mob)
+                if self.herd:
+                    self.herd.spawn(len(self.mods) - 1)
+                self.broadcast(None, {"t": "mods", "mods": self.mods})
+                mods = json.dumps(self.mods, ensure_ascii=False, separators=(",", ":"))
+            self.mods_path.parent.mkdir(parents=True, exist_ok=True)
+            write(self.mods_path, mods)
+        return None
 
     def kick_login(self, key, why):
         with self.lock:
@@ -697,6 +813,7 @@ class Worlds:
         self.bans_path = data / "bans.json"
         self.notes_path = data / "notes.json"
         self.photos = data / "photos"
+        self.official = data / "mods"
         self.notes = json.loads(self.notes_path.read_text(encoding="utf-8")) if self.notes_path.exists() else []
         bans = json.loads(self.bans_path.read_text(encoding="utf-8")) if self.bans_path.exists() else []
         # Bans of 2.1-2.2 were bare logins, without a reason.
@@ -811,6 +928,20 @@ class Worlds:
             self.write_notes()
         return None
 
+    def publish(self, mob):
+        """Моб в «официальные моды»: тот же моб, опубликованный снова, заменяет прежнего."""
+        if not mob_ok(mob):
+            return "Это не моб Сердцекрафта"
+        with self.lock:
+            self.official.mkdir(parents=True, exist_ok=True)
+            write(self.official / (mob["id"] + ".json"), json.dumps(mob, ensure_ascii=False, separators=(",", ":")))
+        return None
+
+    def official_mods(self):
+        with self.lock:
+            files = sorted(self.official.glob("*.json"), key=lambda f: f.stat().st_mtime) if self.official.exists() else []
+            return "[" + ",".join(f.read_text(encoding="utf-8") for f in files) + "]"
+
     def write_notes(self):
         self.data.mkdir(parents=True, exist_ok=True)
         write(self.notes_path, json.dumps(self.notes, ensure_ascii=False, indent=1))
@@ -874,6 +1005,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.websocket()
         elif path in ("/", "/index.html"):
             self.send_body(self.page.read_bytes(), "text/html; charset=utf-8", "no-cache")
+        elif path == "/mods":
+            self.send_body(self.worlds.official_mods().encode("utf-8"), "application/json; charset=utf-8", "no-cache")
         elif path.startswith("/photos/") and re.fullmatch(PHOTO, path[8:]) and (self.worlds.photos / path[8:]).is_file():
             self.send_body((self.worlds.photos / path[8:]).read_bytes(), "image/jpeg", "max-age=31536000, immutable")
         else:
@@ -883,6 +1016,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", kind)
         self.send_header("Cache-Control", cache)
+        # The single player game on GitHub Pages reads the official mods from here.
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -930,6 +1065,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def hello(self):
         msg = self.receive()
+        if msg.get("t") == "publish":
+            why = "Неверный код админа" if msg.get("code") != self.admin[1] else self.worlds.publish(msg.get("mob"))
+            self.connection.sendall(text_frame({"t": "error", "msg": why} if why else {"t": "published"}))
+            return None
         login = msg.get("login")
         if msg.get("t") != "hello" or not isinstance(login, str) or not login.strip():
             return self.refuse("Нужен логин")
@@ -982,6 +1121,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 why = self.worlds.drop_note(msg.get("id"))
             elif t == "photo":
                 why = self.worlds.photo(msg.get("id"), msg.get("data"))
+            elif t == "mod":
+                room = self.worlds.get(msg.get("code"))
+                why = room.add_mod(msg.get("mob")) if room else "Нет такого мира"
             elif t != "state":
                 return
             reply = self.admin_state(why)

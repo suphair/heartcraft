@@ -454,7 +454,7 @@ check("the sword kills a fish", await b(`!HC.fish.some(f => f.id === ${nemo})`))
 check("the fish B killed is gone for A too", await until(a, `!HC.fish.some(f => f.id === ${nemo})`));
 const lootOf = `JSON.stringify([...HC.chests].filter(([, c]) => c.some(Boolean)).map(([k, c]) => [k, c.filter(Boolean).map(s => [s.id, s.n])]).sort())`;
 const lootA = await a(lootOf);
-check("the first player shares the chests of the houses", JSON.parse(lootA).length > 1 && await until(b, `${lootOf} === ${JSON.stringify(lootA)}`), lootA);
+check("the first player shares the chests of the houses", await a(`HC.chests.size > 1`) && await until(b, `${lootOf} === ${JSON.stringify(lootA)}`), lootA);
 const door = await place(a, "HC.B.DOOR");
 check("a door is placed closed", door !== null);
 await a(`HC.usePlace(${door[0]}, ${door[1]}); 1`);
@@ -462,14 +462,18 @@ check("B sees the door A opened", await until(b, `HC.get(${door[0]}, ${door[1]})
 await a(`HC.addItem(HC.B.SNOW, 1); 1`);
 check("a snow block makes four snowballs", await craftOut(a, "HC.I.SNOWBALL") === 1 && await a(`HC.count(HC.I.SNOWBALL) === 4`));
 check("four snowballs make a snow block", await b(`HC.addItem(HC.I.SNOWBALL, 4); 1`) && await craftOut(b, "HC.B.SNOW") === 1);
+const home = await a(`[HC.P.x, HC.P.y]`);
 const spot = await a(`(() => {
-  const x = Math.floor(HC.P.x), y = Math.floor(HC.P.y + HC.P.h + 0.01);
-  for (let dx = 1; dx <= 4; dx++) {
+  const x = Math.floor(HC.P.x), y = 12;
+  for (let dx = 0; dx <= 4; dx++) {
     [[y, HC.B.COBBLE], [y - 1, HC.B.AIR], [y - 2, HC.B.AIR]].forEach(([cy, id]) => {
       HC.setTile(x + dx, cy, id);
       HC.netTile(x + dx, cy);
     });
   }
+  HC.P.x = x + 0.1;
+  HC.P.y = y - 0.81;
+  HC.P.vx = HC.P.vy = 0;
   return [x, y];
 })()`);
 await b(`HC.P.x = ${spot[0] + 3.1}; HC.P.y = ${spot[1] - 0.81}; HC.P.vx = HC.P.vy = 0; 1`);
@@ -485,6 +489,7 @@ await a(`(() => {
 check("a thrown snowball is used up", await a(`HC.count(HC.I.SNOWBALL) === 3`));
 check("a snowball hits the other player and pushes him away", await until(b, `/Аня попал в тебя снежком/.test(document.querySelector("#toast").textContent)`),
   await b(`document.querySelector("#toast").textContent`));
+await a(`HC.P.x = ${home[0]}; HC.P.y = ${home[1]}; HC.P.vx = HC.P.vy = 0; 1`);
 await b(`HC.addItem(HC.B.PINK, 1); 1`);
 await hold(b, "HC.B.PINK");
 const loved = await b(`(() => {
@@ -650,6 +655,88 @@ const served = await boss(`fetch(${JSON.stringify(photo)}).then(r => [r.status, 
 check("the server shows the photo", JSON.stringify(served) === '[200,"image/jpeg"]', served);
 check("the notes tab counts the new notes", await boss(`document.querySelector('#adminTabs [data-tab="notes"]').textContent`) === "📝 Замечания (1 🆕)",
   await boss(`document.querySelector('#adminTabs [data-tab="notes"]').textContent`));
+const maker = await player(base + "?mob");
+check("the mob maker opens by its link", await until(maker, `!document.querySelector("#mob").hidden`));
+const picFile = (input, color) => `(async () => {
+  const c = document.createElement("canvas");
+  c.width = 30;
+  c.height = 20;
+  c.getContext("2d").fillStyle = ${JSON.stringify(color)};
+  c.getContext("2d").fillRect(0, 0, 30, 20);
+  const files = new DataTransfer();
+  files.items.add(new File([await new Promise(r => c.toBlob(r, "image/png"))], "pic.png", { type: "image/png" }));
+  const el = document.querySelector(${JSON.stringify(input)});
+  el.files = files.files;
+  el.dispatchEvent(new Event("change"));
+  return 1;
+})()`;
+await maker(`(() => {
+  const set = (sel, v) => (document.querySelector(sel).value = v);
+  set("#mobName", "Фиолетик");
+  set("#mobW", 1.2);
+  set("#mobH", 0.9);
+  set("#mobBreed", HC.I.GREEN_GEM);
+  set("#mobDrop", HC.I.DIAMOND);
+  set("#mobDropN", 2);
+  set("#mobBiome", "any");
+  set("#mobCount", 6);
+  const egg = document.querySelectorAll("#mobEgg label");
+  egg[0].querySelector("select").value = HC.I.GREEN_GEM;
+  egg[0].querySelector("input").value = 3;
+  egg[1].querySelector("select").value = HC.B.WOOL;
+  document.querySelector("#mobDownload").click();
+  return 1;
+})()`);
+check("a mob needs its pictures", /картинку моба/.test(await maker(`document.querySelector("#toast").textContent`)));
+await maker(picFile("#mobPic", "#7b4fd6"));
+await maker(picFile("#mobEggPic", "#ffd6ea"));
+await until(maker, `!document.querySelector("#mobEggShow").hidden && !document.querySelector("#mobPicShow").hidden`);
+const mobFile = await maker(`new Promise(done => {
+  URL.createObjectURL = blob => {
+    blob.text().then(done);
+    return "blob:mob";
+  };
+  document.querySelector("#mobDownload").click();
+})`);
+const mobDef = JSON.parse(mobFile);
+check("the mob maker downloads the mob file", mobDef.game === "heartcraft-mob" && mobDef.name === "Фиолетик" && mobDef.w === 1.2 &&
+  mobDef.count === 6 && JSON.stringify(mobDef.egg) === JSON.stringify([[await a(`HC.I.GREEN_GEM`), 3], [await a(`HC.B.WOOL`), 1]]) &&
+  mobDef.pic.startsWith("data:image/png"), mobFile.slice(0, 300));
+await maker(`document.querySelector("#mobCode").value = "123"; document.querySelector("#mobPublish").click(); 1`);
+check("publishing needs the admin code", await until(maker, `/Неверный код админа/.test(document.querySelector("#toast").textContent)`));
+await maker(`document.querySelector("#mobCode").value = "999"; document.querySelector("#mobPublish").click(); 1`);
+check("the admin code publishes the mob", await until(maker, `/опубликован/.test(document.querySelector("#toast").textContent)`));
+await boss(`document.querySelector('#adminTabs [data-tab="worlds"]').click(); 1`);
+await boss(`[...document.querySelectorAll("#adminWorlds .world")].find(w => w.querySelector("code").textContent === "rose")
+  .querySelectorAll("h3 .btn")[1].click(); document.querySelector("#modsOfficial").click(); 1`);
+check("the admin sees the official mods", await until(boss, `/Фиолетик/.test(document.querySelector("#modsList").textContent)`));
+await boss(`document.querySelector("#modsList .btn").click(); document.querySelector("#modsBack").click(); 1`);
+check("the players get the mob the admin switched on", await until(a, `HC.mods.length === 1 && HC.critters.length === 6`) &&
+  await until(e, `HC.mods.length === 1 && HC.critters.length === 6`), await e(`[HC.mods.length, HC.critters.length]`));
+check("the admin sees the mob in the world", await until(boss, `/Мобы из модов: Фиолетик/.test(document.querySelector("#adminWorlds").textContent)`));
+await a(`HC.addItem(HC.I.GREEN_GEM, 3); HC.addItem(HC.B.WOOL, 1); 1`);
+check("the egg of the mod is crafted at the workbench", await craftOut(a, "HC.MOD_EGG") === 1 && await a(`HC.count(HC.MOD_EGG) === 1`));
+await hold(a, "HC.MOD_EGG");
+await a(`(() => {
+  for (const [dx, dy] of [[2, -2], [-2, -2], [1, -3], [-1, -3], [0, -3], [2, -1], [-2, -1]]) {
+    const x = Math.floor(HC.P.x) + dx, y = Math.floor(HC.P.y) + dy;
+    if (HC.get(x, y) === HC.B.AIR) {
+      HC.usePlace(x, y);
+      return [x, y];
+    }
+  }
+  return null;
+})()`);
+check("a mob of the mod comes out of its egg for everyone", await until(e, `HC.critters.length === 7`) && await a(`HC.count(HC.MOD_EGG) === 0`));
+await a(`HC.addItem(HC.I.SWORD, 1); 1`);
+await hold(a, "HC.I.SWORD");
+const gems0 = await a(`HC.count(HC.I.DIAMOND)`);
+await clickMob(a, "critters", await a(`HC.critters[0].id`));
+check("the sword drops what the author chose", await a(`HC.count(HC.I.DIAMOND)`) === gems0 + 2);
+check("the mob killed is gone for the others too", await until(e, `HC.critters.length === 6`));
+await a(`HC.openMods(null); 1`);
+check("in the network game only the admin switches mods on", await a(`document.querySelector("#modsOfficial").hidden && /Фиолетик/.test(document.querySelector("#modsOn").textContent)`));
+await a(`document.querySelector("#modsBack").click(); 1`);
 await boss(`document.querySelector("#adminExit").click(); 1`);
 check("the admin logs out to the login screen", await until(boss, `${visible("login")} && document.querySelector("#admin").hidden`));
 
@@ -676,6 +763,19 @@ check("leaves drop a green gem now and then", leaves[0] > 180 && leaves[0] < 380
 check("a flat world is flat", await solo(`HC.terrain(77, false, 5).surf.every(h => h === 62) && HC.WORLD_OPTS.hills.labels[5] === "Плоский мир"`));
 const flock = await solo(`HC.sheep.length`);
 check("the single player game has sheep", flock > 0);
+await solo(`(() => {
+  const files = new DataTransfer();
+  files.items.add(new File([${JSON.stringify(mobFile)}], "mob.json", { type: "application/json" }));
+  document.querySelector("#menuBtn").click();
+  document.querySelector('[data-act="mods"]').click();
+  const input = document.querySelector("#modFile");
+  input.files = files.files;
+  input.dispatchEvent(new Event("change"));
+  return 1;
+})()`);
+check("a mob file switches the mob on in the single player world", await until(solo, `HC.mods.length === 1 && HC.critters.length === 6`),
+  await solo(`[HC.mods.length, HC.critters.length, document.querySelector("#toast").textContent]`));
+await solo(`document.querySelector("#modsBack").click(); 1`);
 await solo(`HC.sheep[0].shorn = 500; HC.addItem(HC.B.BRICK, 7); document.querySelector("#menuBtn").click(); document.querySelector('[data-act="save"]').click(); 1`);
 const soloSeed = await solo(`HC.seed`);
 await solo(`location.reload(); 1`);
@@ -684,6 +784,8 @@ await solo.loaded();
 check("a saved single player world comes back after a reload", await until(solo, `HC.seed === ${soloSeed} && HC.count(HC.B.BRICK) === 7 && HC.count(HC.I.SWORD) === 1 && HC.sheep.length === ${flock}`),
   await solo(`[HC.seed, HC.count(HC.B.BRICK)]`));
 check("a shorn sheep stays shorn after a reload", await solo(`HC.sheep.some(o => o.shorn > 400 && o.shorn <= 500)`));
+check("the mods and their mobs stay after a reload", await solo(`HC.mods.length === 1 && HC.critters.length === 6 &&
+  HC.RECIPES.some(r => r.out === HC.MOD_EGG)`));
 await solo(`(() => {
   document.querySelector("#menuBtn").click();
   document.querySelector('[data-act="reset"]').click();
