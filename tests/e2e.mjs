@@ -32,7 +32,7 @@ const call = (method, params = {}, sessionId) => new Promise(r => {
 });
 
 // Every player gets a browser context of its own: tabs of one context share localStorage and the remembered login.
-async function player(url = base) {
+async function player(url = base, ready = "typeof HC === 'object'") {
   const { result: { browserContextId } } = await call("Target.createBrowserContext");
   const { result: { targetId } } = await call("Target.createTarget", { url: "about:blank", browserContextId });
   const { result: { sessionId } } = await call("Target.attachToTarget", { targetId, flatten: true });
@@ -48,12 +48,12 @@ async function player(url = base) {
   };
   ev.loaded = async () => {
     for (let t = Date.now(); Date.now() - t < 20000; await sleep(200)) {
-      const r = await call("Runtime.evaluate", { expression: "typeof HC === 'object'", returnByValue: true }, sessionId);
+      const r = await call("Runtime.evaluate", { expression: ready, returnByValue: true }, sessionId);
       if (r.result && r.result.result && r.result.result.value === true) {
         return;
       }
     }
-    throw new Error("the game did not load");
+    throw new Error("the page did not load: " + url);
   };
   ev.shot = async name => {
     if (!shotDir) {
@@ -688,6 +688,13 @@ await maker(`(() => {
   return 1;
 })()`);
 check("a mob needs its pictures", /картинку моба/.test(await maker(`document.querySelector("#toast").textContent`)));
+check("the hint is seen above the window", await maker(`(() => {
+  const toast = document.querySelector("#toast"), r = toast.getBoundingClientRect();
+  toast.style.pointerEvents = "auto";
+  const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  toast.style.pointerEvents = "";
+  return top === toast && !document.querySelector("#mob").hidden;
+})()`));
 await maker(picFile("#mobPic", "#7b4fd6"));
 await maker(picFile("#mobEggPic", "#ffd6ea"));
 await until(maker, `!document.querySelector("#mobEggShow").hidden && !document.querySelector("#mobPicShow").hidden`);
@@ -843,5 +850,25 @@ await sleep(500);
 await solo.loaded();
 check("the single player keeps the look", await until(solo, `JSON.stringify(HC.net.look) === '{"c":6,"h":5}'`), await solo(`JSON.stringify(HC.net.look)`));
 await solo.shot("solo");
+const start = await player(new URL("../router/www/index.html", import.meta.url).href, "!!document.querySelector('#diagOpen')");
+const diag = async code => {
+  await start(`document.querySelector("#diagOpen").click();
+    document.querySelector("#diagCode").value = ${JSON.stringify(code)};
+    document.querySelector("#diagRun").click(); 1`);
+  await until(start, `!document.querySelector("#diagRun").disabled && document.querySelectorAll("#diagList li").length > 0`, 30000);
+  return start(`[...document.querySelectorAll("#diagList li")].map(li => li.textContent)`);
+};
+await start(`document.querySelector("#net").href = ${JSON.stringify(base)}; 1`);
+let lines = await diag("123");
+check("the service window needs the admin code", lines.join() === "❌ Неверный код админа", lines);
+lines = await diag("999");
+check("the service window sees the server", /^✅ Сервер игры включён: компьютер 127\.0\.0\.1, работает \d+/.test(lines[0]) &&
+  lines[1] === "ℹ️ Версия игры на сервере: " + await a(`HC.VERSION`) && /^ℹ️ Миров: 2, сейчас играют: \d+, официальных модов: 1$/.test(lines[2]), lines);
+check("the service window measures the link", /^✅ Отклик сервера: \d+ мс$/.test(lines[4]) && /^✅ Скорость передачи: [\d.]+ [МК]Б\/с$/.test(lines[5]), lines);
+check("the service window checks that changes are kept", lines[6] === "✅ Это устройство может менять данные на сервере: пробная запись сохранилась", lines);
+await start(`document.querySelector("#net").href = "http://127.0.0.1:9/"; 1`);
+lines = await diag("999");
+check("the service window tells the server is off", /^❌ Сервер игры выключен/.test(lines.join()), lines);
+await start.shot("diag");
 check("no page errors", pageErrors.length === 0, pageErrors);
 process.exit();

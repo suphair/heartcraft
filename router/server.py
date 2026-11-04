@@ -31,6 +31,10 @@ world.json. Первых мобов расселяет игрок, создав�
 ложится в <data>/mods/<id>.json, список отдаёт /mods (его читает и одиночная игра на GitHub Pages). Включает
 мода в мир только админ: моды мира - <data>/<код>/mods.json, их мобов (critters) считает сервер, как остальных.
 
+Служебное окно страницы выбора режима (www/index.html) входит кодом админа: сервер отвечает, чем он
+занят (машина, сколько работает, версия игры, миры, игроки, место на диске), и отвечает на пинг и эхо, по
+которым окно меряет отклик и скорость связи, а пробная запись в <data> проверяет, что изменения сохраняются.
+
 Игроки передают друг другу вещи: стопка уходит адресату подарком «от игрока», а если адресат
 уже вышел - возвращается отправителю.
 
@@ -60,6 +64,7 @@ import pathlib
 import random
 import re
 import secrets
+import shutil
 import signal
 import socket
 import struct
@@ -108,6 +113,8 @@ MAX_FRAME = 4 * 1024 * 1024
 MAX_LOGIN = 16
 SAVE_EVERY = 10
 IDLE_TIMEOUT = 120
+# When the server started: the service window shows how long it has been up.
+STARTED = time.monotonic()
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 ROUTER = "192.168.1.1"
 CLAIM_WAIT = SAVE_EVERY + 5
@@ -937,6 +944,19 @@ class Worlds:
             write(self.official / (mob["id"] + ".json"), json.dumps(mob, ensure_ascii=False, separators=(",", ":")))
         return None
 
+    def probe(self):
+        """Пробная запись в папку данных: то же, чем пишутся миры, - и сразу удаляется."""
+        mark = secrets.token_hex(8)
+        path = self.data / ".probe"
+        try:
+            self.data.mkdir(parents=True, exist_ok=True)
+            write(path, mark)
+            ok = path.read_text(encoding="utf-8") == mark
+            path.unlink()
+        except OSError as e:
+            return "Не записать в %s: %s" % (self.data, e)
+        return None if ok else "Записанное в %s читается иначе" % self.data
+
     def official_mods(self):
         with self.lock:
             files = sorted(self.official.glob("*.json"), key=lambda f: f.stat().st_mtime) if self.official.exists() else []
@@ -1065,6 +1085,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def hello(self):
         msg = self.receive()
+        if msg.get("t") == "diag":
+            if msg.get("code") != self.admin[1]:
+                return self.refuse("Неверный код админа")
+            self.diag_session()
+            return None
         if msg.get("t") == "publish":
             why = "Неверный код админа" if msg.get("code") != self.admin[1] else self.worlds.publish(msg.get("mob"))
             self.connection.sendall(text_frame({"t": "error", "msg": why} if why else {"t": "published"}))
@@ -1127,6 +1152,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
             elif t != "state":
                 return
             reply = self.admin_state(why)
+
+    def diag_session(self):
+        version = re.search(r'const VERSION = "([^"]+)"', self.page.read_text(encoding="utf-8"))
+        worlds = self.worlds.state()
+        disk = shutil.disk_usage(self.worlds.data if self.worlds.data.exists() else self.worlds.data.parent)
+        self.connection.sendall(text_frame({
+            "t": "diag", "host": self.connection.getsockname()[0], "up": round(time.monotonic() - STARTED),
+            "version": version[1] if version else None, "worlds": len(worlds),
+            "online": sum(h["online"] for w in worlds for h in w["heroes"]),
+            "mods": len(json.loads(self.worlds.official_mods())), "free": disk.free}))
+        while True:
+            msg = self.receive()
+            t = msg.get("t")
+            if t == "ping":
+                reply = {"t": "pong", "n": msg.get("n")}
+            elif t == "echo":
+                reply = {"t": "echo", "data": msg.get("data")}
+            elif t == "probe":
+                reply = {"t": "probe", "error": self.worlds.probe()}
+            else:
+                return
+            self.connection.sendall(text_frame(reply))
 
     def admin_state(self, why):
         return {"t": "admin", "worlds": self.worlds.state(), "bans": self.worlds.ban_list(),

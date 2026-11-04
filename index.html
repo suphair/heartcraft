@@ -51,7 +51,7 @@
 
   #toast { position: fixed; top: max(72px, calc(env(safe-area-inset-top) + 62px)); left: 50%; transform: translateX(-50%);
     background: var(--plate); border: 3px solid var(--edge); border-radius: 12px; padding: 8px 16px;
-    max-width: 90vw; text-align: center; pointer-events: none; transition: opacity .3s; }
+    max-width: 90vw; text-align: center; pointer-events: none; transition: opacity .3s; z-index: 2; }
   #toast.hide { opacity: 0; }
   #banner { position: fixed; top: 38%; left: 50%; transform: translate(-50%, -50%) scale(1); pointer-events: none;
     font-size: min(64px, 12vw); font-weight: 800; color: #fff; white-space: nowrap;
@@ -317,6 +317,14 @@
   <div class="box">
     <h2>Что нового</h2>
     <div class="news">
+      <h3>Версия 3.1</h3>
+      <ul>
+        <li>Подсказки и ошибки видны поверх окон: раньше они прятались под окном, и казалось, что кнопка
+          не работает — «Создать мир» в админке, «Скачать» и «Опубликовать» у моба.</li>
+        <li><b>🛠 Служебное окно</b> на странице выбора, где играть: с кодом админа показывает, включён ли сервер
+          и на каком компьютере, сколько он работает, версию игры, миры и игроков, отклик и скорость связи
+          и может ли это устройство менять данные на сервере.</li>
+      </ul>
       <h3>Версия 3.0</h3>
       <ul>
         <li><b>🐾 Создать моба</b> — на странице выбора, где играть, или в ☰ → 🧩 Моды. Придумай название, размер,
@@ -627,7 +635,7 @@ const FISH_COUNT = 30, FISH_MAX = 100, FISH_SPEED = 1.5;
 const SEAWEED_GROW = 600, SEAWEED_MAX = 5;
 const SHEEP_COUNT = 15, SHEEP_SPEED = 1.2, WOOL_REGROW = 1200;
 const CHEST_SLOTS = 27;
-const VERSION = "3.0";
+const VERSION = "3.1";
 // A button stays pressed this long; the circuit is worked out at most this often; music is heard this far.
 const BUTTON_TIME = 1, CIRCUIT_STEP = 0.1, MUSIC_RANGE = 10;
 

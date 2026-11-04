@@ -20,10 +20,17 @@
   a.main { background: #ff7fb6; color: #fff; }
   a:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(90, 24, 56, .35); }
   small { display: block; margin-top: 4px; font-size: 14px; font-weight: normal; }
+  [hidden] { display: none !important; }
+  form { display: flex; gap: 8px; }
+  input, button { font: inherit; padding: 10px 12px; border: 3px solid var(--edge); border-radius: 12px; color: inherit; }
+  input { flex: 1; min-width: 0; background: #fff; }
+  button { background: #ff7fb6; color: #fff; font-weight: bold; }
+  ul { margin: 16px 0 0; padding: 0; list-style: none; text-align: left; }
+  li { padding: 6px 0; border-bottom: 1px dashed rgba(90, 24, 56, .25); }
 </style>
 </head>
 <body>
-<div class="box">
+<div class="box" id="choose">
   <h1>💖 Сердцекрафт</h1>
   <p>Во что играем?</p>
   <a class="main" id="net" href="http://192.168.1.1:8094/">🌐 Сетевая игра
@@ -32,12 +39,110 @@
     <small>одному, мир хранится в этом браузере</small></a>
   <a id="mob" href="http://192.168.1.1:8094/?mob">🐾 Создать моба
     <small>свой моб для мира: скачать файлом или опубликовать</small></a>
+  <a href="#" id="diagOpen">🛠 Служебное окно
+    <small>для админа: работает ли сервер, какая связь, сохраняются ли изменения</small></a>
+</div>
+<div class="box" id="diag" hidden>
+  <h1>🛠 Служебное окно</h1>
+  <p>Код админа — и окно проверит сервер игры и связь с ним с этого устройства.</p>
+  <form id="diagForm"><input type="password" id="diagCode" placeholder="код админа" autocomplete="off">
+    <button id="diagRun">Проверить</button></form>
+  <ul id="diagList"></ul>
+  <a href="#" id="diagBack">← Назад</a>
 </div>
 <script>
 // From outside the home network the network game is reached through its KeenDNS name.
 if (location.hostname.endsWith(".keenetic.link")) {
   document.querySelector("#net").href = "https://hcplay.suphair.keenetic.link/";
   document.querySelector("#mob").href = "https://hcplay.suphair.keenetic.link/?mob";
+}
+
+// The service window checks the server the "network game" link leads to, the same way the game reaches it.
+const $ = sel => document.querySelector(sel);
+const PINGS = 5, ECHO_SIZE = 256 * 1024, WAIT = 10000;
+$("#diagOpen").addEventListener("click", e => {
+  e.preventDefault();
+  $("#choose").hidden = true;
+  $("#diag").hidden = false;
+  $("#diagCode").focus();
+});
+$("#diagBack").addEventListener("click", e => {
+  e.preventDefault();
+  $("#diag").hidden = true;
+  $("#choose").hidden = false;
+});
+$("#diagForm").addEventListener("submit", e => {
+  e.preventDefault();
+  $("#diagRun").disabled = true;
+  diagnose($("#diagCode").value).finally(() => ($("#diagRun").disabled = false));
+});
+function say(mark, text) {
+  const li = document.createElement("li");
+  li.textContent = mark + " " + text;
+  $("#diagList").appendChild(li);
+  return li;
+}
+function opened(url) {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(url);
+    const timer = setTimeout(() => (ws.close(), reject(new Error("timeout"))), WAIT);
+    ws.onopen = () => (clearTimeout(timer), resolve(ws));
+    ws.onerror = () => (clearTimeout(timer), reject(new Error("refused")));
+  });
+}
+// The server answers every message of the service window with one message, in order.
+function ask(ws, msg, wait = WAIT) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Сервер не ответил за " + wait / 1000 + " с")), wait);
+    ws.onmessage = e => (clearTimeout(timer), resolve(JSON.parse(e.data)));
+    ws.onclose = () => (clearTimeout(timer), reject(new Error("Сервер оборвал связь")));
+    ws.send(JSON.stringify(msg));
+  });
+}
+const uptime = s => s < 60 ? s + " с" : s < 3600 ? Math.floor(s / 60) + " мин"
+  : s < 86400 ? Math.floor(s / 3600) + " ч " + Math.floor(s % 3600 / 60) + " мин"
+  : Math.floor(s / 86400) + " дн " + Math.floor(s % 86400 / 3600) + " ч";
+const speed = bytesPerSec => bytesPerSec >= 1024 * 1024 ? (bytesPerSec / 1024 / 1024).toFixed(1) + " МБ/с"
+  : Math.round(bytesPerSec / 1024) + " КБ/с";
+async function diagnose(code) {
+  $("#diagList").innerHTML = "";
+  const game = new URL($("#net").href);
+  let ws;
+  try {
+    ws = await opened((game.protocol === "https:" ? "wss://" : "ws://") + game.host + "/ws");
+  } catch (err) {
+    say("❌", "Сервер игры выключен или недоступен (" + game.host + "): на компьютере-сервере запусти host.cmd");
+    return;
+  }
+  try {
+    const info = await ask(ws, { t: "diag", code });
+    if (info.t !== "diag") {
+      say("❌", info.msg);
+      return;
+    }
+    say("✅", "Сервер игры включён: компьютер " + info.host + ", работает " + uptime(info.up));
+    say("ℹ️", "Версия игры на сервере: " + info.version);
+    say("ℹ️", "Миров: " + info.worlds + ", сейчас играют: " + info.online + ", официальных модов: " + info.mods);
+    say("ℹ️", "Свободно на диске с мирами: " + (info.free / 1024 ** 3).toFixed(1) + " ГБ");
+    let best = Infinity;
+    for (let n = 0; n < PINGS; n++) {
+      const t = performance.now();
+      await ask(ws, { t: "ping", n });
+      best = Math.min(best, performance.now() - t);
+    }
+    say(best < 300 ? "✅" : "⚠️", "Отклик сервера: " + Math.round(best) + " мс");
+    const t = performance.now();
+    await ask(ws, { t: "echo", data: "x".repeat(ECHO_SIZE) }, 6 * WAIT);
+    say("✅", "Скорость передачи: " + speed(2 * ECHO_SIZE / ((performance.now() - t) / 1000)));
+    const probe = await ask(ws, { t: "probe" });
+    say(probe.error ? "❌" : "✅", probe.error ? "Изменения не сохраняются: " + probe.error
+      : "Это устройство может менять данные на сервере: пробная запись сохранилась");
+  } catch (err) {
+    say("❌", err.message);
+  } finally {
+    ws.onclose = null;
+    ws.close();
+  }
 }
 </script>
 </body>

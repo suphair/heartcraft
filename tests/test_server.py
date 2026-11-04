@@ -457,6 +457,40 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(r.headers["Access-Control-Allow-Origin"], "*")
             self.assertEqual(json.loads(r.read()), [dict(MOB, name="Фиолетик 2")])
 
+    def test_the_service_window_needs_the_admin_code(self):
+        c = Client(self.url)
+        self.clients.append(c)
+        c.send({"t": "diag", "code": "123"})
+        self.assertEqual(c.recv(), {"t": "error", "msg": "Неверный код админа"})
+
+    def test_the_service_window_sees_the_server_and_measures_the_link(self):
+        a, _ = self.join("Аня")
+        c = Client(self.url)
+        self.clients.append(c)
+        c.send({"t": "diag", "code": "999"})
+        info = c.recv()
+        self.assertEqual({k: info[k] for k in ("t", "host", "worlds", "online", "mods")},
+                         {"t": "diag", "host": "127.0.0.1", "worlds": 2, "online": 1, "mods": 0})
+        self.assertRegex(info["version"], r"^\d+\.\d+$")
+        self.assertGreaterEqual(info["up"], 0)
+        self.assertGreater(info["free"], 0)
+        c.send({"t": "ping", "n": 3})
+        self.assertEqual(c.recv(), {"t": "pong", "n": 3})
+        data = "x" * 300000
+        c.send({"t": "echo", "data": data})
+        self.assertEqual(c.recv(), {"t": "echo", "data": data})
+        c.send({"t": "probe"})
+        self.assertEqual(c.recv(), {"t": "probe", "error": None})
+        self.assertEqual(list(self.data.glob(".probe*")), [])
+
+    def test_the_probe_tells_why_the_data_cannot_be_written(self):
+        self.data.mkdir(parents=True, exist_ok=True)
+        self.data.chmod(0o500)
+        try:
+            self.assertRegex(server.Handler.worlds.probe(), r"^Не записать в ")
+        finally:
+            self.data.chmod(0o700)
+
     def test_the_admin_switches_a_mob_on_and_its_mobs_live_on_the_server(self):
         a, _ = self.join("Аня")
         b, _ = self.join("Боря")
